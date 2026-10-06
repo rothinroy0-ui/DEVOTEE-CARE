@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 520" width="420" height="520">
+  <defs>
+    <radialGradient id="bgAura" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#fff7e6"/>
+      <stop offset="55%" stop-color="#ffe9b0"/>
+      <stop offset="100%" stop-color="#f2b93c"/>
+    </radialGradient>
+    <linearGradient id="krishna" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3f5fc4"/>
+      <stop offset="60%" stop-color="#22357e"/>
+      <stop offset="100%" stop-color="#141f5c"/>
+    </linearGradient>
+    <linearGradient id="radha" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbe0b6"/>
+      <stop offset="100%" stop-color="#eeb877"/>
+    </linearGradient>
+    <linearGradient id="sari" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#b3215f"/>
+      <stop offset="100%" stop-color="#7c1240"/>
+    </linearGradient>
+    <linearGradient id="dhoti" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#f0a015"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Warm golden aura background -->
+  <rect width="420" height="520" fill="url(#bgAura)"/>
+
+  <!-- Halo rings behind the deities -->
+  <circle cx="165" cy="178" r="44" fill="#fff7cc" opacity="0.9"/>
+  <circle cx="165" cy="178" r="44" fill="none" stroke="#f59e0b" stroke-width="2.5" opacity="0.8"/>
+  <circle cx="255" cy="178" r="44" fill="#fff7cc" opacity="0.9"/>
+  <circle cx="255" cy="178" r="44" fill="none" stroke="#f59e0b" stroke-width="2.5" opacity="0.8"/>
+
+  <!-- Torana (decorative shrine arch) -->
+  <path d="M 70 470 L 70 230 Q 70 110 210 84 Q 350 110 350 230 L 350 470 Z" fill="none" stroke="#b45309" stroke-width="6"/>
+  <path d="M 90 470 L 90 235 Q 90 130 210 108 Q 330 130 330 235 L 330 470 Z" fill="none" stroke="#d97706" stroke-width="2" stroke-dasharray="7 6"/>
+  <circle cx="128" cy="152" r="7" fill="#fcd34d" stroke="#b45309" stroke-width="2"/>
+  <circle cx="166" cy="126" r="7" fill="#fcd34d" stroke="#b45309" stroke-width="2"/>
+  <circle cx="210" cy="114" r="7" fill="#fcd34d" stroke="#b45309" stroke-width="2"/>
+  <circle cx="254" cy="126" r="7" fill="#fcd34d" stroke="#b45309" stroke-width="2"/>
+  <circle cx="292" cy="152" r="7" fill="#fcd34d" stroke="#b45309" stroke-width="2"/>
+  <!-- Apex finial -->
+  <path d="M 210 36 L 219 76 L 201 76 Z" fill="#f59e0b"/>
+  <circle cx="210" cy="32" r="6" fill="#dc2626"/>
+  <path d="M 221 46 L 232 38" stroke="#b45309" stroke-width="2"/>
+
+  <!-- Hanging pearl garland across the torana -->
+  <path d="M 96 182 Q 210 268 324 182" fill="none" stroke="#fbbf24" stroke-width="3"/>
+  <circle cx="120" cy="198" r="3.2" fill="#fff3c4"/>
+  <circle cx="153" cy="216" r="3.2" fill="#fff3c4"/>
+  <circle cx="190" cy="228" r="3.2" fill="#fff3c4"/>
+  <circle cx="230" cy="228" r="3.2" fill="#fff3c4"/>
+  <circle cx="267" cy="216" r="3.2" fill="#fff3c4"/>
+  <circle cx="300" cy="198" r="3.2" fill="#fff3c4"/>
+  <circle cx="330" cy="180" r="3" fill="#fff3c4"/>
+
+  <!-- ================= SRIMATI RADHA (left) ================= -->
+  <g id="radha-figure">
+    <!-- sari lower -->
+    <path d="M 138 272 L 192 272 L 210 432 L 120 432 Z" fill="url(#sari)"/>
+    <rect x="120" y="424" width="90" height="7" rx="3" fill="#fbbf24"/>
+    <!-- torso -->
+    <path d="M 141 208 C 141 262, 189 262, 189 208 C 189 190, 141 190, 141 208 Z" fill="url(#sari)"/>
+    <!-- pallu draped across waist -->
+    <path d="M 145 204 L 185 266 L 176 272 L 138 213 Z" fill="url(#sari)" stroke="#fbbf24" stroke-width="2"/>
+    <!-- neck -->
+    <rect x="156" y="197" width="18" height="11" rx="6" fill="url(#radha)"/>
+    <!-- head -->
+    <circle cx="165" cy="178" r="27" fill="url(#radha)"/>
+    <!-- hair frame + bun -->
+    <path d="M 138 178 A 27 27 0 0 1 192 178 L 192 165 Q 165 137 138 165 Z" fill="#33201a"/>
+    <circle cx="165" cy="142" r="11" fill="#33201a"/>
+    <circle cx="170" cy="139" r="3" fill="#fbbf24"/>
+    <!-- bindi / tilaka -->
+    <circle cx="165" cy="168" r="3" fill="#dc2626"/>
+    <!-- eyes, brows, smile -->
+    <path d="M 150 180 q 4 4 8 0" stroke="#3f2d20" stroke-width="1.8" fill="none"/>
+    <path d="M 170 180 q 4 4 8 0" stroke="#3f2d20" stroke-width="1.8" fill="none"/>
+    <path d="M 148 174 L 156 174" stroke="#6b4a2b" stroke-width="1.6"/>
+    <path d="M 172 174 L 180 174" stroke="#6b4a2b" stroke-width="1.6"/>
+    <path d="M 159 192 q 6 5 12 0" stroke="#3f2d20" stroke-width="1.8" fill="none"/>
+    <!-- earrings -->
+    <circle cx="139" cy="180" r="3.2" fill="#fbbf24"/>
+    <circle cx="191" cy="180" r="3.2" fill="#fbbf24"/>
+    <!-- necklace -->
+    <circle cx="150" cy="212" r="2.6" fill="#fbbf24"/>
+    <circle cx="157" cy="218" r="2.6" fill="#fbbf24"/>
+    <circle cx="165" cy="221" r="2.6" fill="#fbbf24"/>
+    <circle cx="173" cy="218" r="2.6" fill="#fbbf24"/>
+    <circle cx="180" cy="212" r="2.6" fill="#fbbf24"/>
+    <!-- left arm (near body) -->
+    <path d="M 172 210 L 186 244 L 178 260" stroke="url(#radha)" stroke-width="11" stroke-linecap="round" fill="none"/>
+    <circle cx="184" cy="242" r="3.5" fill="#fbbf24"/>
+    <!-- right arm raised with lotus -->
+    <path d="M 158 212 L 150 170" stroke="#15803d" stroke-width="3"/>
+    <circle cx="157" cy="210" r="5" fill="url(#radha)"/>
+    <ellipse cx="150" cy="143" rx="5" ry="9" fill="#f472b6"/>
+    <ellipse cx="142" cy="149" rx="5" ry="8" fill="#fbcfe8" transform="rotate(-24 142 149)"/>
+    <ellipse cx="158" cy="149" rx="5" ry="8" fill="#fbcfe8" transform="rotate(24 158 149)"/>
+    <circle cx="150" cy="137" r="3" fill="#f9a8d4"/>
+    <!-- feet -->
+    <ellipse cx="140" cy="436" rx="11" ry="5" fill="#c9863f"/>
+    <ellipse cx="188" cy="436" rx="11" ry="5" fill="#c9863f"/>
+  </g>
+
+  <!-- ================= SRI MADAN MOHAN / KRISHNA (right) ================= -->
+  <g id="krishna-figure">
+    <!-- dhoti -->
+    <path d="M 228 268 L 282 268 L 300 435 L 210 435 Z" fill="url(#dhoti)"/>
+    <path d="M 246 268 L 254 434" stroke="#d97706" stroke-width="2" opacity="0.65"/>
+    <path d="M 262 268 L 268 434" stroke="#d97706" stroke-width="2" opacity="0.65"/>
+    <rect x="210" y="427" width="90" height="7" rx="3" fill="#fbbf24"/>
+    <!-- torso -->
+    <path d="M 233 205 C 233 262, 277 262, 277 205 C 277 186, 233 186, 233 205 Z" fill="url(#krishna)"/>
+    <!-- neck -->
+    <rect x="246" y="194" width="18" height="12" rx="6" fill="url(#krishna)"/>
+    <!-- pearl flower garlands -->
+    <path d="M 239 205 Q 226 238 246 264" stroke="#fff3c4" stroke-width="4.5" fill="none"/>
+    <path d="M 271 205 Q 284 238 264 264" stroke="#fff3c4" stroke-width="4.5" fill="none"/>
+    <circle cx="255" cy="244" r="4" fill="#fbbf24"/>
+    <!-- left arm (folded) -->
+    <path d="M 234 210 L 216 246 L 222 262" stroke="url(#krishna)" stroke-width="12" stroke-linecap="round" fill="none"/>
+    <circle cx="217" cy="247" r="4" fill="#fbbf24"/>
+    <!-- flute + right arm -->
+    <path d="M 276 210 L 286 250" stroke="url(#krishna)" stroke-width="12" stroke-linecap="round" fill="none"/>
+    <path d="M 289 232 L 304 300" stroke="#7c4a12" stroke-width="8" stroke-linecap="round"/>
+    <path d="M 300 298 L 296 310 M 306 298 L 310 310" stroke="#fbbf24" stroke-width="2"/>
+    <!-- head -->
+    <circle cx="255" cy="178" r="30" fill="url(#krishna)"/>
+    <!-- peacock feather crown fan -->
+    <circle cx="228" cy="141" r="6" fill="#10b981" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="240" cy="130" r="6" fill="#10b981" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="255" cy="126" r="6" fill="#10b981" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="270" cy="130" r="6" fill="#10b981" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="282" cy="141" r="6" fill="#10b981" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="228" cy="141" r="1.6" fill="#052e1f"/>
+    <circle cx="240" cy="130" r="1.6" fill="#052e1f"/>
+    <circle cx="255" cy="126" r="1.6" fill="#052e1f"/>
+    <circle cx="270" cy="130" r="1.6" fill="#052e1f"/>
+    <circle cx="282" cy="141" r="1.6" fill="#052e1f"/>
+    <ellipse cx="255" cy="148" rx="21" ry="5.5" fill="#fbbf24"/>
+    <!-- tilaka -->
+    <path d="M 251 167 q 4 -5 8 0" stroke="#fde047" stroke-width="3" fill="none"/>
+    <path d="M 255 161 L 255 154" stroke="#fde047" stroke-width="2"/>
+    <!-- eyes, smile -->
+    <path d="M 241 180 q 4 4 8 0" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+    <path d="M 261 180 q 4 4 8 0" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+    <path d="M 254 187 L 253 191" stroke="#0f172a" stroke-width="1.6"/>
+    <path d="M 249 194 q 6 5 12 0" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+    <!-- feet -->
+    <ellipse cx="232" cy="436" rx="12" ry="5" fill="#d9a05f"/>
+    <ellipse cx="278" cy="436" rx="12" ry="5" fill="#d9a05f"/>
+  </g>
+
+  <!-- Lotus pedestal -->
+  <ellipse cx="210" cy="480" rx="160" ry="14" fill="#92400e" opacity="0.35"/>
+  <rect x="90" y="448" width="240" height="16" rx="8" fill="#b45309"/>
+  <rect x="90" y="444" width="240" height="6" rx="3" fill="#d97706"/>
+  <ellipse cx="118" cy="444" rx="14" ry="7" fill="#f472b6" stroke="#be185d" stroke-width="1.5"/>
+  <ellipse cx="148" cy="441" rx="14" ry="7" fill="#f9a8d4" stroke="#be185d" stroke-width="1.5"/>
+  <ellipse cx="178" cy="439" rx="14" ry="7" fill="#f472b6" stroke="#be185d" stroke-width="1.5"/>
+  <ellipse cx="210" cy="438" rx="14" ry="7" fill="#f9a8d4" stroke="#be185d" stroke-width="1.5"/>
+  <ellipse cx="242" cy="439" rx="14" ry="7" fill="#f472b6" stroke="#be185d" stroke-width="1.5"/>
+  <ellipse cx="272" cy="441" rx="14" ry="7" fill="#f9a8d4" stroke="#be185d" stroke-width="1.5"/>
+  <ellipse cx="302" cy="444" rx="14" ry="7" fill="#f472b6" stroke="#be185d" stroke-width="1.5"/>
+
+  <!-- Title banner -->
+  <rect x="70" y="474" width="280" height="42" rx="10" fill="#7f1d1d" stroke="#f59e0b" stroke-width="3"/>
+  <text x="210" y="495" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="15.5" font-weight="bold" fill="#fde68a">Sri Sri Radha Madan Mohan</text>
+  <text x="210" y="510" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="11.5" fill="#fca5a5">श्री श्री राधा मदन मोहन</text>
+</svg>
