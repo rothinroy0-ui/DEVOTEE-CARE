@@ -9,6 +9,8 @@ const STORAGE_KEYS = {
   COUNSELORS: 'iskcon_devotee_care_counselors',
   DONORS: 'iskcon_devotee_care_donors',
   PARCELS: 'iskcon_devotee_care_parcels',
+  ANNIV_REMOVED: 'iskcon_devotee_care_anniv_removed_v1',
+  BDAY_REMOVED: 'iskcon_devotee_care_bday_removed_v1',
   INITIALIZED: 'iskcon_devotee_care_initialized_v1',
   PARCEL_PURGED: 'iskcon_devotee_care_parcels_purged_v2'
 };
@@ -28,7 +30,9 @@ let state = {
   itemsPerPage: 50,
   selectedDevotees: new Set(),
   selectedCelebrations: new Set(),
-  selectedParcels: new Set()
+  selectedParcels: new Set(),
+  anniversaryRemovedIds: [],   // Anniversary soft-removal: records are never deleted, always restorable
+  birthdayRemovedIds: []       // Birthday soft-removal (same rule as Anniversary — records are never deleted)
 };
 
 // Reference current date for real-time calculations
@@ -209,6 +213,178 @@ function getDevoteeInitials(name) {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
+// ----------------------------------------------------
+// DEVOTEE CIRCULAR PHOTO PREVIEW & AVATAR INTERACTIONS
+// ----------------------------------------------------
+let avatarClickTimer = null;
+let avatarClickDevoteeId = null;
+
+window.handleDevoteeAvatarClick = function(e, devoteeId) {
+  if (e) {
+    e.stopPropagation();
+  }
+  if (!devoteeId) return;
+
+  // Double click detection within 280ms on the same devotee
+  if (avatarClickTimer && avatarClickDevoteeId === devoteeId) {
+    clearTimeout(avatarClickTimer);
+    avatarClickTimer = null;
+    avatarClickDevoteeId = null;
+    hideDevoteeHoverCardNow();
+    openCircularPhotoPreview(devoteeId);
+    return;
+  }
+
+  if (avatarClickTimer) {
+    clearTimeout(avatarClickTimer);
+    avatarClickTimer = null;
+  }
+
+  avatarClickDevoteeId = devoteeId;
+  avatarClickTimer = setTimeout(() => {
+    avatarClickTimer = null;
+    avatarClickDevoteeId = null;
+    viewDevoteeProfile(devoteeId);
+  }, 260);
+};
+
+window.handleDevoteeAvatarDblClick = function(e, devoteeId) {
+  if (e) {
+    e.stopPropagation();
+    e.preventDefault();
+  }
+  if (!devoteeId) return;
+
+  if (avatarClickTimer) {
+    clearTimeout(avatarClickTimer);
+    avatarClickTimer = null;
+    avatarClickDevoteeId = null;
+  }
+  hideDevoteeHoverCardNow();
+  openCircularPhotoPreview(devoteeId);
+};
+
+window.openCircularPhotoPreview = function(devoteeId) {
+  if (!devoteeId) return;
+  const d = (state.devotees || []).find(x => x.id === devoteeId);
+  if (!d) return;
+
+  hideDevoteeHoverCardNow();
+
+  const modal = document.getElementById('circular-photo-preview-modal');
+  const content = document.getElementById('circular-photo-preview-content');
+  const imageBox = document.getElementById('circular-preview-image-box');
+  const infoBox = document.getElementById('circular-preview-info');
+  if (!modal || !content || !imageBox || !infoBox) return;
+
+  const displayName = d.spiritualName || d.legalName || 'Devotee';
+  const secondaryName = (d.spiritualName && d.legalName && d.legalName !== d.spiritualName) ? d.legalName : '';
+  const isFemale = (d.gender || '').toLowerCase() === 'female';
+  const rawPhoto = d.photo || d.photoDirect || d.cloudinaryPhoto || '';
+  const photoUrl = getDirectPhotoUrl(rawPhoto, d);
+  const driveId = extractGoogleDriveFileId(rawPhoto || photoUrl);
+  const highResUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w800` : (photoUrl || d.cloudinaryPhoto || '');
+  const fallbackUrl = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w300` : (d.cloudinaryPhoto || photoUrl || '');
+  const initials = getDevoteeInitials(displayName);
+
+  // Render Image Box: Medium circular preview (w-56 h-56 on mobile, w-64 h-64 / w-72 h-72 on larger screens)
+  if (highResUrl || photoUrl) {
+    const activeUrl = highResUrl || photoUrl;
+    imageBox.innerHTML = `
+      <div class="w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 rounded-full p-1.5 bg-gradient-to-tr ${isFemale ? 'from-rose-400 via-purple-400 to-amber-300' : 'from-teal-400 via-sky-400 to-indigo-400'} shadow-[0_20px_50px_rgba(0,0,0,0.65)]">
+        <div class="w-full h-full rounded-full overflow-hidden bg-slate-900 border-4 border-white/95 relative shadow-inner">
+          <img 
+            src="${activeUrl}" 
+            alt="${escapeHtml(displayName)}"
+            referrerpolicy="no-referrer"
+            class="w-full h-full object-cover object-center select-none"
+            data-fallback="${fallbackUrl}"
+            onerror="if(this.dataset.fallback && this.src !== this.dataset.fallback){ this.src = this.dataset.fallback; } else { this.style.display='none'; this.nextElementSibling.style.display='flex'; }"
+          />
+          <div style="display:none;" class="w-full h-full items-center justify-center font-black text-white text-5xl bg-gradient-to-tr ${isFemale ? 'from-rose-500 to-purple-600' : 'from-teal-600 to-indigo-600'}">
+            ${initials}
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    imageBox.innerHTML = `
+      <div class="w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 rounded-full p-1.5 bg-gradient-to-tr ${isFemale ? 'from-rose-400 via-purple-400 to-amber-300' : 'from-teal-400 via-sky-400 to-indigo-400'} shadow-[0_20px_50px_rgba(0,0,0,0.65)]">
+        <div class="w-full h-full rounded-full overflow-hidden bg-gradient-to-tr ${isFemale ? 'from-rose-500 to-purple-600' : 'from-teal-600 to-indigo-600'} border-4 border-white/95 flex items-center justify-center shadow-inner">
+          <span class="font-black text-white text-5xl select-none tracking-wider">${initials}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Render Info Box under image
+  infoBox.innerHTML = `
+    <h3 class="text-xl sm:text-2xl font-bold text-white tracking-wide drop-shadow-md truncate max-w-sm" title="${escapeHtml(displayName)}">
+      ${escapeHtml(displayName)}
+    </h3>
+    ${secondaryName ? `
+      <p class="text-xs sm:text-sm text-slate-300 font-medium mt-0.5 truncate max-w-sm">
+        Legal Name: ${escapeHtml(secondaryName)}
+      </p>
+    ` : ''}
+    <div class="mt-2.5 flex items-center justify-center gap-2 flex-wrap">
+      <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-white/15 text-purple-200 border border-purple-300/30">
+        ID: ${escapeHtml(d.id || 'N/A')}
+      </span>
+      ${d.phone ? `
+        <a href="tel:${d.phone}" class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 hover:bg-emerald-500/30 transition">
+          <span>📞 ${escapeHtml(d.phone)}</span>
+        </a>
+      ` : ''}
+    </div>
+    <div class="mt-4 flex items-center justify-center gap-2">
+      <button type="button" onclick="closeCircularPhotoPreview(); viewDevoteeProfile('${d.id}')" 
+              class="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm border border-white/25 transition shadow-sm hover:scale-105 transform cursor-pointer">
+        <i data-lucide="user" class="w-3.5 h-3.5"></i>
+        <span>View Full Profile</span>
+      </button>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  requestAnimationFrame(() => {
+    content.classList.remove('scale-90', 'opacity-0');
+    content.classList.add('scale-100', 'opacity-100');
+  });
+
+  if (window.lucide) lucide.createIcons();
+};
+
+window.closeCircularPhotoPreview = function() {
+  const modal = document.getElementById('circular-photo-preview-modal');
+  const content = document.getElementById('circular-photo-preview-content');
+  if (!modal || !content) return;
+
+  content.classList.remove('scale-100', 'opacity-100');
+  content.classList.add('scale-90', 'opacity-0');
+  setTimeout(() => {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }, 180);
+};
+
+window.handleCircularPreviewBackdropClick = function(e) {
+  if (e && e.target && e.target.id === 'circular-photo-preview-modal') {
+    closeCircularPhotoPreview();
+  }
+};
+
+// Global escape key handler for circular photo preview
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('circular-photo-preview-modal');
+    if (modal && !modal.classList.contains('hidden')) {
+      closeCircularPhotoPreview();
+    }
+  }
+});
+
 function getCleanDefaultAvatarHtml(displayName, gender, sizeClass = 'w-10 h-10', textClass = 'text-xs', devoteeId = '', enableHover = true) {
   const initials = getDevoteeInitials(displayName);
   const isFemale = (gender || '').toLowerCase() === 'female';
@@ -216,13 +392,15 @@ function getCleanDefaultAvatarHtml(displayName, gender, sizeClass = 'w-10 h-10',
     ? 'from-rose-500 to-purple-600 text-white border-rose-200' 
     : 'from-teal-600 to-indigo-600 text-white border-teal-200';
   const safeName = escapeHtml(displayName);
-  const clickHandler = devoteeId ? `onclick="viewDevoteeProfile('${devoteeId}')"` : '';
+  const clickHandler = devoteeId 
+    ? `onclick="handleDevoteeAvatarClick(event, '${devoteeId}')" ondblclick="handleDevoteeAvatarDblClick(event, '${devoteeId}')"` 
+    : '';
   const hoverHandlers = (devoteeId && enableHover) 
     ? `onmouseenter="showDevoteeHoverCard(event, '${devoteeId}')" onmouseleave="scheduleHideDevoteeHoverCard()"` 
     : '';
 
   return `
-    <div class="group/avatar relative ${sizeClass} flex-shrink-0 cursor-pointer" ${clickHandler} ${hoverHandlers} title="View ${safeName}'s profile">
+    <div class="group/avatar relative ${sizeClass} flex-shrink-0 cursor-pointer select-none" ${clickHandler} ${hoverHandlers} title="Click to view profile, Double-click to enlarge photo">
       <div class="${sizeClass} rounded-full bg-gradient-to-tr ${bgGradient} border flex items-center justify-center font-bold ${textClass} shadow-sm select-none tracking-wider transition-all duration-300 ease-out transform group-hover/avatar:scale-115 group-hover/avatar:shadow-md group-hover/avatar:ring-2 group-hover/avatar:ring-teal-400">
         <span>${initials}</span>
       </div>
@@ -247,7 +425,11 @@ function getDevoteeAvatarHtml(d, sizeClass = 'w-10 h-10', textClass = 'text-xs',
       : '';
 
     return `
-      <div class="group/avatar relative ${sizeClass} flex-shrink-0 cursor-pointer" onclick="viewDevoteeProfile('${d.id}')" ${hoverHandlers} title="View ${safeName}'s profile">
+      <div class="group/avatar relative ${sizeClass} flex-shrink-0 cursor-pointer select-none" 
+           onclick="handleDevoteeAvatarClick(event, '${d.id}')" 
+           ondblclick="handleDevoteeAvatarDblClick(event, '${d.id}')" 
+           ${hoverHandlers} 
+           title="Click to view profile, Double-click to enlarge photo">
         <img 
           src="${photoUrl}" 
           alt="${safeName}" 
@@ -946,8 +1128,277 @@ async function initSupabaseAndSync() {
       if (typeof initCharts === 'function') initCharts();
       if (window.lucide) lucide.createIcons();
     }
+
+    // Bootstrap: when the cloud `devotees` table is empty, push the bundled
+    // master list ONCE (per browser) so the live website has the full
+    // directory (~824 rows). Non-fatal — skipped gracefully if RLS blocks it.
+    if (data && data.length === 0 && !localStorage.getItem('cloud-devotees-attempted')) {
+      localStorage.setItem('cloud-devotees-attempted', '1');
+      await pushMasterDevoteesToSupabase();
+    }
+
+    // Also fetch cloud parcels & setup multi-user real-time sync
+    await fetchParcelsFromSupabase();
+    setupRealtimeSync();
+
   } catch (err) {
     console.error('❌ Unexpected error fetching from Supabase:', err);
+  }
+}
+
+// ======================================================================
+// ☁️ MULTI-USER CLOUD SYNC & REALTIME DATABASE (SUPABASE)
+// ======================================================================
+
+function toSupabaseParcel(p) {
+  return {
+    id: p.id || `PARCEL-${p.devoteeId || 'DEV'}-${Date.now()}`,
+    devotee_id: p.devoteeId || '',
+    devotee_name: p.devoteeName || p.spiritualName || p.legalName || '',
+    spiritual_name: p.spiritualName || '',
+    legal_name: p.legalName || '',
+    phone: p.phone || '',
+    address: p.address || '',
+    city: p.city || '',
+    pincode: p.pincode || '',
+    address_verified: p.addressVerified || '',
+    status: p.status || p.parcelStatus || 'Packed',
+    event_type: p.eventType || p.parcelType || '',
+    courier_partner: p.courierPartner || '',
+    courier_tracking_no: p.courierTrackingNo || '',
+    tracking_id: p.trackingId || '',
+    delivery_mode: p.deliveryMode || (p.courierPartner === 'Self Pickup' ? 'SELF' : (p.courierPartner ? 'DELHIVERY' : '')),
+    pre_calling: p.preCalling || '',
+    post_calling: p.postCalling || '',
+    booking_date: p.bookingDate || '',
+    dispatch_date: p.dispatchDate || '',
+    delivery_date: p.deliveryDate || '',
+    expected_delivery_date: p.expectedDeliveryDate || '',
+    delivered: p.delivered === true,
+    delivered_at: p.deliveredAt || '',
+    remarks: p.remarks || p.parcelDescription || '',
+    raw_data: p,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function fromSupabaseParcel(row) {
+  const cloudDeliveryMode = () => row.delivery_mode
+    || (row.raw_data && row.raw_data.deliveryMode)
+    || (row.courier_partner === 'Self Pickup' ? 'SELF' : (row.courier_partner ? 'DELHIVERY' : ''));
+  if (row.raw_data && typeof row.raw_data === 'object') {
+    return {
+      ...row.raw_data,
+      id: row.id,
+      devoteeId: row.devotee_id,
+      devoteeName: row.devotee_name,
+      spiritualName: row.spiritual_name,
+      legalName: row.legal_name,
+      phone: row.phone,
+      address: row.address,
+      city: row.city,
+      pincode: row.pincode,
+      addressVerified: row.address_verified,
+      status: row.status,
+      parcelStatus: row.status,
+      courierPartner: row.courier_partner,
+      courierTrackingNo: row.courier_tracking_no,
+      trackingId: row.tracking_id,
+      deliveryMode: cloudDeliveryMode(),
+      preCalling: row.pre_calling || (row.raw_data.preCalling) || '',
+      postCalling: row.post_calling || (row.raw_data.postCalling) || '',
+      bookingDate: row.booking_date,
+      dispatchDate: row.dispatch_date,
+      deliveryDate: row.delivery_date,
+      expectedDeliveryDate: row.expected_delivery_date,
+      delivered: row.delivered === true || row.delivered === 'true' || row.status === 'DELIVERED' || row.parcelStatus === 'DELIVERED',
+      deliveredAt: row.delivered_at || '',
+      remarks: row.remarks
+    };
+  }
+  return {
+    id: row.id,
+    devoteeId: row.devotee_id,
+    devoteeName: row.devotee_name,
+    spiritualName: row.spiritual_name,
+    legalName: row.legal_name,
+    phone: row.phone,
+    address: row.address,
+    city: row.city,
+    pincode: row.pincode,
+    addressVerified: row.address_verified,
+    status: row.status || 'Packed',
+    parcelStatus: row.status || 'Packed',
+    courierPartner: row.courier_partner,
+    courierTrackingNo: row.courier_tracking_no,
+    trackingId: row.tracking_id,
+    deliveryMode: cloudDeliveryMode(),
+    preCalling: row.pre_calling || '',
+    postCalling: row.post_calling || '',
+    bookingDate: row.booking_date,
+    dispatchDate: row.dispatch_date,
+    deliveryDate: row.delivery_date,
+    expectedDeliveryDate: row.expected_delivery_date,
+    delivered: row.delivered === true || row.delivered === 'true' || row.status === 'DELIVERED' || row.parcelStatus === 'DELIVERED',
+    deliveredAt: row.delivered_at || '',
+    remarks: row.remarks,
+    createdAt: row.created_at
+  };
+}
+
+async function fetchParcelsFromSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('parcels')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase parcels query notice:', error.message);
+      return;
+    }
+
+    if (Array.isArray(data) && data.length > 0) {
+      console.log(`☁️ Supabase parcels synced: ${data.length} records retrieved.`);
+      const cloudParcels = data.map(fromSupabaseParcel);
+      state.parcels = cloudParcels;
+      localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+      renderParcelsTable();
+      updateKPIs();
+      if (window.lucide) lucide.createIcons();
+    }
+  } catch (err) {
+    console.warn('Parcels sync exception:', err);
+  }
+}
+
+function handleParcelSyncError(error, silent) {
+  if (error && /could not find the table|does not exist|relation .* does not exist|404/i.test(error.message || '')) {
+    console.warn('☁️ Cloud parcels table ("public.parcels") is missing. Run supabase-setup.sql in the Supabase SQL Editor to create it — then parcels will sync to the live website.');
+    if (!silent) showToast('Cloud parcels table missing — run supabase-setup.sql in Supabase SQL Editor (file is in the project folder).', 'warning');
+  } else if (error) {
+    console.warn('⚠️ Parcel cloud sync notice:', error.message);
+  }
+}
+
+async function syncParcelToSupabase(parcel, silent = false) {
+  if (!parcel) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    const payload = toSupabaseParcel(parcel);
+    const { error } = await client.from('parcels').upsert(payload, { onConflict: 'id' });
+    if (error) {
+      handleParcelSyncError(error, silent);
+    } else {
+      console.log('✅ Parcel successfully synced to Supabase Cloud:', parcel.id);
+    }
+  } catch (err) {
+    console.warn('Parcel cloud sync error:', err);
+  }
+}
+
+async function syncAllLocalParcelsToCloud(silent = false) {
+  const client = getSupabaseClient();
+  if (!client || !state.parcels || state.parcels.length === 0) return;
+
+  try {
+    const payloads = state.parcels.map(toSupabaseParcel);
+    const { error } = await client.from('parcels').upsert(payloads, { onConflict: 'id' });
+    if (error) {
+      handleParcelSyncError(error, silent);
+    } else {
+      console.log(`✅ Bulk synced ${payloads.length} parcels to Supabase Cloud.`);
+    }
+  } catch (e) {
+    console.warn('Bulk parcel sync exception:', e);
+  }
+}
+
+// Push the bundled master devotee list to Supabase so the cloud has a full
+// directory (first load / manual Cloud Sync). Respects RLS: it works only if
+// the optional devotees policies in supabase-setup.sql were created; otherwise
+// it logs a friendly notice and the portal keeps using the bundled data.
+function pushMasterDevoteesToSupabase() {
+  const client = getSupabaseClient();
+  if (!client || !state.devotees || state.devotees.length === 0) return Promise.resolve();
+  // Any attempt (auto or manual) counts — avoids retrying the 824-row push on
+  // every page load after a failed try. Manual "Cloud Sync" always retries.
+  localStorage.setItem('cloud-devotees-attempted', '1');
+  return (async () => {
+    const rows = state.devotees.map(d => ({
+      'SL NO': d.slNo || 0,
+      'DEVOTEE ID': d.id || '',
+      'NAME': d.legalName || '',
+      'INITIATED NAME': d.spiritualName || '',
+      'SPOUSE NAME': d.spouseName || '',
+      'BIRTHDAY': d.birthdayRaw || '',
+      'ANNIVERSARY': d.anniversaryRaw || '',
+      'CONTACT NO': d.phone || '',
+      'ADDRESS': d.address || '',
+      'CITY': d.city || '',
+      'STATE': d.state || '',
+      'PIN CODE': d.pincode || '',
+      'PHOTO': d.photo || ''
+    }));
+    const attempt = async (onConflict) => {
+      if (onConflict) {
+        return await client.from('devotees').upsert(rows, { onConflict });
+      }
+      return await client.from('devotees').insert(rows);
+    };
+    try {
+      // Try the most likely primary key first, then fall back gracefully.
+      let { data, error } = await attempt('DEVOTEE ID');
+      if (error) ({ data, error } = await attempt('devotee_id'));
+      if (error && /no unique or exclusion constraint matching/i.test(error.message || '')) {
+        ({ data, error } = await attempt(null));
+      }
+      if (error) {
+        if (/permission denied|could not find|does not exist/i.test(error.message || '')) {
+          console.warn('☁️ Cloud devotee seeding skipped:', error.message, '— enable the optional devotees policies in supabase-setup.sql if you want it.');
+        } else {
+          console.warn('Devotee seeding notice:', error.message);
+        }
+      } else {
+        localStorage.setItem('cloud-devotees-seeded', '1');
+        console.log(`✅ Synced ${rows.length} master devotees to Supabase Cloud.`);
+      }
+    } catch (e) {
+      console.warn('Devotee seeding exception:', e);
+    }
+  })();
+}
+
+let realtimeSyncActive = false;
+function setupRealtimeSync() {
+  if (realtimeSyncActive) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  try {
+    client.channel('public:parcels-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'parcels' }, async (payload) => {
+        console.log('⚡ Realtime parcel event detected:', payload.eventType);
+        await fetchParcelsFromSupabase();
+      })
+      .subscribe();
+
+    client.channel('public:devotees-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'devotees' }, async (payload) => {
+        console.log('⚡ Realtime devotee event detected:', payload.eventType);
+        await initSupabaseAndSync();
+      })
+      .subscribe();
+
+    realtimeSyncActive = true;
+    console.log('⚡ Multi-user real-time sync active across all sessions.');
+  } catch (e) {
+    console.warn('Realtime subscription warning:', e);
   }
 }
 
@@ -1014,10 +1465,48 @@ function initApp() {
   initAuthSystem();
 }
 
+let _cloudSyncDebounceTimer = null;
 function saveToStorage() {
   localStorage.setItem(STORAGE_KEYS.DEVOTEES, JSON.stringify(state.devotees));
   localStorage.setItem(STORAGE_KEYS.COUNSELORS, JSON.stringify(state.counselors));
   localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels || []));
+  localStorage.setItem(STORAGE_KEYS.ANNIV_REMOVED, JSON.stringify(state.anniversaryRemovedIds || []));
+  localStorage.setItem(STORAGE_KEYS.BDAY_REMOVED, JSON.stringify(state.birthdayRemovedIds || []));
+
+  // Auto-sync parcels to Supabase Cloud so all users see changes (debounced 1s).
+  // Silent: background saves must not nag the user while the cloud table is
+  // still missing — the manual "Cloud Sync" button shows the guidance.
+  clearTimeout(_cloudSyncDebounceTimer);
+  _cloudSyncDebounceTimer = setTimeout(() => {
+    syncAllLocalParcelsToCloud(true);
+  }, 1000);
+}
+
+async function handleManualCloudSync() {
+  const btn = document.getElementById('cloud-sync-btn');
+  const txt = document.getElementById('cloud-sync-btn-text');
+  if (btn) btn.disabled = true;
+  if (txt) txt.innerText = 'Syncing...';
+
+  try {
+    // 1. Push all local parcels to Supabase
+    await syncAllLocalParcelsToCloud();
+    // 1b. Best-effort: also push the master devotee list to the cloud
+    await pushMasterDevoteesToSupabase();
+    // 2. Fetch fresh parcels from Supabase
+    await fetchParcelsFromSupabase();
+    // 3. Fetch fresh devotees from Supabase
+    await initSupabaseAndSync();
+
+    showToast('☁️ Cloud Sync Complete! All data is synchronized between all sevaks.', 'success');
+  } catch (e) {
+    console.error('Manual sync error:', e);
+    showToast('Cloud sync completed with local cached copy.', 'info');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (txt) txt.innerText = 'Cloud Sync';
+    if (window.lucide) lucide.createIcons();
+  }
 }
 
 function loadFromStorage() {
@@ -1025,12 +1514,20 @@ function loadFromStorage() {
     state.devotees = JSON.parse(localStorage.getItem(STORAGE_KEYS.DEVOTEES)) || [];
     state.counselors = JSON.parse(localStorage.getItem(STORAGE_KEYS.COUNSELORS)) || [];
     state.parcels = JSON.parse(localStorage.getItem(STORAGE_KEYS.PARCELS)) || [];
+    const rawRemoved = localStorage.getItem(STORAGE_KEYS.ANNIV_REMOVED);
+    state.anniversaryRemovedIds = rawRemoved ? JSON.parse(rawRemoved) : [];
+    if (!Array.isArray(state.anniversaryRemovedIds)) state.anniversaryRemovedIds = [];
+    const rawBdayRemoved = localStorage.getItem(STORAGE_KEYS.BDAY_REMOVED);
+    state.birthdayRemovedIds = rawBdayRemoved ? JSON.parse(rawBdayRemoved) : [];
+    if (!Array.isArray(state.birthdayRemovedIds)) state.birthdayRemovedIds = [];
   } catch (e) {
     console.error('Error loading data from storage:', e);
     const seed = getInitialSampleData();
     state.devotees = (typeof DURGAPUR_DEVOTEES !== 'undefined' && Array.isArray(DURGAPUR_DEVOTEES)) ? DURGAPUR_DEVOTEES : seed.devotees;
     state.counselors = seed.counselors;
     state.parcels = [];
+    state.anniversaryRemovedIds = [];
+    state.birthdayRemovedIds = [];
     saveToStorage();
   }
 }
@@ -1098,6 +1595,7 @@ function updateLiveDateTime() {
 // ======================================================================
 let currentUser = null;
 let currentUserRole = 'ADMIN';
+let currentUserProfile = null;
 
 // Role Definitions & Display Config
 const USER_ROLES = {
@@ -1111,6 +1609,11 @@ const USER_ROLES = {
     label: 'Admin',
     badgeClass: 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30'
   },
+  USER: {
+    id: 'USER',
+    label: 'User',
+    badgeClass: 'bg-teal-500/20 text-teal-300 border border-teal-400/30'
+  },
   STAFF: {
     id: 'STAFF',
     label: 'Staff',
@@ -1123,8 +1626,36 @@ const USER_ROLES = {
   }
 };
 
+async function fetchUserProfile(user) {
+  if (!user || !user.id) return null;
+  const client = getSupabaseClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .select('id, email, role, division')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (!error && data) {
+      currentUserProfile = data;
+      console.log('✅ Loaded user profile from Supabase:', currentUserProfile);
+      return data;
+    }
+  } catch (err) {
+    console.warn('Profiles table lookup info:', err);
+  }
+  return null;
+}
+
 function getUserRole(user) {
   if (!user) return 'VIEWER';
+  if (currentUserProfile && currentUserProfile.role) {
+    const pRole = currentUserProfile.role.trim().toUpperCase().replace(/[\s-]/g, '_');
+    if (pRole === 'ADMIN') return 'ADMIN';
+    if (pRole === 'USER') return 'USER';
+    if (USER_ROLES[pRole]) return pRole;
+  }
   const rawRole = (
     user.user_metadata?.role ||
     user.app_metadata?.role ||
@@ -1133,6 +1664,13 @@ function getUserRole(user) {
   ).toString().toUpperCase().replace(/[\s-]/g, '_');
 
   return USER_ROLES[rawRole] ? rawRole : 'ADMIN';
+}
+
+function getUserDivision() {
+  if (currentUserProfile && currentUserProfile.division) {
+    return currentUserProfile.division;
+  }
+  return 'All';
 }
 
 function getUserDisplayName(user) {
@@ -1216,13 +1754,22 @@ function showAuthScreen() {
   if (window.lucide) lucide.createIcons();
 }
 
-function showPortalDashboard(user) {
+async function showPortalDashboard(user) {
   const authScreen = document.getElementById('auth-screen');
   const portalApp = document.getElementById('portal-app');
   if (authScreen) authScreen.classList.add('hidden');
   if (portalApp) portalApp.classList.remove('hidden');
   updateAuthHeader(user);
   if (window.lucide) lucide.createIcons();
+
+  if (user) {
+    try {
+      await fetchUserProfile(user);
+      updateAuthHeader(user);
+    } catch (e) {
+      console.warn('Profile fetch handled:', e);
+    }
+  }
 }
 
 function updateAuthHeader(user) {
@@ -1233,6 +1780,7 @@ function updateAuthHeader(user) {
     const roleKey = getUserRole(user);
     currentUserRole = roleKey;
     const roleConfig = USER_ROLES[roleKey] || USER_ROLES.ADMIN;
+    const division = getUserDivision();
     const displayName = getUserDisplayName(user);
     const initial = displayName.charAt(0).toUpperCase();
 
@@ -1247,6 +1795,9 @@ function updateAuthHeader(user) {
             <div class="flex items-center space-x-1.5">
               <span class="text-xs font-semibold text-white truncate max-w-[120px]" title="${displayName}">${displayName}</span>
               <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${roleConfig.badgeClass}">${roleConfig.label}</span>
+              ${division && division.toLowerCase() !== 'all' ? `
+                <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-amber-500/20 text-amber-300 border border-amber-400/30">${division}</span>
+              ` : ''}
             </div>
             <span class="text-[10px] text-slate-400 truncate max-w-[120px] leading-tight" title="${user.email}">${user.email}</span>
           </div>
@@ -1349,6 +1900,7 @@ async function handleAuthSignOut() {
   }
 
   currentUser = null;
+  currentUserProfile = null;
   currentUserRole = 'VIEWER';
   showAuthScreen();
 
@@ -1609,6 +2161,12 @@ function switchTab(tabId) {
   if (birthdayCard) birthdayCard.classList.toggle('hidden', tabId === 'anniversaries');
   if (annivCard) annivCard.classList.toggle('hidden', tabId === 'birthdays');
 
+  // Celebration tabs (Birthday / Anniversary): Removed section bar (soft-removed records — restorable, never deleted)
+  const removedBar = document.getElementById('anniv-removed-bar');
+  const isCelebTab = (tabId === 'birthdays' || tabId === 'anniversaries');
+  if (removedBar) removedBar.classList.toggle('hidden', !isCelebTab);
+  if (isCelebTab) renderRemovedCelebrationSection();
+
   // Highlight active nav tab button with distinct module identity
   const tabColorMap = {
     'dashboard': 'bg-indigo-600 text-white shadow-sm font-semibold',
@@ -1651,6 +2209,219 @@ function switchTab(tabId) {
 }
 
 // ----------------------------------------------------
+// COUPLE MATCHING & MERGING ENGINE (ANNIVERSARY DEDUPLICATION)
+// ----------------------------------------------------
+
+/**
+ * Normalizes names by converting to lowercase, removing punctuation, 
+ * stripping honorifics and Vaishnava suffixes, and collapsing extra whitespace.
+ * Works seamlessly with English, Bengali, Hindi, and transliterated scripts.
+ */
+function normalizeNameForMatching(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .toLowerCase()
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?'"’]/g, ' ')
+    .replace(/\b(late|smt|srimati|shrimati|sri|shri|mr|mrs|ms|dr|das|dasi|devi|debi|dd|mataji|prabhu)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Checks if two names match according to the normalization rules.
+ * Handles exact match, substring inclusion, and word-token overlap.
+ */
+function isNameMatch(name1, name2) {
+  const norm1 = normalizeNameForMatching(name1);
+  const norm2 = normalizeNameForMatching(name2);
+  if (!norm1 || !norm2) return false;
+  if (norm1 === norm2) return true;
+
+  // Substring match if string has at least 3 characters
+  if ((norm1.length >= 3 && norm2.includes(norm1)) || (norm2.length >= 3 && norm1.includes(norm2))) {
+    return true;
+  }
+
+  // Word token matching
+  const words1 = norm1.split(' ').filter(w => w.length > 2);
+  const words2 = norm2.split(' ').filter(w => w.length > 2);
+  if (words1.length > 0 && words2.length > 0) {
+    const [shorter, longer] = words1.length <= words2.length ? [words1, words2] : [words2, words1];
+    const allFound = shorter.every(sw => longer.some(lw => lw === sw || lw.includes(sw) || sw.includes(lw)));
+    if (allFound) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if two devotees have the same Anniversary Date (month & day).
+ */
+function doAnniversaryDatesMatch(d1, d2) {
+  const a1 = d1.anniversaryDate || d1.anniversaryRaw || d1.anniversary;
+  const a2 = d2.anniversaryDate || d2.anniversaryRaw || d2.anniversary;
+  if (!a1 || !a2) return false;
+  if (a1 === a2) return true;
+
+  const p1 = parseDateParts(a1);
+  const p2 = parseDateParts(a2);
+  if (p1 && p2) {
+    return p1.month === p2.month && p1.day === p2.day;
+  }
+  return false;
+}
+
+/**
+ * Evaluates the 3-condition rule:
+ * 1. Husband's spouse name matches Wife's name (legal or spiritual)
+ * 2. Wife's spouse name matches Husband's name (legal or spiritual)
+ * 3. Both have the same Anniversary Date
+ */
+function areDevoteesSameCouple(d1, d2) {
+  if (!d1 || !d2 || d1.id === d2.id) return false;
+
+  // Condition 3: Anniversary Date must match
+  if (!doAnniversaryDatesMatch(d1, d2)) return false;
+
+  const d1Spouse = d1.spouseName;
+  const d2Spouse = d2.spouseName;
+  if (!d1Spouse && !d2Spouse) return false;
+
+  const d1Names = [d1.legalName, d1.spiritualName].filter(Boolean);
+  const d2Names = [d2.legalName, d2.spiritualName].filter(Boolean);
+
+  const d1SpouseMatchesD2 = d1Spouse && d2Names.some(n => isNameMatch(d1Spouse, n));
+  const d2SpouseMatchesD1 = d2Spouse && d1Names.some(n => isNameMatch(d2Spouse, n));
+
+  // Condition 1 & 2 mutual match
+  if (d1SpouseMatchesD2 && d2SpouseMatchesD1) return true;
+
+  // Or one spouse name matches and the other left spouse field blank / matching date
+  if ((d1SpouseMatchesD2 && !d2Spouse) || (d2SpouseMatchesD1 && !d1Spouse)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Finds a devotee's matched spouse from the list of devotees.
+ */
+function findMatchedSpouseDevotee(devotee, devoteesList = state.devotees) {
+  if (!devotee || (!devotee.anniversaryDate && !devotee.anniversaryRaw && !devotee.anniversary)) return null;
+  for (const other of devoteesList) {
+    if (other.id !== devotee.id && areDevoteesSameCouple(devotee, other)) {
+      return other;
+    }
+  }
+  return null;
+}
+
+/**
+ * Merges couple anniversary records into 1 unified entry per couple.
+ * Devotees without a registered spouse devotee remain 1 entry.
+ */
+function getMergedAnniversaryCelebrations(devoteesList = state.devotees) {
+  const merged = [];
+  const processedIds = new Set();
+
+  for (let i = 0; i < devoteesList.length; i++) {
+    const d1 = devoteesList[i];
+    if (processedIds.has(d1.id)) continue;
+
+    const annivStr = d1.anniversaryRaw || d1.anniversary || d1.anniversaryDate;
+    if (!annivStr || annivStr === 'None' || annivStr === 'N/A') continue;
+
+    // Search for matching spouse devotee
+    let matchedPartner = null;
+    for (let j = i + 1; j < devoteesList.length; j++) {
+      const d2 = devoteesList[j];
+      if (processedIds.has(d2.id)) continue;
+      if (areDevoteesSameCouple(d1, d2)) {
+        matchedPartner = d2;
+        break;
+      }
+    }
+
+    if (matchedPartner) {
+      processedIds.add(d1.id);
+      processedIds.add(matchedPartner.id);
+
+      // Order Husband (Male) & Wife (Female) if gender is known
+      let husband = d1;
+      let wife = matchedPartner;
+      if (d1.gender === 'Female' && matchedPartner.gender === 'Male') {
+        husband = matchedPartner;
+        wife = d1;
+      }
+
+      const activeDateStr = husband.anniversaryDate || wife.anniversaryDate || annivStr;
+      const timing = checkEventTiming(activeDateStr);
+      let aMo = husband.annivMonth || husband.aMonth || wife.annivMonth || wife.aMonth;
+      let aDy = husband.annivDay || husband.aDay || wife.annivDay || wife.aDay;
+      if (!aMo && timing.parts) { aMo = timing.parts.month + 1; aDy = timing.parts.day; }
+      const years = calculateYearsPassed(activeDateStr) + (timing.isToday ? 0 : 1);
+
+      const hName = husband.spiritualName || husband.legalName;
+      const wName = wife.spiritualName || wife.legalName;
+
+      merged.push({
+        id: `couple_${husband.id}_${wife.id}`,
+        devotee: husband,
+        spouseDevotee: wife,
+        isCouple: true,
+        coupleIds: [husband.id, wife.id],
+        coupleTitle: `${hName} & ${wName}`,
+        eventType: 'MARRIAGE',
+        label: 'Couple Anniversary',
+        icon: 'heart',
+        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        accentColor: 'border-emerald-300',
+        date: activeDateStr,
+        rawDateStr: husband.anniversaryRaw || wife.anniversaryRaw || husband.anniversary || formatDate(activeDateStr),
+        month: aMo || (timing.parts ? timing.parts.month + 1 : 1),
+        day: aDy || (timing.parts ? timing.parts.day : 1),
+        years: years,
+        milestone: years > 0 ? `${years} Years of Vivaha Harmony` : 'Marriage Anniversary',
+        spouse: wName,
+        timing: timing
+      });
+    } else {
+      processedIds.add(d1.id);
+      const timing = checkEventTiming(d1.anniversaryDate || annivStr);
+      let aMo = d1.annivMonth || d1.aMonth;
+      let aDy = d1.annivDay || d1.aDay;
+      if (!aMo && timing.parts) { aMo = timing.parts.month + 1; aDy = timing.parts.day; }
+      const years = calculateYearsPassed(d1.anniversaryDate || annivStr) + (timing.isToday ? 0 : 1);
+
+      merged.push({
+        id: d1.id,
+        devotee: d1,
+        spouseDevotee: null,
+        isCouple: false,
+        coupleIds: [d1.id],
+        coupleTitle: d1.spiritualName || d1.legalName,
+        eventType: 'MARRIAGE',
+        label: 'Marriage Anniversary',
+        icon: 'heart',
+        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        accentColor: 'border-emerald-300',
+        date: d1.anniversaryDate || annivStr,
+        rawDateStr: d1.anniversaryRaw || d1.anniversary || formatDate(d1.anniversaryDate),
+        month: aMo || (timing.parts ? timing.parts.month + 1 : 1),
+        day: aDy || (timing.parts ? timing.parts.day : 1),
+        years: years,
+        milestone: years > 0 ? `${years} Years of Vivaha Harmony` : 'Marriage Anniversary',
+        spouse: d1.spouseName,
+        timing: timing
+      });
+    }
+  }
+
+  return merged;
+}
+
+// ----------------------------------------------------
 // KPI STATS COMPUTATION
 // ----------------------------------------------------
 function updateKPIs() {
@@ -1660,11 +2431,10 @@ function updateKPIs() {
   const totalCountEl = document.getElementById('total-count');
   if (totalCountEl) totalCountEl.innerText = totalDevotees;
 
-  // Birthdays & Anniversaries this month & today
+  // Birthdays & Initiation Anniversaries (individual devotees)
   let bdaysThisMonth = 0;
   let bdaysToday = 0;
   let initAnnivThisMonth = 0;
-  let marriageAnnivThisMonth = 0;
 
   state.devotees.forEach(d => {
     if (d.dob) {
@@ -1676,10 +2446,16 @@ function updateKPIs() {
       const initTiming = checkEventTiming(d.firstInitiationDate || d.initiationDate);
       if (initTiming.isThisMonth) initAnnivThisMonth++;
     }
-    if (d.anniversaryDate) {
-      const marrTiming = checkEventTiming(d.anniversaryDate);
-      if (marrTiming.isThisMonth) marriageAnnivThisMonth++;
-    }
+  });
+
+  // Marriage Anniversaries (COUPLE COUNT: Husband + Wife = 1 Couple)
+  const annivCelebrations = getMergedAnniversaryCelebrations(state.devotees);
+  let marriageAnnivThisMonth = 0;
+  let annivToday = 0;
+
+  annivCelebrations.forEach(c => {
+    if (c.timing.isThisMonth) marriageAnnivThisMonth++;
+    if (c.timing.isToday) annivToday++;
   });
 
   const bdayMonthEl = document.getElementById('stat-bday-month');
@@ -1701,46 +2477,14 @@ function updateKPIs() {
     }
   }
 
-  // Header anniversary badge
+  // Header anniversary badge (shows Couple count today!)
   const annivBadge = document.getElementById('nav-anniv-badge');
   if (annivBadge) {
-    let annivToday = 0;
-    state.devotees.forEach(d => {
-      const a = d.anniversaryDate || d.anniversaryRaw || d.anniversary;
-      if (a && checkEventTiming(a).isToday) annivToday++;
-    });
     annivBadge.innerText = annivToday > 0 ? `${annivToday} Today!` : '💍';
   }
 
-  // Logistics & Parcel Tracking KPIs — counted from LIVE auto-synced parcel records
-  const parcelRecords = state.parcels || [];
-  let pPacked = 0, pTransit = 0, pOut = 0, pDelivered = 0, pUnverified = 0;
-  parcelRecords.forEach(p => {
-    const s = p.parcelStatus || '';
-    if (s === 'PACKED_BLESSED') pPacked++;
-    else if (s === 'IN_TRANSIT') pTransit++;
-    else if (s === 'OUT_FOR_DELIVERY') pOut++;
-    else if (s === 'DELIVERED') pDelivered++;
-
-    if (p.addressVerified === 'Needs Verification' || !p.addressVerified || (p.address && p.address.length < 15) || !p.pincode) {
-      pUnverified++;
-    }
-  });
-
-  const pTotalEl = document.getElementById('stat-parcel-total');
-  if (pTotalEl) pTotalEl.innerText = parcelRecords.length;
-  const pPackedEl = document.getElementById('stat-parcel-packed');
-  if (pPackedEl) pPackedEl.innerText = pPacked;
-  const pTransitEl = document.getElementById('stat-parcel-transit');
-  if (pTransitEl) pTransitEl.innerText = pTransit;
-  const pOutEl = document.getElementById('stat-parcel-out');
-  if (pOutEl) pOutEl.innerText = pOut;
-  const pDeliveredEl = document.getElementById('stat-parcel-delivered');
-  if (pDeliveredEl) pDeliveredEl.innerText = pDelivered;
-  const pUnverifiedEl = document.getElementById('stat-parcel-unverified');
-  if (pUnverifiedEl) pUnverifiedEl.innerText = pUnverified;
-  const pBadgeEl = document.getElementById('nav-parcel-badge');
-  if (pBadgeEl) pBadgeEl.innerText = parcelRecords.length;
+  // Logistics & Parcel Tracking KPIs — counted LIVE from the Delivery Tracking data
+  const pStats = updateParcelKpiCards();
 
   // Senior Vaishnavas (60+)
   const seniorCount = state.devotees.filter(d => {
@@ -1752,19 +2496,76 @@ function updateKPIs() {
 
   // Tracking System Stats
   const trackTotalEl = document.getElementById('track-total');
-  if (trackTotalEl) trackTotalEl.innerText = parcelRecords.length;
+  if (trackTotalEl) trackTotalEl.innerText = pStats.total;
   const trackTransitEl = document.getElementById('track-transit');
-  if (trackTransitEl) trackTransitEl.innerText = pTransit + pOut;
+  if (trackTransitEl) trackTransitEl.innerText = pStats.out;
   const trackDeliveredEl = document.getElementById('track-delivered');
-  if (trackDeliveredEl) trackDeliveredEl.innerText = pDelivered;
+  if (trackDeliveredEl) trackDeliveredEl.innerText = pStats.delivered;
   const trackPendingEl = document.getElementById('track-pending');
-  if (trackPendingEl) trackPendingEl.innerText = pPacked + pUnverified;
+  if (trackPendingEl) trackPendingEl.innerText = pStats.unverified;
   const trackReturnedEl = document.getElementById('track-returned');
   if (trackReturnedEl) trackReturnedEl.innerText = 0;
 
   // Total Anniversary
   const annivTotalEl = document.getElementById('stat-anniversary-total');
   if (annivTotalEl) annivTotalEl.innerText = marriageAnnivThisMonth;
+}
+
+// ----------------------------------------------------
+// PARCEL TRACKING KPI CARDS — live counts from the Delivery Tracking parcel records
+// (no duplicate data — every card is computed from state.parcels on the fly)
+// ----------------------------------------------------
+function computeParcelStats() {
+  const parcels = state.parcels || [];
+  let out = 0, delivered = 0, birthday = 0, anniversary = 0, unverified = 0;
+  parcels.forEach(p => {
+    const s = p.parcelStatus || '';
+    // The "Packed & Billed" card was removed — those parcels (no status yet,
+    // PACKED_BLESSED) plus IN_TRANSIT / OUT_FOR_DELIVERY all feed the single
+    // "Out for Delivery" card now.
+    if (!s || s === 'PACKED_BLESSED' || s === 'IN_TRANSIT' || s === 'OUT_FOR_DELIVERY') out++;
+    if (p.delivered === true || s === 'DELIVERED') delivered++;
+
+    const purpose = p.parcelType || p.eventType || '';
+    if (purpose === 'Birthday') birthday++;
+    else if (purpose === 'Anniversary') anniversary++;
+
+    if (p.addressVerified === 'Needs Verification' || !p.addressVerified || (p.address && p.address.length < 15) || !p.pincode) unverified++;
+  });
+  return { total: parcels.length, out, delivered, birthday, anniversary, unverified };
+}
+
+function updateParcelKpiCards() {
+  const s = computeParcelStats();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
+  set('stat-parcel-total', s.total);
+  set('stat-parcel-out', s.out);
+  set('stat-parcel-delivered', s.delivered);
+  set('stat-parcel-bday', s.birthday);
+  set('stat-parcel-anniv', s.anniversary);
+  const pBadgeEl = document.getElementById('nav-parcel-badge');
+  if (pBadgeEl) pBadgeEl.innerText = s.total;
+  return s;
+}
+
+// Highlight the active Purpose KPI card (Birthday / Anniversary) when its filter is applied
+function updateParcelKpiCardHighlights(purpose) {
+  const map = { Birthday: 'parcel-kpi-bday', Anniversary: 'parcel-kpi-anniv' };
+  Object.keys(map).forEach(k => {
+    const card = document.getElementById(map[k]);
+    if (!card) return;
+    const active = (purpose === k);
+    card.classList.toggle('ring-2', active);
+    card.classList.toggle('ring-emerald-400', active);
+  });
+}
+
+// Clicking the Birthday 🎂 / Anniversary 💍 KPI card filters the tracking table by that purpose
+function handleParcelKpiPurposeClick(purpose) {
+  const sel = document.getElementById('parcel-filter-purpose');
+  if (!sel) return;
+  sel.value = (purpose === 'ALL') ? 'ALL' : ((sel.value === purpose) ? 'ALL' : purpose);
+  renderParcelsTable();
 }
 
 // ----------------------------------------------------
@@ -1985,7 +2786,9 @@ function renderDevoteesTable() {
       (d.address && d.address.toLowerCase().includes(searchQuery)) ||
       (d.pincode && d.pincode.toLowerCase().includes(searchQuery)) ||
       (d.guru && d.guru.toLowerCase().includes(searchQuery)) ||
-      (d.currentSeva && d.currentSeva.toLowerCase().includes(searchQuery));
+      (d.currentSeva && d.currentSeva.toLowerCase().includes(searchQuery)) ||
+      (d.courierTrackingNo && d.courierTrackingNo.toLowerCase().includes(searchQuery)) ||
+      (d.trackingId && d.trackingId.toLowerCase().includes(searchQuery));
 
     const matchesCity = !filterCity || (d.city && d.city.toLowerCase() === filterCity.toLowerCase());
 
@@ -2007,7 +2810,7 @@ function renderDevoteesTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" class="text-center py-10 text-slate-400">
+        <td colspan="10" class="text-center py-10 text-slate-400">
           <div class="flex flex-col items-center space-y-1">
             <i data-lucide="user-x" class="w-8 h-8 text-slate-300"></i>
             <span class="font-semibold text-sm">No devotee records found matching your filters</span>
@@ -2098,6 +2901,11 @@ function renderDevoteesTable() {
           ${annivCell}
         </td>
 
+        <!-- 3.5. Marital Status Column (Married | Widow | Unmarried — change needs confirmation) -->
+        <td class="py-3.5 px-3 whitespace-nowrap">
+          ${buildMaritalStatusSelect(d)}
+        </td>
+
         <!-- 4. City Column -->
         <td class="py-3.5 px-3 whitespace-nowrap">
           <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200/80">
@@ -2132,6 +2940,10 @@ function renderDevoteesTable() {
             <button onclick="editDevotee('${d.id}')" class="inline-flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs shadow-xs transition transform active:scale-95 cursor-pointer" title="✏️ Edit Devotee Profile">
               <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
               <span>Edit</span>
+            </button>
+            <button onclick="deleteDevotee('${d.id}')" class="inline-flex items-center space-x-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs shadow-sm transition transform active:scale-95 cursor-pointer" title="🗑️ Delete Devotee Record">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Delete</span>
             </button>
           </div>
         </td>
@@ -2366,14 +3178,23 @@ function clearCelebrationSelection() {
   showToast('Celebration selection cleared.', 'info');
 }
 
-function bulkCreateParcelsForSelected() {
+async function bulkCreateParcelsForSelected() {
   if (!state.selectedCelebrations || state.selectedCelebrations.size === 0) {
-    showToast('Please select at least one devotee.', 'warning');
+    showToast('Please select at least one devotee using the ☑ checkbox on the list.', 'warning');
     return;
   }
   const selectedDevotees = state.devotees.filter(d => state.selectedCelebrations.has(d.id));
   if (selectedDevotees.length === 0) return;
-  if (!confirm(`Create prasadam parcels for ${selectedDevotees.length} selected devotee(s)?`)) return;
+
+  const confirmed = await showAppConfirm({
+    title: 'Bulk Create Parcel',
+    message: `Create prasadam parcels for ${selectedDevotees.length} selected devotee(s) in one go?`,
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    icon: '📦',
+    isDanger: false
+  });
+  if (!confirmed) return;
 
   const parcelType = state.celebrationEventType === 'MARRIAGE' ? 'Anniversary' : 'Birthday';
   const todayStr = new Date().toISOString().split('T')[0];
@@ -2389,8 +3210,9 @@ function bulkCreateParcelsForSelected() {
     d.hasParcel = true;
     d.parcelCreatedAt = new Date().toISOString();
     d.parcelType = parcelType;
-    d.courierPartner = 'Delhivery';
+    d.courierPartner = (d.deliveryMode === 'SELF') ? 'Self Pickup' : 'Delhivery';
     d.courierTrackingNo = ''; // blank at creation — added manually later
+    if (d.deliveryMode === 'SELF') { d.preCalling = 'Yes'; d.postCalling = 'No'; } // Self Mode: Pre ON, Post OFF (locked)
     d.trackingId = d.trackingId || `ISK713204-${String(d.slNo || 1).padStart(3, '0')}`;
     d.bookingDate = todayStr;
     d.expectedDeliveryDate = expectedDeliveryDate;
@@ -2410,9 +3232,11 @@ function bulkCreateParcelsForSelected() {
       birthdayRaw: d.birthdayRaw,
       anniversaryDate: d.anniversaryDate,
       parcelType: parcelType,
-      parcelDescription: d.parcelDescription || 'Sanctified Sri Sri Radha Madhava Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita',
-      courierPartner: 'Delhivery',
+      parcelDescription: d.parcelDescription || 'Sanctified Sri Sri Radha Madan Mohan Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita',
+      courierPartner: d.courierPartner || 'Delhivery',
       courierTrackingNo: '',
+      preCalling: d.preCalling || '',
+      postCalling: d.postCalling || '',
       trackingId: d.trackingId,
       bookingDate: todayStr,
       expectedDeliveryDate: expectedDeliveryDate,
@@ -2437,6 +3261,9 @@ function bulkCreateParcelsForSelected() {
   clearCelebrationSelection();
   showToast(`✅ ${created} parcel(s) created successfully!`, 'success');
 }
+
+// Bulk parcel creation happens from the Birthday / Anniversary celebration lists
+// (bulk bar → + Bulk Create Parcel) — not from the Parcel & Tracking page.
 
 function populateCityFilter() {
   const citySelect = document.getElementById('filter-city');
@@ -2494,6 +3321,7 @@ function openDevoteeModal(devoteeId = null) {
   const modal = document.getElementById('devotee-modal');
   const form = document.getElementById('devotee-form');
   form.reset();
+  syncAllCallingToggles();
   setDevoteeFormTab('basic');
   setDevoteeFormMode('full');
   const subTitle = document.getElementById('devotee-modal-subtitle');
@@ -2519,7 +3347,28 @@ function openDevoteeModal(devoteeId = null) {
       document.getElementById('df-gender').value = d.gender || 'Male';
       document.getElementById('df-dob').value = d.dob || '';
       document.getElementById('df-ashrama').value = d.ashrama || 'Grihastha';
-      document.getElementById('df-marital').value = d.maritalStatus || 'Single';
+      // Marital Status: normalize legacy values (Single→Unmarried, Widowed→Widow);
+      // any other value not in the canonical set is preserved as a "keep as-is" option.
+      const maritalEl = document.getElementById('df-marital');
+      if (maritalEl) {
+        maritalEl.querySelectorAll('option[data-legacy]').forEach(o => o.remove());
+        const rawMarital = d.maritalStatus || '';
+        const normMarital = normalizeMarital(rawMarital);
+        if (normMarital) {
+          maritalEl.value = normMarital;
+        } else if (rawMarital) {
+          const legacyOpt = document.createElement('option');
+          legacyOpt.value = rawMarital;
+          legacyOpt.textContent = rawMarital + ' (keep as-is)';
+          legacyOpt.disabled = true;
+          legacyOpt.selected = true;
+          legacyOpt.dataset.legacy = '1';
+          maritalEl.prepend(legacyOpt);
+          maritalEl.value = rawMarital;
+        } else {
+          maritalEl.value = 'Unmarried';
+        }
+      }
       document.getElementById('df-phone').value = d.phone || '';
       document.getElementById('df-whatsapp').value = d.whatsapp || '';
       document.getElementById('df-email').value = d.email || '';
@@ -2716,26 +3565,311 @@ function saveDevotee(event) {
   closeDevoteeModal();
 }
 
-function editDevotee(id) {
+// ----------------------------------------------------
+// MARITAL STATUS — inline table dropdown (Married | Widow | Unmarried)
+// A change is never applied directly: Cancel/Confirm dialog first,
+// and Cancel restores the previous value.
+// ----------------------------------------------------
+const MARITAL_OPTIONS = ['Married', 'Widow', 'Unmarried'];
+const LEGACY_MARITAL_MAP = { Single: 'Unmarried', Widowed: 'Widow' };
+
+function normalizeMarital(value) {
+  return LEGACY_MARITAL_MAP[value] || (MARITAL_OPTIONS.includes(value) ? value : '');
+}
+
+function buildMaritalStatusSelect(d) {
+  const raw = d.maritalStatus || '';
+  const sel = normalizeMarital(raw);
+  let opts = '';
+  if (!sel) {
+    const label = raw ? escapeHtml(raw) : '— Not set';
+    opts += `<option value="__keep__" disabled selected>${label}</option>`;
+  }
+  MARITAL_OPTIONS.forEach(o => {
+    opts += `<option value="${o}" ${sel === o ? 'selected' : ''}>${o}</option>`;
+  });
+  return `<select data-prev="${escapeHtml(raw)}" onchange="handleMaritalStatusChange('${d.id}', this)"
+      class="w-28 px-2 py-1.5 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-700 bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-400 cursor-pointer">${opts}</select>`;
+}
+
+async function handleMaritalStatusChange(devoteeId, selectEl) {
+  const prevRaw = selectEl.getAttribute('data-prev') || '';
+  const newVal = selectEl.value;
+  if (!newVal || newVal === '__keep__' || newVal === normalizeMarital(prevRaw)) return;
+
+  const confirmed = await showAppConfirm({
+    title: 'Marital Status Confirmation',
+    message: `Are you sure you want to change Marital Status to ${newVal}?`,
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    icon: '❤️',
+    isDanger: false
+  });
+
+  if (!confirmed) {
+    // Cancel — revert the dropdown to the previous selection
+    const prevSel = normalizeMarital(prevRaw);
+    if (prevSel) {
+      selectEl.value = prevSel;
+    } else {
+      selectEl.selectedIndex = 0; // back to the placeholder ("keep" / "not set")
+    }
+    return;
+  }
+
+  const d = state.devotees.find(x => x.id === devoteeId);
+  if (!d) return;
+  d.maritalStatus = newVal;
+  saveToStorage();
+  renderDevoteesTable();
+  showToast(`Marital Status updated to ${newVal}`, 'success');
+}
+
+async function editDevotee(id) {
   closeProfileModal();
+  // Confirmation before entering edit mode — Cancel keeps the record untouched
+  const confirmed = await showAppConfirm({
+    title: 'Edit Confirmation',
+    message: 'Are you sure you want to edit this record?',
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    icon: '✏️'
+  });
+  if (!confirmed) return;
   openDevoteeModal(id);
 }
 
-function deleteDevotee(id) {
+// ---- Calling Feedback Yes/No Toggle helpers ----
+function setCallingToggle(btn, value) {
+  const wrap = btn.closest('.call-toggle');
+  if (!wrap) return;
+  const input = wrap.querySelector('input');
+  if (input) input.value = value;
+  syncCallingToggle(wrap, value);
+}
+
+function setCallingToggleValue(inputId, value) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.value = value;
+  const wrap = input.closest('.call-toggle');
+  if (wrap) syncCallingToggle(wrap, value);
+}
+
+function syncCallingToggle(wrap, value) {
+  const yes = wrap.querySelector('.ct-yes');
+  const no = wrap.querySelector('.ct-no');
+  const yesActive = 'ct-yes px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none bg-emerald-500 text-white shadow-sm';
+  const noActive = 'ct-no px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none bg-rose-500 text-white shadow-sm';
+  const yesIdle = 'ct-yes px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white';
+  const noIdle = 'ct-no px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white';
+  if (value === 'Yes') {
+    if (yes) yes.className = yesActive;
+    if (no) no.className = noIdle;
+  } else if (value === 'No') {
+    if (yes) yes.className = yesIdle;
+    if (no) no.className = noActive;
+  } else {
+    if (yes) yes.className = yesIdle;
+    if (no) no.className = noIdle;
+  }
+}
+
+function syncAllCallingToggles() {
+  document.querySelectorAll('.call-toggle').forEach(wrap => {
+    const input = wrap.querySelector('input');
+    syncCallingToggle(wrap, input ? input.value : '');
+  });
+}
+
+// ---- Parcel & Tracking row toggle class presets (Pre Calling / Post Calling) ----
+const TGL_YES_ACTIVE = 'ct-yes inline-flex items-center px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none bg-emerald-500 text-white shadow-sm';
+const TGL_NO_ACTIVE = 'ct-no inline-flex items-center px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none bg-rose-500 text-white shadow-sm';
+const TGL_IDLE_YES = 'ct-yes inline-flex items-center px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white';
+const TGL_IDLE_NO = 'ct-no inline-flex items-center px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white';
+
+// ----------------------------------------------------
+// ACTION CONFIRMATION MODAL CONTROLLER
+// ----------------------------------------------------
+let appConfirmResolve = null;
+
+function showAppConfirm({ title = 'Confirmation', message = 'Are you sure you want to proceed?', confirmText = 'Confirm', cancelText = 'Cancel', isDanger = false, icon = '⚠️' } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('action-confirm-modal');
+    if (!modal) {
+      resolve(window.confirm(message));
+      return;
+    }
+
+    appConfirmResolve = resolve;
+
+    const titleEl = document.getElementById('ac-modal-title');
+    const msgEl = document.getElementById('ac-modal-message');
+    const iconContainer = document.getElementById('ac-modal-icon-container');
+    const cancelBtn = document.getElementById('ac-modal-cancel-btn');
+    const confirmBtn = document.getElementById('ac-modal-confirm-btn');
+
+    if (titleEl) titleEl.innerText = title;
+    if (msgEl) msgEl.innerText = message;
+    if (iconContainer) {
+      iconContainer.innerText = icon;
+      iconContainer.className = isDanger 
+        ? 'w-14 h-14 rounded-full mx-auto flex items-center justify-center text-3xl mb-3.5 bg-rose-50 text-rose-600 border border-rose-200 shadow-xs'
+        : 'w-14 h-14 rounded-full mx-auto flex items-center justify-center text-3xl mb-3.5 bg-amber-50 text-amber-600 border border-amber-200 shadow-xs';
+    }
+
+    if (cancelBtn) cancelBtn.innerText = cancelText;
+    if (confirmBtn) {
+      confirmBtn.innerText = confirmText;
+      confirmBtn.className = isDanger
+        ? 'w-1/2 py-2.5 px-4 rounded-xl font-bold text-xs text-white shadow-md transition cursor-pointer bg-rose-600 hover:bg-rose-700 active:scale-95'
+        : 'w-1/2 py-2.5 px-4 rounded-xl font-bold text-xs text-white shadow-md transition cursor-pointer bg-indigo-600 hover:bg-indigo-700 active:scale-95';
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  });
+}
+
+window.handleAppConfirm = function(confirmed) {
+  const modal = document.getElementById('action-confirm-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  if (appConfirmResolve) {
+    const fn = appConfirmResolve;
+    appConfirmResolve = null;
+    fn(Boolean(confirmed));
+  }
+};
+
+// Global escape key handler to cancel confirmation dialog
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const confModal = document.getElementById('action-confirm-modal');
+    if (confModal && !confModal.classList.contains('hidden')) {
+      handleAppConfirm(false);
+    }
+  }
+});
+
+// Toggle Pre/Post Calling for a parcel row with user confirmation
+async function toggleParcelCalling(parcelId, field, targetValue) {
+  const p = (state.parcels || []).find(x => x.id === parcelId);
+  if (!p) return;
+
+  const current = p[field] || 'No';
+  const next = targetValue || (current === 'Yes' ? 'No' : 'Yes');
+
+  // If already at target value, do not prompt or change
+  if (p[field] === next) return;
+
+  const fieldLabel = (field === 'preCalling') ? 'Pre Calling' : 'Post Calling';
+
+  const confirmed = await showAppConfirm({
+    title: `${fieldLabel} Confirmation`,
+    message: `Are you sure you want to change ${fieldLabel} to ${next}?`,
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    icon: next === 'Yes' ? '📞' : '⚠️',
+    isDanger: next === 'No'
+  });
+
+  if (!confirmed) return;
+
+  p[field] = next;
+  const devo = state.devotees.find(x => x.id === p.devoteeId);
+  if (devo) devo[field] = next;
+
+  const cell = document.getElementById('parcel-cell-' + (field === 'postCalling' ? 'post-' : 'pre-') + parcelId);
+  if (cell) {
+    const yes = cell.querySelector('.ct-yes');
+    const no = cell.querySelector('.ct-no');
+    if (yes) yes.className = next === 'Yes' ? TGL_YES_ACTIVE : TGL_IDLE_YES;
+    if (no) no.className = next === 'No' ? TGL_NO_ACTIVE : TGL_IDLE_NO;
+    const hidden = cell.querySelector('input[type="hidden"]');
+    if (hidden) hidden.value = next;
+  }
+
+  saveToStorage();
+  if (getSupabaseClient()) {
+    syncParcelToSupabase(p);
+  } else {
+    console.warn('Supabase not available — calling status saved locally only.');
+  }
+  showToast(`${fieldLabel} updated to ${next}`, 'success');
+}
+
+// Save the Tracking Number entered inline: Mandatory (*), 13-14 numeric digits only
+function saveParcelTracking(parcelId) {
+  const p = (state.parcels || []).find(x => x.id === parcelId);
+  if (!p) return;
+  const input = document.getElementById('pt-trk-' + parcelId);
+  const raw = input ? input.value.trim() : '';
+  const clean = raw.replace(/\D/g, '');
+
+  if (input) {
+    input.value = clean.slice(0, 14);
+  }
+
+  // 1. Mandatory (*)
+  if (!clean) {
+    showToast('Tracking Number is mandatory (*) — please enter the 13-14 digit number', 'error');
+    if (input) input.focus();
+    return;
+  }
+
+  // 2. 13-14 digits (12 or fewer digits -> cannot save)
+  if (!/^\d{13,14}$/.test(clean)) {
+    showToast(`Tracking Number must be 13-14 digits (currently ${clean.length} digits entered)`, 'error');
+    if (input) input.focus();
+    return;
+  }
+
+  const finalTrk = clean.slice(0, 14);
+  p.courierTrackingNo = finalTrk;
+  const devo = state.devotees.find(x => x.id === p.devoteeId);
+  if (devo) devo.courierTrackingNo = finalTrk;
+
+  saveToStorage();
+  renderParcelsTable();
+  showToast(`Tracking Number saved: ${finalTrk}`, 'success');
+
+  if (getSupabaseClient()) {
+    syncParcelToSupabase(p);
+  } else {
+    console.warn('Supabase not available — tracking number saved locally only.');
+  }
+}
+
+async function deleteDevotee(id) {
   const d = state.devotees.find(x => x.id === id);
   if (!d) return;
   const name = d.spiritualName || d.legalName;
-  if (confirm(`Are you sure you want to remove ${name} from the devotee database?`)) {
-    state.devotees = state.devotees.filter(x => x.id !== id);
-    saveToStorage();
-    updateDevoteeAutocompleteList();
-    updateKPIs();
-    renderDevoteesTable();
-    renderBirthdaysGrid();
-    renderParcelsTable();
-    initCharts();
-    showToast(`Removed devotee record for ${name}`, 'info');
-  }
+  const confirmed = await showAppConfirm({
+    title: 'Delete Devotee Record',
+    message: `Are you sure you want to remove ${name} from the devotee database? This cannot be undone.`,
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗑️'
+  });
+  if (!confirmed) return;
+
+  state.devotees = state.devotees.filter(x => x.id !== id);
+  state.parcels = (state.parcels || []).filter(p => p.devoteeId !== id);
+  if (state.selectedDevotees) state.selectedDevotees.delete(id);
+  if (state.selectedCelebrations) state.selectedCelebrations.delete(id);
+  if (state.selectedParcels) state.selectedParcels.delete(id);
+  saveToStorage();
+  updateDevoteeAutocompleteList();
+  updateKPIs();
+  renderDevoteesTable();
+  renderBirthdaysGrid();
+  renderParcelsTable();
+  initCharts();
+  showToast(`Devotee ${name} removed successfully`, 'success');
 }
 
 function deleteAllBirthdayAnniversaryRecords() {
@@ -2845,6 +3979,21 @@ function viewDevoteeProfile(id) {
   const notesEl = document.getElementById('vp-notes');
   if (notesEl) notesEl.innerText = `Insurance: ${d.insurance || 'None'}. Notes: ${d.notes || 'None'}`;
 
+  // Parcel Tracking + Calling Feedback — same values as the Parcel & Tracking tab (linked master record)
+  const trkEl = document.getElementById('vp-tracking-no');
+  if (trkEl) {
+    if (d.courierTrackingNo) {
+      const trackUrl = getCourierTrackingUrl(d.courierPartner, d.courierTrackingNo);
+      trkEl.innerHTML = `<a href="${trackUrl}" target="_blank" rel="noopener" class="text-sky-700 underline decoration-dotted hover:text-sky-900" title="Open carrier tracking page">${escapeHtml(d.courierTrackingNo)}</a>`;
+    } else {
+      trkEl.innerText = 'Not linked';
+    }
+  }
+  const preEl = document.getElementById('vp-pre-calling');
+  if (preEl) preEl.innerText = d.preCalling || '—';
+  const postEl = document.getElementById('vp-post-calling');
+  if (postEl) postEl.innerText = d.postCalling || '—';
+
   // Direct action buttons
   const waBtn = document.getElementById('vp-whatsapp-btn');
   waBtn.onclick = () => openWishesModal(d.id);
@@ -2875,6 +4024,7 @@ function printDevoteeProfile() {
 // ----------------------------------------------------
 state.selectedCelebrationMonth = String(currentMonth + 1); // Default to the current month
 state.selectedCelebrationDate = null; // Date View — exact-date filter (overrides month)
+state.selectedCelebrationCity = null; // City Filter — searchable (every city name from the database)
 state.celebrationViewMode = 'cards';
 state.activeTrackingDevotee = null;
 state.activeGreetingDevotee = null;
@@ -2931,22 +4081,100 @@ function clearCelebrationDate() {
   renderBirthdaysGrid();
 }
 
-// Date column header: exact-date view shows both types (+Date), otherwise per-tab (Birthday / Anniversary)
-function updateCelebrationDateColumnHeader() {
-  const el = document.getElementById('bday-date-col-title');
-  if (!el) return;
-  if (state.selectedCelebrationDate) {
-    el.innerText = '📅 Date';
-  } else {
-    el.innerText = (state.currentTab === 'anniversaries') ? '💍 Anniversary' : '🎂 Birthday';
+// All city names present in the devotee database (used by the City filter)
+function getAllCities() {
+  const set = new Set();
+  (state.devotees || []).forEach(d => {
+    if (d.city && String(d.city).trim()) set.add(String(d.city).trim());
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+// City Filter — searchable dropdown listing every city in the database
+function handleCelebrationCitySearch(query) {
+  const drop = document.getElementById('bday-city-dropdown');
+  if (!drop) return;
+  const q = (query || '').trim().toLowerCase();
+  const cities = getAllCities().filter(c => !q || c.toLowerCase().includes(q)).slice(0, 60);
+  if (!cities.length) {
+    drop.innerHTML = '';
+    drop.classList.add('hidden');
+    return;
+  }
+  drop.innerHTML = cities
+    .map(c => `<button type="button" data-city="${escapeHtml(c)}" onclick="selectCelebrationCity(this.getAttribute('data-city'))" class="block w-full text-left px-3 py-1.5 hover:bg-pink-50 text-slate-700 font-medium truncate cursor-pointer">${escapeHtml(c)}</button>`)
+    .join('');
+  drop.classList.remove('hidden');
+}
+
+function selectCelebrationCity(cityName) {
+  const input = document.getElementById('bday-city-search');
+  const clearBtn = document.getElementById('bday-city-clear');
+  const drop = document.getElementById('bday-city-dropdown');
+  if (input) input.value = cityName;
+  if (clearBtn) clearBtn.classList.remove('hidden');
+  if (drop) drop.classList.add('hidden');
+  state.selectedCelebrationCity = cityName;
+  renderBirthdaysGrid();
+}
+
+function clearCelebrationCity() {
+  const input = document.getElementById('bday-city-search');
+  const clearBtn = document.getElementById('bday-city-clear');
+  const drop = document.getElementById('bday-city-dropdown');
+  if (input) input.value = '';
+  if (clearBtn) clearBtn.classList.add('hidden');
+  if (drop) drop.classList.add('hidden');
+  state.selectedCelebrationCity = null;
+  renderBirthdaysGrid();
+}
+
+// Clear EVERY filter in the Birthday / Anniversary toolbar (Month / Date / City / Search)
+function clearCelebrationFilters() {
+  state.selectedCelebrationMonth = String(currentMonth + 1);
+  const monthEl = document.getElementById('bday-select-month');
+  if (monthEl) monthEl.value = state.selectedCelebrationMonth;
+  clearCelebrationDate();
+  clearCelebrationCity();
+  const searchEl = document.getElementById('bday-search-input');
+  if (searchEl) searchEl.value = '';
+  renderBirthdaysGrid();
+  showToast('All celebration filters cleared', 'info');
+}
+
+function onCelebrationCityBlur() {
+  setTimeout(() => {
+    const drop = document.getElementById('bday-city-dropdown');
+    if (drop) drop.classList.add('hidden');
+  }, 150);
+}
+
+function onCelebrationCityKeydown(ev) {
+  if (ev.key === 'Escape') {
+    const drop = document.getElementById('bday-city-dropdown');
+    if (drop) drop.classList.add('hidden');
+  } else if (ev.key === 'Enter') {
+    const first = document.querySelector('#bday-city-dropdown button');
+    if (first) { ev.preventDefault(); first.click(); }
   }
 }
 
-function getAllCelebrations() {
-  const celebrations = [];
+// Date column header: exact-date view shows both types (+Date), otherwise per-tab (Birthday / Anniversary)
+function updateCelebrationDateColumnHeader() {
+  const el = document.getElementById('bday-date-col-title');
+  if (el) {
+    if (state.selectedCelebrationDate) {
+      el.innerText = '📅 Date';
+    } else {
+      el.innerText = (state.currentTab === 'anniversaries') ? '💍 Anniversary' : '🎂 Birthday';
+    }
+  }
+}
 
+// All Birthday / Appearance Day celebration entries (UNFILTERED — includes soft-removed ones)
+function getAllBirthdayCelebrations() {
+  const bdays = [];
   state.devotees.forEach(d => {
-    // 1. Birthday / Appearance Day
     const bdayStr = d.birthdayRaw || d.birthday || d.dob;
     if (bdayStr) {
       const timing = checkEventTiming(d.dob || bdayStr);
@@ -2955,9 +4183,13 @@ function getAllCelebrations() {
       if (!bMo && timing.parts) { bMo = timing.parts.month + 1; bDy = timing.parts.day; }
       const years = calculateYearsPassed(d.dob || bdayStr) + (timing.isToday ? 0 : 1);
 
-      celebrations.push({
+      bdays.push({
         id: d.id,
         devotee: d,
+        spouseDevotee: null,
+        isCouple: false,
+        coupleIds: [d.id],
+        coupleTitle: d.spiritualName || d.legalName,
         eventType: 'BIRTHDAY',
         label: 'Appearance Day',
         icon: 'cake',
@@ -2972,37 +4204,37 @@ function getAllCelebrations() {
         timing: timing
       });
     }
-
-    // 2. Marriage Anniversary
-    const annivStr = d.anniversaryRaw || d.anniversary || d.anniversaryDate;
-    if (annivStr && annivStr !== 'None' && annivStr !== 'N/A') {
-      const timing = checkEventTiming(d.anniversaryDate || annivStr);
-      let aMo = d.annivMonth || d.aMonth;
-      let aDy = d.annivDay || d.aDay;
-      if (!aMo && timing.parts) { aMo = timing.parts.month + 1; aDy = timing.parts.day; }
-      const years = calculateYearsPassed(d.anniversaryDate || annivStr) + (timing.isToday ? 0 : 1);
-
-      celebrations.push({
-        id: d.id,
-        devotee: d,
-        eventType: 'MARRIAGE',
-        label: 'Marriage Anniversary',
-        icon: 'heart',
-        badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        accentColor: 'border-emerald-300',
-        date: d.anniversaryDate || annivStr,
-        rawDateStr: d.anniversaryRaw || d.anniversary || formatDate(d.anniversaryDate),
-        month: aMo || (timing.parts ? timing.parts.month + 1 : 1),
-        day: aDy || (timing.parts ? timing.parts.day : 1),
-        years: years,
-        milestone: years > 0 ? `${years} Years of Vivaha Harmony` : 'Marriage Anniversary',
-        spouse: d.spouseName,
-        timing: timing
-      });
-    }
   });
+  return bdays;
+}
+
+function getAllCelebrations() {
+  const celebrations = [];
+
+  // 1. Birthday / Appearance Day (Individual) — soft-removed birthdays are hidden from the list
+  getAllBirthdayCelebrations().forEach(it => { if (!isBdayEntryRemoved(it)) celebrations.push(it); });
+
+  // 2. Marriage Anniversary (Merged Couples: Husband + Wife = 1 Entry & 1 Count)
+  const annivList = getMergedAnniversaryCelebrations(state.devotees);
+  annivList.forEach(it => { if (!isAnnivEntryRemoved(it)) celebrations.push(it); });
 
   return celebrations;
+}
+
+// A devotee/couple "removed" from the Anniversary list is moved to the Removed section —
+// the record is never deleted and can be restored (Accept) anytime.
+function isAnnivEntryRemoved(item) {
+  const removed = state.anniversaryRemovedIds || [];
+  if (!removed.length) return false;
+  return (item.coupleIds || [item.id]).some(id => removed.includes(id));
+}
+
+// A devotee "removed" from the Birthday list is moved to the Removed section —
+// the record is never deleted and can be restored (Accept) anytime.
+function isBdayEntryRemoved(item) {
+  const removed = state.birthdayRemovedIds || [];
+  if (!removed.length) return false;
+  return (item.coupleIds || [item.id]).some(id => removed.includes(id));
 }
 
 function renderBirthdaysGrid() {
@@ -3010,6 +4242,9 @@ function renderBirthdaysGrid() {
   const tableBody = document.getElementById('bday-table-body');
   const emptyState = document.getElementById('bday-empty-state');
   if (!tableBody) return;
+
+  const isAnnivTab = (state.currentTab === 'anniversaries');
+  updateCelebrationDateColumnHeader();
 
   const tf = state.bdayTimeframe;
   const eventType = state.celebrationEventType;
@@ -3045,17 +4280,29 @@ function renderBirthdaysGrid() {
       if (tf === 'month' && !timing.isThisMonth && selectedMonth === 'ALL') return false;
     }
 
-    // 4. Keyword search filter
+    // 4. Keyword search filter (supports Husband, Wife, Phones, IDs)
     if (search) {
-      const sName = (d.spiritualName || '').toLowerCase();
-      const lName = (d.legalName || '').toLowerCase();
-      const phone = (d.phone || '').toLowerCase();
-      const city = (d.city || '').toLowerCase();
-      const pin = (d.pincode || '').toLowerCase();
-      const id = (d.id || '').toLowerCase();
-      if (!sName.includes(search) && !lName.includes(search) && !phone.includes(search) && !city.includes(search) && !pin.includes(search) && !id.includes(search)) {
-        return false;
-      }
+      const matchDev = (dev) => {
+        if (!dev) return false;
+        const sName = (dev.spiritualName || '').toLowerCase();
+        const lName = (dev.legalName || '').toLowerCase();
+        const phone = (dev.phone || '').toLowerCase();
+        const city = (dev.city || '').toLowerCase();
+        const pin = (dev.pincode || '').toLowerCase();
+        const devId = (dev.id || '').toLowerCase();
+        return sName.includes(search) || lName.includes(search) || phone.includes(search) || city.includes(search) || pin.includes(search) || devId.includes(search);
+      };
+      const m1 = matchDev(d);
+      const m2 = item.spouseDevotee ? matchDev(item.spouseDevotee) : false;
+      if (!m1 && !m2) return false;
+    }
+
+    // 5. City filter — exact match on either spouse's city (all city names come from the database)
+    const cityFilter = (state.selectedCelebrationCity || '').toLowerCase().trim();
+    if (cityFilter) {
+      const c1 = (d.city || '').toLowerCase() === cityFilter;
+      const c2 = item.spouseDevotee ? (item.spouseDevotee.city || '').toLowerCase() === cityFilter : false;
+      if (!c1 && !c2) return false;
     }
 
     return true;
@@ -3072,7 +4319,7 @@ function renderBirthdaysGrid() {
     if (it.eventType === 'BIRTHDAY') countBdays++;
     if (it.eventType === 'MARRIAGE') countMarr++;
     if (it.timing.isToday || it.timing.isTomorrow) countTodayTom++;
-    const pRec = (state.parcels || []).find(p => p.devoteeId === it.devotee.id);
+    const pRec = (state.parcels || []).find(p => p.devoteeId === it.devotee.id || (it.spouseDevotee && p.devoteeId === it.spouseDevotee.id));
     const ps = pRec ? (pRec.parcelStatus || '') : '';
     if (ps === 'PACKED_BLESSED') countPacked++;
     else if (ps === 'IN_TRANSIT' || ps === 'OUT_FOR_DELIVERY') countTransit++;
@@ -3111,86 +4358,172 @@ function renderBirthdaysGrid() {
 
   if (emptyState) emptyState.classList.add('hidden');
 
-  // Render Table View: Select ☑ | S.No. | Name | Date | Type | Phone | Address Verified | Create Parcel | Actions
+  // Render Table View: Select ☑ | S.No. | Name | Date | Phone | City | Address Verified | Mode of Delivery | Actions
   tableBody.innerHTML = filtered.map((item, idx) => {
     const d = item.devotee;
+    const isCouple = !!item.isCouple;
+    const spouseDevotee = item.spouseDevotee;
     const displayName = d.spiritualName || d.legalName;
     const secondaryName = d.spiritualName ? d.legalName : '';
-    const isVerified = (d.addressVerified === 'Verified' || (d.address && d.address.length >= 25 && d.addressVerified !== 'Needs Verification'));
-    const liveParcel = (state.parcels || []).find(p => p.devoteeId === d.id);
-    const hasParcel = !!liveParcel;
+    const isDevVerified = (dev) => !dev ? false : (dev.addressVerified === 'Verified' || (dev.address && dev.address.length >= 25 && dev.addressVerified !== 'Needs Verification'));
+    const isVerified = isDevVerified(d) || (spouseDevotee && isDevVerified(spouseDevotee));
     const bdayDateText = item.rawDateStr || formatDate(item.date);
     const eventIcon = item.eventType === 'MARRIAGE' ? '💍' : '🎂';
     const serialNo = idx + 1;
-    const isSel = state.selectedCelebrations.has(d.id);
+    const isSel = state.selectedCelebrations.has(d.id) || (spouseDevotee && state.selectedCelebrations.has(spouseDevotee.id));
 
     return `
       <tr class="hover:bg-slate-50/90 transition border-b border-slate-100 ${isSel ? 'bg-pink-50/40' : ''}">
         <!-- 0. Select -->
-        <td class="py-3 px-2 text-center">
+        <td class="py-2 px-2 text-center">
           <input type="checkbox" data-id="${d.id}" onchange="toggleCelebrationSelection('${d.id}', this.checked, this)" ${isSel ? 'checked' : ''} class="celebration-row-checkbox w-4 h-4 rounded border-slate-300 text-pink-600 focus:ring-pink-500 cursor-pointer" title="Select for bulk actions">
         </td>
         <!-- 1. S.No. -->
-        <td class="py-3 px-2 text-center">
+        <td class="py-2 px-2 text-center">
           <span class="font-bold text-slate-500">${serialNo}</span>
         </td>
         <!-- 2. Name -->
-        <td class="py-3 px-4">
-          <div class="flex items-center space-x-2.5">
-            ${getDevoteeAvatarHtml(d, 'w-8 h-8', 'text-[10px]')}
-            <div>
-              <div class="font-bold text-slate-900 cursor-pointer hover:text-indigo-600 transition flex items-center space-x-1" onclick="viewDevoteeProfile('${d.id}')">
-                <span>${displayName}</span>
+        <td class="py-2.5 px-4 min-w-[260px]">
+          ${isCouple && spouseDevotee ? `
+            <div class="flex items-start space-x-3">
+              <div class="relative flex items-center shrink-0 mt-0.5">
+                <div class="p-[2px] border border-emerald-400 rounded-sm bg-white relative z-10 shadow-xs cursor-pointer" 
+                     onclick="handleDevoteeAvatarClick(event, '${d.id}')" 
+                     ondblclick="handleDevoteeAvatarDblClick(event, '${d.id}')" 
+                     title="${escapeHtml(d.spiritualName || d.legalName)} (Double-click to enlarge photo)">
+                  ${getDevoteeAvatarHtml(d, 'w-8 h-8', 'text-[10px]')}
+                </div>
+                <div class="p-[2px] border border-purple-300 rounded-sm bg-white relative -ml-2.5 z-0 shadow-xs cursor-pointer" 
+                     onclick="handleDevoteeAvatarClick(event, '${spouseDevotee.id}')" 
+                     ondblclick="handleDevoteeAvatarDblClick(event, '${spouseDevotee.id}')" 
+                     title="${escapeHtml(spouseDevotee.spiritualName || spouseDevotee.legalName)} (Double-click to enlarge photo)">
+                  ${getDevoteeAvatarHtml(spouseDevotee, 'w-8 h-8', 'text-[10px]')}
+                </div>
               </div>
-              <div class="text-[11px] text-slate-500 flex items-center space-x-1">
-                ${secondaryName ? `<span>${secondaryName}</span><span>•</span>` : ''}
-                <span class="font-mono text-indigo-600 font-semibold">${d.id}</span>
+              <div class="min-w-0 flex-1">
+                ${isAnnivTab ? `
+                <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')" title="View ${escapeHtml(d.legalName || d.spiritualName || '')} profile">
+                  <span>${escapeHtml(d.legalName || d.spiritualName || 'N/A')}</span>
+                </div>
+                <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition mt-1.5" onclick="viewDevoteeProfile('${spouseDevotee.id}')" title="View ${escapeHtml(spouseDevotee.legalName || spouseDevotee.spiritualName || '')} profile">
+                  <span>${escapeHtml(spouseDevotee.legalName || spouseDevotee.spiritualName || 'N/A')}</span>
+                </div>
+                ` : `
+                <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')" title="View ${escapeHtml(d.spiritualName || d.legalName)} profile">
+                  <span>${escapeHtml(d.spiritualName || d.legalName)}</span>
+                </div>
+                <div class="text-[12px] text-slate-400 leading-tight mt-0.5">
+                  Legal Name: ${escapeHtml(d.legalName || 'N/A')}
+                </div>
+                <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition mt-1.5" onclick="viewDevoteeProfile('${spouseDevotee.id}')" title="View ${escapeHtml(spouseDevotee.spiritualName || spouseDevotee.legalName)} profile">
+                  <span>${escapeHtml(spouseDevotee.spiritualName || spouseDevotee.legalName)}</span>
+                </div>
+                <div class="text-[12px] text-slate-400 leading-tight mt-0.5">
+                  Legal Name: ${escapeHtml(spouseDevotee.legalName || 'N/A')}
+                </div>
+                `}
               </div>
             </div>
-          </div>
+          ` : `
+            <div class="flex items-start space-x-3">
+              <div class="p-[2px] border border-slate-200 rounded-sm bg-white shrink-0 mt-0.5 shadow-xs cursor-pointer" 
+                   onclick="handleDevoteeAvatarClick(event, '${d.id}')" 
+                   ondblclick="handleDevoteeAvatarDblClick(event, '${d.id}')" 
+                   title="${escapeHtml(displayName)} (Double-click to enlarge photo)">
+                ${getDevoteeAvatarHtml(d, 'w-8 h-8', 'text-[10px]')}
+              </div>
+              <div class="min-w-0 flex-1">
+                ${isAnnivTab ? `
+                <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')">
+                  <span>${escapeHtml(d.legalName || d.spiritualName || 'N/A')}</span>
+                  ${item.spouse ? `<span class="text-slate-500 font-normal text-xs ml-1">❤️ ${item.spouse}</span>` : ''}
+                </div>
+                ` : `
+                <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')">
+                  <span>${displayName}</span>
+                  ${item.spouse ? `<span class="text-slate-500 font-normal text-xs ml-1">❤️ ${item.spouse}</span>` : ''}
+                </div>
+                ${d.legalName && d.legalName !== displayName ? `
+                  <div class="text-[12px] text-slate-400 leading-tight mt-0.5">
+                    Legal Name: ${escapeHtml(d.legalName)}
+                  </div>
+                ` : ''}
+                `}
+              </div>
+            </div>
+          `}
         </td>
 
-        <!-- 2. Birthday -->
-        <td class="py-3 px-4 whitespace-nowrap">
-          <div class="font-bold text-slate-800 text-xs flex items-center space-x-1.5">
+        <!-- 2. Birthday / Anniversary Date -->
+        <td class="py-2 px-1.5 whitespace-nowrap">
+          <div class="font-bold text-slate-800 text-[11px] flex items-center space-x-1">
             <span>${eventIcon}</span>
             <span>${bdayDateText}</span>
           </div>
-          <div class="text-[11px] text-pink-600 font-medium mt-0.5">${item.milestone}</div>
-        </td>
-
-        <!-- 2b. Type (Birthday / Anniversary) -->
-        <td class="py-3 px-4 whitespace-nowrap">
-          ${item.eventType === 'MARRIAGE'
-            ? '<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><span>💍</span><span>Anniversary</span></span>'
-            : '<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-pink-100 text-pink-800 border border-pink-200"><span>🎂</span><span>Birthday</span></span>'}
+          ${item.milestone ? `<div class="text-[9px] text-pink-600 font-medium leading-tight">${item.milestone}</div>` : ''}
         </td>
 
         <!-- 3. Phone -->
-        <td class="py-3 px-4 whitespace-nowrap">
-          ${d.phone ? `
-            <div class="flex items-center space-x-1.5">
-              <a href="tel:${d.phone}" class="font-medium text-slate-700 hover:text-indigo-600 flex items-center space-x-1 transition text-xs" title="Call Devotee">
-                <i data-lucide="phone" class="w-3.5 h-3.5 text-emerald-600"></i>
-                <span class="font-mono">${d.phone}</span>
-              </a>
-              <button onclick="copyToClipboard('${d.phone}', 'Phone copied!')" class="text-slate-400 hover:text-slate-600 p-0.5 transition" title="Copy Phone">
-                <i data-lucide="copy" class="w-3 h-3"></i>
-              </button>
+        <td class="py-2 px-1.5 whitespace-nowrap">
+          ${isCouple && spouseDevotee ? `
+            <div class="flex flex-col space-y-0.5 text-[11px]">
+              ${d.phone ? `
+                <a href="tel:${d.phone}" class="flex items-center space-x-1 font-mono text-slate-700 hover:text-indigo-600" title="Call ${d.phone}">
+                  <span class="text-[9px] text-emerald-700 font-bold uppercase bg-emerald-50 border border-emerald-200 rounded px-1">H</span>
+                  <span>${d.phone}</span>
+                </a>
+              ` : ''}
+              ${spouseDevotee.phone ? `
+                <a href="tel:${spouseDevotee.phone}" class="flex items-center space-x-1 font-mono text-slate-700 hover:text-purple-600" title="Call ${spouseDevotee.phone}">
+                  <span class="text-[9px] text-purple-700 font-bold uppercase bg-purple-50 border border-purple-200 rounded px-1">W</span>
+                  <span>${spouseDevotee.phone}</span>
+                </a>
+              ` : ''}
+              ${!d.phone && !spouseDevotee.phone ? '<span class="text-slate-400 text-[10px] italic">No phone</span>' : ''}
             </div>
-          ` : `<span class="text-slate-400 text-xs italic">No phone</span>`}
+          ` : `
+            ${d.phone ? `
+              <a href="tel:${d.phone}" class="flex items-center space-x-1 font-mono text-[11px] font-medium text-slate-700 hover:text-indigo-600" title="Call Devotee">
+                <span>📞</span>
+                <span>${d.phone}</span>
+              </a>
+            ` : `<span class="text-slate-400 text-[10px] italic">No phone</span>`}
+          `}
         </td>
 
-        <!-- 4. Address Verified (read-only status — controlled from Devotee Directory only) -->
-        <td class="py-3 px-4 text-center">
+        <!-- 4. City -->
+        <td class="py-2 px-1.5 whitespace-nowrap">
+          ${isCouple && spouseDevotee ? `
+            <div class="flex flex-col space-y-0.5 text-[11px]">
+              ${d.city ? `
+                <span class="flex items-center space-x-1 font-semibold text-slate-700">
+                  <span class="text-[9px] text-emerald-700 font-bold uppercase bg-emerald-50 border border-emerald-200 rounded px-1">H</span>
+                  <span>${escapeHtml(d.city)}</span>
+                </span>
+              ` : ''}
+              ${spouseDevotee.city ? `
+                <span class="flex items-center space-x-1 font-semibold text-slate-700">
+                  <span class="text-[9px] text-purple-700 font-bold uppercase bg-purple-50 border border-purple-200 rounded px-1">W</span>
+                  <span>${escapeHtml(spouseDevotee.city)}</span>
+                </span>
+              ` : ''}
+              ${!d.city && !spouseDevotee.city ? '<span class="text-slate-400 text-[10px] italic">—</span>' : ''}
+            </div>
+          ` : `
+            ${d.city ? `<span class="text-[11px] font-semibold text-slate-700">📍 ${escapeHtml(d.city)}</span>` : '<span class="text-slate-400 text-[10px] italic">—</span>'}
+          `}
+        </td>
+
+        <!-- 5. Address Verified -->
+        <td class="py-2 px-1.5 text-center">
           <div class="inline-flex flex-col items-center">
             ${isVerified ? `
-              <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs cursor-default" title="Verified in Devotee Directory">
+              <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs cursor-default" title="Verified in Devotee Directory">
                 <span>🟢</span>
                 <span>Verified</span>
               </span>
             ` : `
-              <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-xs cursor-default" title="Not yet verified — update from Devotee Directory">
+              <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-xs cursor-default" title="Not yet verified — update from Devotee Directory">
                 <span>🔴</span>
                 <span>Unverified</span>
               </span>
@@ -3198,36 +4531,304 @@ function renderBirthdaysGrid() {
           </div>
         </td>
 
-        <!-- 5. Create Parcel -->
-        <td class="py-3 px-4 text-center">
-          <div class="inline-flex flex-col items-center space-y-1">
-            <button onclick="openCreateParcelModal('${d.id}', '${item.eventType === 'MARRIAGE' ? 'Anniversary' : 'Birthday'}')" 
-              class="inline-flex items-center space-x-1.5 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs shadow-sm hover:shadow transition transform active:scale-95 cursor-pointer">
-              <span>📦</span>
-              <span>Create Parcel</span>
-            </button>
-            ${hasParcel ? `
-              <div class="flex items-center space-x-1 text-[10px]">
-                <button onclick="openParcelTrackerModal('${d.id}')" class="text-sky-700 hover:text-sky-900 font-mono font-bold flex items-center space-x-0.5 hover:underline" title="Track Live Consignment">
-                  <i data-lucide="navigation" class="w-2.5 h-2.5"></i>
-                  <span>Track (${(liveParcel && (liveParcel.courierTrackingNo || liveParcel.trackingId)) || 'Created'})</span>
-                </button>
-              </div>
-            ` : ''}
-          </div>
+        <!-- 6. Mode of Delivery (Delhivery Courier / Self Mode) -->
+        <td class="py-2 px-2 text-center whitespace-nowrap">
+          <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
+            class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
+            <option value="DELHIVERY" ${d.deliveryMode === 'SELF' ? '' : 'selected'}>Delhivery Courier</option>
+            <option value="SELF" ${d.deliveryMode === 'SELF' ? 'selected' : ''}>Self Mode</option>
+          </select>
         </td>
 
-        <!-- 6. Actions (Wish / Greeting Card) -->
-        <td class="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
-          <button onclick="openGreetingCardModal('${d.id}', '${item.eventType.toLowerCase()}')" class="p-1 text-violet-700 hover:bg-violet-50 rounded transition" title="Greeting Card">
-            <i data-lucide="sparkles" class="w-4 h-4"></i>
-          </button>
-          <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-xs transition shadow-xs">
-            Wish
-          </button>
+        <!-- 7. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
+        <td class="py-2 px-2 whitespace-nowrap">
+          <div class="flex items-center justify-end gap-1">
+            <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">
+              <i data-lucide="heart" class="w-3 h-3"></i>
+              <span>Wish</span>
+            </button>
+            <button onclick="removeCelebrationEntry('${d.id}', '${item.eventType}')" class="inline-flex items-center space-x-1 bg-amber-500 hover:bg-amber-600 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Move to Removed section (record is never deleted)">
+              <i data-lucide="folder-minus" class="w-3 h-3"></i>
+              <span>Remove</span>
+            </button>
+            <button onclick="openGreetingCardModal('${d.id}', '${item.eventType.toLowerCase()}')" class="p-1 text-violet-700 hover:bg-violet-50 rounded transition border border-violet-200 hover:border-violet-400" title="Greeting Card">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+// ----------------------------------------------------
+// ANNIVERSARY: Accept / Remove (soft-removal — never deletes data)
+// ----------------------------------------------------
+
+// Accept — keep (or restore) a devotee/couple in the Anniversary list, eligible for parcels
+function acceptAnniversaryEntry(devId) {
+  const target = getMergedAnniversaryCelebrations().find(it =>
+    it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
+  );
+  const ids = target ? (target.coupleIds || [devId]) : [devId];
+  const before = (state.anniversaryRemovedIds || []).length;
+  state.anniversaryRemovedIds = (state.anniversaryRemovedIds || []).filter(id => !ids.includes(id));
+  const restoredCount = before - state.anniversaryRemovedIds.length;
+
+  saveToStorage();
+  if (restoredCount > 0) showRemovedAnnivSection(false); // return to the main Anniversary list
+  renderBirthdaysGrid();
+  renderRemovedAnnivSection();
+  showToast(restoredCount > 0
+    ? '✅ Restored to the Anniversary list — now eligible for parcels.'
+    : '✅ Already in the Anniversary list & eligible for parcels.', 'success');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Remove — move a devotee/couple out of the Anniversary list into the Removed section (never deleted)
+async function removeAnniversaryEntry(devId) {
+  const target = getMergedAnniversaryCelebrations().find(it =>
+    it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
+  );
+  if (!target) { showToast('Record not found in the Anniversary list.', 'error'); return; }
+
+  const names = target.isCouple ? target.coupleTitle : (target.devotee.spiritualName || target.devotee.legalName || 'this devotee');
+  const confirmed = await showAppConfirm({
+    title: 'Remove from Anniversary List?',
+    message: `Are you sure you want to remove ${names} from the Anniversary list?\n\nNothing will be deleted — the record stays safe in the Removed section and can be restored anytime.`,
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗂️'
+  });
+  if (!confirmed) return;
+
+  const ids = target.coupleIds || [devId];
+  state.anniversaryRemovedIds = [...new Set([...(state.anniversaryRemovedIds || []), ...ids])];
+
+  // Drop any leftover ☑ selection for this entry
+  if (ids.some(id => state.selectedCelebrations.has(id))) {
+    ids.forEach(id => state.selectedCelebrations.delete(id));
+    clearCelebrationSelection();
+  }
+
+  saveToStorage();
+  renderBirthdaysGrid();
+  renderRemovedAnnivSection();
+  showToast('🗂️ Moved to the Removed section — record is safe & restorable.', 'success');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Mode of Delivery per celebration (Delhivery Courier / Self Mode) — stored on the devotee record
+function setCelebrationDeliveryMode(devId, mode) {
+  let ids = [devId];
+  // Couples (Anniversary): apply to both husband & wife
+  const merged = getMergedAnniversaryCelebrations().find(it =>
+    it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
+  );
+  if (merged && merged.coupleIds) ids = merged.coupleIds;
+
+  ids.forEach(id => {
+    const dev = state.devotees.find(x => x.id === id);
+    if (dev) dev.deliveryMode = mode;
+  });
+
+  // Sync the courier partner on any existing live parcel for these devotees
+  (state.parcels || []).forEach(p => {
+    if (ids.includes(p.devoteeId)) {
+      p.courierPartner = (mode === 'SELF') ? 'Self Pickup' : 'Delhivery';
+    }
+  });
+
+  saveToStorage();
+  renderBirthdaysGrid();
+  showToast(mode === 'SELF'
+    ? 'Delivery mode: Self Mode (family pickup) ✅'
+    : 'Delivery mode: Delhivery Courier ✅', 'success');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Shared action handler — routes to Anniversary (couple) or Birthday (individual) soft-removal
+function removeCelebrationEntry(devId, eventType) {
+  if (eventType === 'MARRIAGE') return removeAnniversaryEntry(devId);
+  return removeBirthdayEntry(devId);
+}
+
+// Remove — move a devotee out of the Birthday list into the Removed section (never deleted)
+async function removeBirthdayEntry(devId) {
+  const target = getAllBirthdayCelebrations().find(it =>
+    it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
+  );
+  if (!target) { showToast('Record not found in the Birthday list.', 'error'); return; }
+
+  const names = target.devotee.spiritualName || target.devotee.legalName || 'this devotee';
+  const confirmed = await showAppConfirm({
+    title: 'Remove from Birthday List?',
+    message: `Are you sure you want to remove ${names} from the Birthday list?\n\nNothing will be deleted — the record stays safe in the Removed section and can be restored anytime.`,
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗂️'
+  });
+  if (!confirmed) return;
+
+  const ids = target.coupleIds || [devId];
+  state.birthdayRemovedIds = [...new Set([...(state.birthdayRemovedIds || []), ...ids])];
+
+  // Drop any leftover ☑ selection for this entry
+  if (ids.some(id => state.selectedCelebrations.has(id))) {
+    ids.forEach(id => state.selectedCelebrations.delete(id));
+    clearCelebrationSelection();
+  }
+
+  saveToStorage();
+  renderBirthdaysGrid();
+  renderRemovedCelebrationSection();
+  showToast('🗂️ Moved to the Removed section — record is safe & restorable.', 'success');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Accept / Restore — bring a devotee back to the Birthday list, eligible for parcels again
+function acceptBirthdayEntry(devId) {
+  const target = getAllBirthdayCelebrations().find(it =>
+    it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
+  );
+  const ids = target ? (target.coupleIds || [devId]) : [devId];
+  const before = (state.birthdayRemovedIds || []).length;
+  state.birthdayRemovedIds = (state.birthdayRemovedIds || []).filter(id => !ids.includes(id));
+  const restoredCount = before - state.birthdayRemovedIds.length;
+
+  saveToStorage();
+  if (restoredCount > 0) showRemovedAnnivSection(false); // return to the main Birthday list
+  renderBirthdaysGrid();
+  renderRemovedCelebrationSection();
+  showToast(restoredCount > 0
+    ? '✅ Restored to the Birthday list — now eligible for parcels.'
+    : '✅ Already in the Birthday list & eligible for parcels.', 'success');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Toggle the Removed records panel inside the celebration tabs
+function toggleRemovedAnnivSection() {
+  const section = document.getElementById('anniv-removed-section');
+  const isHidden = !section || section.classList.contains('hidden');
+  showRemovedAnnivSection(isHidden);
+}
+
+function showRemovedAnnivSection(show) {
+  const section = document.getElementById('anniv-removed-section');
+  if (!section) return;
+  section.classList.toggle('hidden', !show);
+  if (show) renderRemovedAnnivSection();
+}
+
+// Render the Removed records table (tab-aware: Birthday individuals or Anniversary couples —
+// full info preserved — Photo, Name, Legal Name, Spouse, Date, Devotee ID, Phone, Address)
+function renderRemovedAnnivSection() {
+  renderRemovedCelebrationSection();
+}
+
+function renderRemovedCelebrationSection() {
+  const isAnniv = state.currentTab === 'anniversaries';
+  const removed = isAnniv ? (state.anniversaryRemovedIds || []) : (state.birthdayRemovedIds || []);
+  const listEl = document.getElementById('anniv-removed-list');
+  const countEl = document.getElementById('anniv-removed-count');
+  const labelEl = document.getElementById('anniv-removed-toggle-label');
+  const barLabelEl = document.getElementById('anniv-removed-bar-label');
+  const dateColEl = document.getElementById('anniv-removed-date-col');
+
+  // Dynamic section labels per tab
+  if (barLabelEl) barLabelEl.innerText = isAnniv ? 'Removed from Anniversary List' : 'Removed from Birthday List';
+  if (dateColEl) dateColEl.innerText = isAnniv ? 'Anniversary' : 'Birthday';
+
+  // Count REMOVED ENTRIES (a merged couple = 1 entry, matching the main list)
+  const allEntries = isAnniv ? getMergedAnniversaryCelebrations() : getAllBirthdayCelebrations();
+  const removedItems = allEntries
+    .filter(it => (it.coupleIds || [it.id]).some(id => removed.includes(id)))
+    .sort((a, b) => a.timing.daysRemaining - b.timing.daysRemaining);
+  const entryCount = removedItems.length || removed.length;
+
+  if (countEl) countEl.innerText = String(entryCount);
+  if (labelEl) labelEl.innerText = entryCount ? `View Removed Records (${entryCount})` : 'View Removed Records';
+
+  if (!listEl) return;
+
+  if (!entryCount) {
+    listEl.innerHTML = `
+      <tr>
+        <td colspan="9" class="text-center py-12 text-slate-400">
+          <div class="flex flex-col items-center space-y-1.5">
+            <span class="text-2xl">🗂️</span>
+            <span class="font-bold text-sm text-slate-600">Removed section is empty</span>
+            <span class="text-xs text-slate-400">Records removed from the ${isAnniv ? 'Anniversary' : 'Birthday'} list appear here — nothing is ever deleted.</span>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  const buildAddr = (dev) => dev ? ([dev.address, dev.city, dev.pincode, dev.state].filter(Boolean).join(', ')) : '';
+  const dateIcon = isAnniv ? '💍' : '🎂';
+
+  listEl.innerHTML = removedItems.map(item => {
+    const d = item.devotee;
+    const spouse = item.spouseDevotee;
+    const isCouple = !!item.isCouple && spouse;
+    const dateText = item.rawDateStr || formatDate(item.date);
+
+    const photoCell = isCouple ? `
+      <div class="relative flex items-center">
+        <div class="p-[2px] border border-emerald-400 rounded-sm bg-white relative z-10 shadow-xs cursor-pointer" onclick="handleDevoteeAvatarClick(event, '${d.id}')" title="${escapeHtml(d.legalName || d.spiritualName)}">
+          ${getDevoteeAvatarHtml(d, 'w-8 h-8', 'text-[10px]')}
+        </div>
+        <div class="p-[2px] border border-purple-300 rounded-sm bg-white relative -ml-2.5 z-0 shadow-xs cursor-pointer" onclick="handleDevoteeAvatarClick(event, '${spouse.id}')" title="${escapeHtml(spouse.legalName || spouse.spiritualName)}">
+          ${getDevoteeAvatarHtml(spouse, 'w-8 h-8', 'text-[10px]')}
+        </div>
+      </div>` : `
+      <div class="p-[2px] border border-slate-200 rounded-sm bg-white shadow-xs cursor-pointer" onclick="handleDevoteeAvatarClick(event, '${d.id}')" title="${escapeHtml(d.legalName || d.spiritualName)}">
+        ${getDevoteeAvatarHtml(d, 'w-8 h-8', 'text-[10px]')}
+      </div>`;
+
+    const nameCell = isCouple ? `
+      <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')">${escapeHtml(d.legalName || d.spiritualName)}</div>
+      <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition mt-1.5" onclick="viewDevoteeProfile('${spouse.id}')">${escapeHtml(spouse.legalName || spouse.spiritualName)}</div>` : `
+      <div class="font-bold text-slate-900 text-[13px] leading-tight cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')">${escapeHtml(d.legalName || d.spiritualName)}</div>`;
+
+    const legalCell = (isCouple ? [d, spouse] : [d]).map(dev => {
+      const parts = [];
+      if (dev.spiritualName) parts.push(`<span class="text-slate-800">${escapeHtml(dev.spiritualName)}</span>`);
+      if (dev.legalName && dev.legalName !== dev.spiritualName) parts.push(`<span class="text-slate-400">${escapeHtml(dev.legalName)}</span>`);
+      return `<div class="text-[11px] leading-tight">${parts.join(' <span class="text-slate-300">/</span> ')}</div>`;
+    }).join('');
+
+    const spouseName = isCouple ? (spouse.spiritualName || spouse.legalName) : (d.spouseName || '—');
+
+    const idCell = (isCouple ? [d, spouse] : [d]).map(dev => `<div class="font-mono text-[10px] text-slate-500">${escapeHtml(dev.id)}</div>`).join('');
+    const phoneCell = (isCouple ? [d, spouse] : [d]).map(dev => dev.phone ? `<div class="font-mono text-[11px] text-slate-700">📞 ${escapeHtml(dev.phone)}</div>` : '').join('') || '<span class="text-slate-400 text-[10px] italic">No phone</span>';
+    const addrCell = (isCouple ? [d, spouse] : [d]).map(dev => {
+      const a = buildAddr(dev);
+      return a ? `<div class="text-[10px] text-slate-600 leading-snug">${escapeHtml(a)}</div>` : '';
+    }).join('') || '<span class="text-slate-400 text-[10px] italic">No address</span>';
+
+    return `
+      <tr class="hover:bg-amber-50/50 transition border-b border-slate-100">
+        <td class="py-2 px-3">${photoCell}</td>
+        <td class="py-2 px-3 min-w-[220px]">${nameCell}</td>
+        <td class="py-2 px-3 min-w-[180px]">${legalCell}</td>
+        <td class="py-2 px-3 text-[11px] text-slate-700">${escapeHtml(spouseName)}</td>
+        <td class="py-2 px-3 whitespace-nowrap text-[11px] text-slate-800 font-semibold">${dateIcon} ${dateText}</td>
+        <td class="py-2 px-3">${idCell}</td>
+        <td class="py-2 px-3 whitespace-nowrap">${phoneCell}</td>
+        <td class="py-2 px-3 min-w-[200px]">${addrCell}</td>
+        <td class="py-2 px-3 text-right whitespace-nowrap">
+          <button onclick="${isAnniv ? "acceptAnniversaryEntry" : "acceptBirthdayEntry"}('${d.id}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-[11px] transition shadow-xs cursor-pointer" title="${isAnniv ? 'Restore to the Anniversary list & make eligible for parcels' : 'Restore to the Birthday list & make eligible for parcels'}">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Restore</span>
+          </button>
+        </td>
+      </tr>`;
   }).join('');
 
   if (window.lucide) lucide.createIcons();
@@ -3246,43 +4847,85 @@ let activeTrackingDevotee = null;
 // Courier-aware tracking page links — clicking the Tracking Number opens the
 // relevant courier's parcel tracking page in a new tab.
 const COURIER_TRACKING_PAGES = {
-  'Delhivery': 'https://www.delhivery.com/track',
-  'Blue Dart': 'https://www.bluedart.com/tracking',
-  'India Post': 'https://www.indiapost.gov.in/VAS/Pages/TrackConsignment.aspx',
-  'DTDC': 'https://www.dtdc.in/tracking',
-  'ISKCON Seva Courier': 'https://www.delhivery.com/track'
+  // Each carrier: base tracking page + the query parameter it uses to pre-fill the search box
+  'Delhivery': { base: 'https://www.delhivery.com/track', param: 'trackingId' },
+  'Blue Dart': { base: 'https://www.bluedart.com/tracking/CustomerTracking.action', param: 'awbno', prefix: 'actionId=trackcust' },
+  'India Post': { base: 'https://www.indiapost.gov.in/VAS/Pages/TrackConsignment.aspx', param: 'TokenNo' },
+  'DTDC': { base: 'https://www.dtdc.in/tracking/TrackingDownShipment.asp', param: 'strCnno' },
+  'ISKCON Seva Courier': { base: 'https://www.delhivery.com/track', param: 'trackingId' }
 };
 
 function getCourierTrackingUrl(courier, trackingNo) {
   const name = String(courier || '').trim().toLowerCase();
+  const no = (trackingNo && trackingNo !== '—' ? String(trackingNo).trim() : '');
+
   for (const key in COURIER_TRACKING_PAGES) {
     if (name.includes(key.toLowerCase())) {
-      return COURIER_TRACKING_PAGES[key];
+      const cfg = COURIER_TRACKING_PAGES[key];
+      const params = [];
+      if (cfg.prefix) params.push(cfg.prefix);
+      if (no && cfg.param) params.push(cfg.param + '=' + encodeURIComponent(no));
+      return params.length ? cfg.base + '?' + params.join('&') : cfg.base;
     }
   }
+
   // Unknown courier — search the tracking number directly on Google
-  if (trackingNo && trackingNo !== '—') {
-    return `https://www.google.com/search?q=${encodeURIComponent(trackingNo)}`;
+  if (no) {
+    return `https://www.google.com/search?q=${encodeURIComponent(no)}`;
   }
   return 'https://www.delhivery.com/track';
+}
+
+// Mode of Delivery for a consignment (Delhivery Courier / Self Mode) —
+// replaces the old Courier Partner display in the Tracking tab. The real
+// courierPartner is still kept in the record only to build tracking links.
+function getParcelDeliveryModeLabel(p) {
+  const devo = (state.devotees || []).find(x => x.id === (p && p.devoteeId)) || {};
+  const cp = String((p && p.courierPartner) || devo.courierPartner || '').toLowerCase();
+  const pMode = (p && p.deliveryMode) || '';
+  // The consignment's own courierPartner / deliveryMode is authoritative (Self Pickup persists
+  // per parcel even if the devotee is later switched back); the devotee profile is a fallback.
+  const isSelf = ['self pickup', 'self mode', 'self'].includes(cp) || pMode === 'SELF' || (!cp && devo.deliveryMode === 'SELF');
+  return isSelf ? 'Self Mode' : 'Delhivery Courier';
+}
+
+// Clear EVERY filter in the Parcel & Tracking toolbar (Mode / Purpose / Search)
+function clearParcelFilters() {
+  const modeEl = document.getElementById('parcel-filter-mode');
+  if (modeEl) modeEl.value = 'ALL';
+  const purposeEl = document.getElementById('parcel-filter-purpose');
+  if (purposeEl) purposeEl.value = 'ALL';
+  const searchEl = document.getElementById('parcel-filter-search');
+  if (searchEl) searchEl.value = '';
+  renderParcelsTable();
+  showToast('All parcel filters cleared', 'info');
 }
 
 function renderParcelsTable() {
   const tableBody = document.getElementById('parcels-table-body');
   if (!tableBody) return;
 
-  const courierFilter = document.getElementById('parcel-filter-courier') ? document.getElementById('parcel-filter-courier').value : 'ALL';
+  updateParcelKpiCards(); // keep the KPI cards live on every render
+
+  const modeFilter = document.getElementById('parcel-filter-mode') ? document.getElementById('parcel-filter-mode').value : 'ALL';
+  const purposeFilter = document.getElementById('parcel-filter-purpose') ? document.getElementById('parcel-filter-purpose').value : 'ALL';
   const search = document.getElementById('parcel-filter-search') ? document.getElementById('parcel-filter-search').value.toLowerCase().trim() : '';
+  updateParcelKpiCardHighlights(purposeFilter);
 
   // Parcel Tracking lists ONLY live auto-synced parcel records — created from the
   // Birthday / Anniversary lists. No calendar-based filtering anymore.
   const parcels = state.parcels || [];
 
   const filtered = parcels.filter(p => {
-    // 1. Courier Filter
-    if (courierFilter !== 'ALL') {
-      const courier = p.courierPartner || 'Delivery Courier';
-      if (!courier.toLowerCase().includes(courierFilter.toLowerCase())) return false;
+    // 1. Mode of Delivery Filter (Delhivery Courier / Self Mode)
+    if (modeFilter !== 'ALL') {
+      if (getParcelDeliveryModeLabel(p) !== modeFilter) return false;
+    }
+
+    // 1b. Purpose Filter (All / Birthday / Anniversary)
+    if (purposeFilter !== 'ALL') {
+      const purpose = p.parcelType || p.eventType || '';
+      if (purpose !== purposeFilter) return false;
     }
 
     // 2. Search Filter
@@ -3312,7 +4955,7 @@ function renderParcelsTable() {
   if (filtered.length === 0) {
     tableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="text-center py-14 text-slate-400">
+        <td colspan="9" class="text-center py-14 text-slate-400">
           <div class="flex flex-col items-center space-y-2">
             <span class="text-3xl">📦</span>
             <span class="font-bold text-sm text-slate-700">No parcels in tracking yet</span>
@@ -3325,7 +4968,7 @@ function renderParcelsTable() {
     if (emptyPag) {
       emptyPag.innerHTML = `
         <div>Showing <strong>0</strong> of <strong>0</strong> live consignments (auto-synced from Birthday / Anniversary lists)</div>
-        <div class="text-[11px] text-slate-500">Logistics Hub: Sri Sri Radha Madhava Mandir, Durgapur</div>
+        <div class="text-[11px] text-slate-500">Logistics Hub: Sri Sri Radha Madan Mohan Mandir, Durgapur</div>
       `;
     }
     updateParcelSelectAllCheckbox();
@@ -3333,80 +4976,140 @@ function renderParcelsTable() {
     return;
   }
 
-  // Render Table Rows — every consignment shows the courier, the tracking number
-  // (clickable → opens the courier's tracking page) and a Track action.
-  tableBody.innerHTML = filtered.map(p => {
+  // Render Table Rows — S.No., Recipient, Purpose, Tracking No. (clickable → carrier page
+  // with the number auto-filled), a click-to-toggle Delivery status, and Delete.
+  tableBody.innerHTML = filtered.map((p, idx) => {
     // Merge the live parcel record over the devotee profile so every consignment
     // detail (courier, tracking no, parcel type) reflects the actual record.
     const devo = state.devotees.find(x => x.id === p.devoteeId) || {};
     const d = Object.assign({}, devo, p, { id: p.devoteeId, parcelCreated: true });
     const displayName = d.spiritualName || d.legalName;
     const secondaryName = d.spiritualName ? d.legalName : '';
-    const trackingNoForDisplay = d.courierTrackingNo || '—';
     const courier = d.courierPartner || 'Delivery Courier';
-    const pin = d.pincode || '713204';
-    const city = d.city || 'Durgapur';
-
-    const isVerified = (d.addressVerified === 'Verified' || (d.address && d.address.length >= 20));
+    const deliveryModeLabel = getParcelDeliveryModeLabel(p);
+    const isSelfMode = deliveryModeLabel === 'Self Mode';
+    const purpose = d.parcelType || d.eventType || (d.birthdayRaw ? 'Birthday' : 'Anniversary');
+    const purposePill = purpose === 'Anniversary'
+      ? '<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">💍 <span>Anniversary</span></span>'
+      : '<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-pink-100 text-pink-800 border border-pink-200">🎂 <span>Birthday</span></span>';
+    const serialNo = String(idx + 1).padStart(2, '0');
+    const delivered = d.delivered === true;
+    const isSel = (state.selectedParcels || new Set()).has(p.id);
 
     return `
-      <tr id="parcel-row-${p.id}" class="hover:bg-slate-50/80 transition">
-        <!-- 1. Purpose / Sent For -->
-        <td class="py-3 px-3">
+      <tr id="parcel-row-${p.id}" class="hover:bg-slate-50/80 transition${isSel ? ' bg-red-50/50' : ''}">
+        <!-- 0. Select -->
+        <td class="py-2.5 px-3 text-center">
+          <input type="checkbox" data-id="${p.id}" onchange="toggleParcelSelection('${p.id}', this.checked, this)" ${isSel ? 'checked' : ''} class="parcel-row-checkbox w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" title="Select for bulk actions">
+        </td>
+        <!-- 1. S.No. -->
+        <td class="py-2.5 px-3 text-center">
+          <span class="font-mono font-bold text-slate-400">${serialNo}</span>
+        </td>
+
+        <!-- 2. Recipient -->
+        <td class="py-2.5 px-3">
           <div class="flex items-center space-x-2.5">
             ${getDevoteeAvatarHtml(d, 'w-8 h-8', 'text-[10px]')}
             <div>
-              <div class="font-bold text-slate-900 cursor-pointer hover:text-indigo-600 transition" onclick="viewDevoteeProfile('${d.id}')">${displayName}</div>
-              <div class="text-[11px] text-slate-500">${secondaryName ? secondaryName + ' • ' : ''}${d.phone}</div>
+              <div class="font-bold text-slate-900 cursor-pointer hover:text-indigo-600 transition text-xs" onclick="viewDevoteeProfile('${d.id}')">${displayName}</div>
+              <div class="text-[10px] text-slate-500 font-mono">${secondaryName ? secondaryName + ' • ' : ''}${d.phone || ''}</div>
             </div>
           </div>
-          ${d.parcelType === 'Anniversary'
-            ? '<div class="mt-1.5 inline-flex items-center space-x-1 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[10px] px-2 py-0.5 rounded-full">💍 Sent For: Anniversary</div>'
-            : '<div class="mt-1.5 inline-flex items-center space-x-1 bg-pink-50 text-pink-700 border border-pink-200 font-bold text-[10px] px-2 py-0.5 rounded-full">🎂 Sent For: Birthday</div>'}
         </td>
 
-        <!-- 2. Destination (full verified address) -->
-        <td class="py-3 px-3 max-w-[220px]">
-          <div class="font-medium text-slate-800 text-[11px] leading-snug">${d.address || ''}</div>
-          <div class="flex items-center space-x-1 mt-0.5">
-            <i data-lucide="map-pin" class="w-3 h-3 text-slate-400"></i>
-            <span class="font-mono font-bold text-slate-600 text-[10px]">${city} - ${pin}</span>
+        <!-- 3. Purpose -->
+        <td class="py-2.5 px-3">
+          ${purposePill}
+        </td>
+
+        <!-- 4. Tracking Number — Self Mode: locked (no tracking needed); Delhivery: 13-14 digits mandatory -->
+        <td class="py-2.5 px-3">
+          ${isSelfMode ? `
+          <div class="flex items-center gap-1 min-w-[210px]">
+            <div class="w-36 p-1.5 border border-rose-200 rounded-lg bg-rose-50 text-rose-500 text-[12px] font-bold tracking-wider text-center flex items-center justify-center gap-1.5 cursor-not-allowed select-none" title="Self Mode (temple pickup) — tracking number is locked and not required">
+              <span class="text-sm leading-none">🔒</span><span>No Tracking</span>
+            </div>
+            <span class="text-rose-500 font-bold text-sm leading-none" title="Locked — not required for Self Mode">❌</span>
           </div>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200">🏠 Self Mode</span>
+            <span class="text-[9px] text-amber-700 font-bold">🔒 Temple pickup — tracking locked</span>
+          </div>
+          ` : `
+          <div class="flex items-center gap-1 min-w-[210px]">
+            <input type="text" 
+                   id="pt-trk-${p.id}" 
+                   value="${d.courierTrackingNo ? escapeHtml(d.courierTrackingNo) : ''}" 
+                   placeholder="13-14 digit number *" 
+                   maxlength="14" 
+                   inputmode="numeric" 
+                   pattern="[0-9]{13,14}" 
+                   oninput="this.value = this.value.replace(/\\D/g, '').slice(0, 14);" 
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();saveParcelTracking('${p.id}')}" 
+                   class="w-32 p-1.5 border border-slate-300 rounded-lg text-[12px] font-mono font-bold text-sky-900 bg-sky-50/50 focus:ring-2 focus:ring-sky-500 tracking-wider text-center" 
+                   title="Enter 13-14 digits and click Save">
+            <button onclick="saveParcelTracking('${p.id}')" class="bg-sky-600 hover:bg-sky-700 text-white font-bold px-2.5 py-1.5 rounded-lg text-[10px] transition whitespace-nowrap shadow-xs cursor-pointer" title="Save tracking number">Save</button>
+            ${d.courierTrackingNo ? `<a href="${getCourierTrackingUrl(courier, d.courierTrackingNo)}" target="_blank" rel="noopener" class="text-sky-500 hover:text-sky-800 p-1 text-sm leading-none" title="${d.courierTrackingNo} — open ${courier} tracking page">↗</a>` : ''}
+          </div>
+          <div class="flex items-center gap-1.5 mt-1">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-sky-100 text-sky-800 border border-sky-200">🚚 Delhivery Courier</span>
+          </div>
+          ${d.courierTrackingNo
+            ? `<div class="text-[9px] text-slate-400 mt-1 font-mono">${d.courierTrackingNo}</div>`
+            : `<div class="text-[9px] text-rose-500 font-bold mt-1">* 13-14 Digits Mandatory</div>`}
+          `}
         </td>
 
-        <!-- 3. Verified Address (green block) -->
-        <td class="py-3 px-3">
-          ${isVerified
-            ? '<div class="bg-emerald-50 border border-emerald-300/70 rounded-lg px-2.5 py-2 flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span class="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">✅ Verified Address</span></div>'
-            : '<div class="bg-amber-50 border border-amber-300/70 rounded-lg px-2.5 py-2 flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span><span class="text-[10px] font-bold text-amber-700 uppercase tracking-wide">⚠️ Check Needed</span></div>'}
+        <!-- 5. Pre Calling — Yes/No toggle (Self Mode: locked ON ❌) -->
+        <td class="py-2.5 px-3 text-center">
+          ${isSelfMode ? `
+          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-emerald-50 border border-emerald-300 rounded-lg cursor-not-allowed" id="parcel-cell-pre-${p.id}" title="Self Mode — Pre Calling always ON (locked)">
+            <button type="button" disabled class="${TGL_YES_ACTIVE} opacity-90 cursor-not-allowed select-none" style="pointer-events:none">Yes</button>
+            <button type="button" disabled class="${TGL_IDLE_NO} cursor-not-allowed select-none" style="pointer-events:none">No</button>
+            <span class="text-[10px] leading-none pl-0.5">🔒</span>
+            <input type="hidden" id="pc-pre-${p.id}" value="Yes">
+          </div>
+          ` : `
+          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" id="parcel-cell-pre-${p.id}">
+            <button type="button" class="${d.preCalling === 'Yes' ? TGL_YES_ACTIVE : TGL_IDLE_YES}" onclick="toggleParcelCalling('${p.id}', 'preCalling', 'Yes')">Yes</button>
+            <button type="button" class="${d.preCalling === 'No' ? TGL_NO_ACTIVE : TGL_IDLE_NO}" onclick="toggleParcelCalling('${p.id}', 'preCalling', 'No')">No</button>
+            <input type="hidden" id="pc-pre-${p.id}" value="${d.preCalling || ''}">
+          </div>
+          `}
         </td>
 
-        <!-- 4. Courier -->
-        <td class="py-3 px-3">
-          <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-600 border border-red-200 shadow-xs">
-            <span>🚚</span>
-            <span class="tracking-wide">${courier}</span>
-          </span>
+        <!-- 6. Post Calling — Yes/No toggle (Self Mode: locked OFF ❌) -->
+        <td class="py-2.5 px-3 text-center">
+          ${isSelfMode ? `
+          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg cursor-not-allowed" id="parcel-cell-post-${p.id}" title="Self Mode — Post Calling always OFF (locked)">
+            <button type="button" disabled class="${TGL_IDLE_YES} cursor-not-allowed select-none" style="pointer-events:none">Yes</button>
+            <button type="button" disabled class="${TGL_NO_ACTIVE} opacity-90 cursor-not-allowed select-none" style="pointer-events:none">No</button>
+            <span class="text-[10px] leading-none pl-0.5">🔒</span>
+            <input type="hidden" id="pc-post-${p.id}" value="No">
+          </div>
+          ` : `
+          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" id="parcel-cell-post-${p.id}">
+            <button type="button" class="${d.postCalling === 'Yes' ? TGL_YES_ACTIVE : TGL_IDLE_YES}" onclick="toggleParcelCalling('${p.id}', 'postCalling', 'Yes')">Yes</button>
+            <button type="button" class="${d.postCalling === 'No' ? TGL_NO_ACTIVE : TGL_IDLE_NO}" onclick="toggleParcelCalling('${p.id}', 'postCalling', 'No')">No</button>
+            <input type="hidden" id="pc-post-${p.id}" value="${d.postCalling || ''}">
+          </div>
+          `}
         </td>
 
-        <!-- 5. Tracking Number (opens the courier's tracking page) -->
-        <td class="py-3 px-3">
-          <a href="${getCourierTrackingUrl(courier, trackingNoForDisplay)}" target="_blank" rel="noopener" title="Open the ${courier} tracking page in a new tab — check this number there" class="font-mono text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 rounded px-2 py-1 inline-flex items-center space-x-1 hover:bg-indigo-100 hover:underline transition">
-            <i data-lucide="external-link" class="w-3 h-3"></i>
-            <span>${trackingNoForDisplay}</span>
-          </a>
+        <!-- 7. Status — Delivery Toggle (requires confirmation) -->
+        <td class="py-2.5 px-3 text-center">
+          <button onclick="toggleParcelDelivered('${p.id}', '${d.id}')" title="Click to change delivery status" class="inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold transition cursor-pointer border ${delivered ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100' : 'bg-rose-50 border-rose-300 text-rose-700 hover:bg-rose-100'}">
+            <span class="text-sm leading-none">${delivered ? '🟢' : '🔴'}</span>
+            <span>${delivered ? 'Delivered' : 'Not Delivered'}</span>
+          </button>
         </td>
 
-        <!-- 6. Status (options removed — new ones will be added later) -->
-        <td class="py-3 px-3">
-          <span class="text-[11px] text-slate-400 font-medium" title="New parcel status options will be added shortly">—</span>
-        </td>
-
-        <!-- 7. Action (Track only) -->
-        <td class="py-3 px-3 text-center">
-          <button onclick="openParcelTrackerModal('${d.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center justify-center space-x-1 shadow-sm" title="View parcel tracking details">
-            <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
-            <span>Track</span>
+        <!-- 8. Action (Delete — requires confirmation) -->
+        <td class="py-2.5 px-3 text-center">
+          <button onclick="deleteParcelRecord('${p.id}', '${d.id}')" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center justify-center space-x-1 shadow-sm cursor-pointer" title="Permanently delete this consignment">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>Delete</span>
           </button>
         </td>
       </tr>
@@ -3418,11 +5121,58 @@ function renderParcelsTable() {
   if (pag) {
     pag.innerHTML = `
       <div>Showing <strong class="font-bold text-slate-800">${filtered.length}</strong> of <strong class="font-bold text-slate-800">${parcels.length}</strong> live consignments (auto-synced from Birthday / Anniversary lists)</div>
-      <div class="text-[11px] text-slate-500">Logistics Hub: Sri Sri Radha Madhava Mandir, Durgapur</div>
+      <div class="text-[11px] text-slate-500">Logistics Hub: Sri Sri Radha Madan Mohan Mandir, Durgapur</div>
     `;
   }
 
+  updateParcelSelectAllCheckbox();
+  updateParcelSelectedCountUI();
+
   if (window.lucide) lucide.createIcons();
+}
+
+// ----------------------------------------------------
+// DELIVERY TOGGLE — mark a consignment Delivered / Not Delivered with confirmation
+// ----------------------------------------------------
+async function toggleParcelDelivered(parcelId, devoteeId) {
+  if (!state.parcels) state.parcels = [];
+  const p = state.parcels.find(x => x.id === parcelId);
+  if (!p) return;
+
+  const nextStatus = (p.delivered === true) ? 'Not Delivered' : 'Delivered';
+  const confirmed = await showAppConfirm({
+    title: 'Status Confirmation',
+    message: `Are you sure you want to change Status to ${nextStatus}?`,
+    confirmText: 'Confirm',
+    cancelText: 'Cancel',
+    icon: (nextStatus === 'Delivered') ? '📦' : '⚠️',
+    isDanger: (nextStatus === 'Not Delivered')
+  });
+
+  if (!confirmed) return;
+
+  p.delivered = (nextStatus === 'Delivered');
+  p.deliveredAt = p.delivered ? new Date().toISOString() : '';
+  localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+
+  // Mirror onto the devotee record too
+  const devo = state.devotees.find(x => x.id === devoteeId);
+  if (devo) {
+    devo.delivered = p.delivered;
+    devo.deliveredAt = p.deliveredAt;
+  }
+
+  renderParcelsTable();
+  updateKPIs();
+
+  // Persist to Supabase
+  if (getSupabaseClient()) {
+    syncParcelToSupabase(p);
+  } else {
+    console.warn('Supabase not available — delivery status saved locally only.');
+  }
+
+  showToast(`Status changed to ${nextStatus}`, 'success');
 }
 
 // ----------------------------------------------------
@@ -3499,14 +5249,22 @@ function clearParcelSelection() {
   updateParcelSelectedCountUI();
 }
 
-function bulkDeleteParcels() {
+async function bulkDeleteParcels() {
   if (!state.selectedParcels || state.selectedParcels.size === 0) {
     showToast('Please select at least one parcel record to delete', 'error');
     return;
   }
 
   const count = state.selectedParcels.size;
-  if (!confirm(`Are you sure you want to permanently DELETE ${count} selected parcel record${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+  const confirmed = await showAppConfirm({
+    title: 'Delete Selected Consignments',
+    message: `Are you sure you want to permanently delete ${count} selected parcel consignment${count > 1 ? 's' : ''}? This cannot be undone.`,
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗑️'
+  });
+  if (!confirmed) return;
 
   const idsToDelete = new Set(state.selectedParcels);
   const devoteeIds = new Set();
@@ -3533,10 +5291,22 @@ function bulkDeleteParcels() {
   showToast(`Deleted ${count} parcel record${count > 1 ? 's' : ''} permanently`, 'success');
 }
 
-function deleteParcelRecord(parcelId, devoteeId) {
-  if (!confirm('Permanently delete this parcel consignment? This cannot be undone.')) return;
-  state.parcels = (state.parcels || []).filter(p => p.id !== parcelId);
+async function deleteParcelRecord(parcelId, devoteeId) {
+  const p = (state.parcels || []).find(x => x.id === parcelId);
   const dev = state.devotees.find(x => x.id === devoteeId);
+  const name = (dev && (dev.spiritualName || dev.legalName)) || (p && (p.spiritualName || p.legalName)) || 'this devotee';
+
+  const confirmed = await showAppConfirm({
+    title: 'Delete Consignment',
+    message: `Are you sure you want to delete this parcel consignment for ${name}? This cannot be undone.`,
+    confirmText: 'Delete',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗑️'
+  });
+  if (!confirmed) return;
+
+  state.parcels = (state.parcels || []).filter(p => p.id !== parcelId);
   if (dev) clearDevoteeParcelTrace(dev);
   if (state.selectedParcels) state.selectedParcels.delete(parcelId);
   saveToStorage();
@@ -3613,10 +5383,10 @@ function openParcelTrackerModal(devoteeId) {
     }
   }
 
-  // Fill Courier Details
+  // Fill Mode of Delivery (Delhivery Courier / Self Mode)
   const courierNameEl = document.getElementById('pt-courier-name');
   if (courierNameEl) {
-    courierNameEl.innerText = courier;
+    courierNameEl.innerText = getParcelDeliveryModeLabel({ devoteeId: d.id, deliveryMode: d.deliveryMode, courierPartner: d.courierPartner });
     courierNameEl.className = 'bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full';
   }
   document.getElementById('pt-agent-name').innerText = d.deliveryAgent || 'Rajesh Sharma (+91 94341 00212)';
@@ -3750,11 +5520,11 @@ function openShippingLabelModal(devoteeId) {
   const spiritualName = d.spiritualName || '';
   const trackingId = d.trackingId || `ISK713204-${String(d.slNo || 1).padStart(3, '0')}`;
   const pin = d.pincode || '713204';
-  const courier = d.courierPartner || 'DELIVERY COURIER';
+  const deliveryModeLabel = getParcelDeliveryModeLabel({ devoteeId: d.id, deliveryMode: d.deliveryMode, courierPartner: d.courierPartner });
 
   const slHeader = document.getElementById('sl-courier-header');
   if (slHeader) {
-    slHeader.innerText = courier.toUpperCase();
+    slHeader.innerText = deliveryModeLabel.toUpperCase();
     slHeader.className = 'text-[11px] font-black block text-red-600 tracking-wider';
   }
   document.getElementById('sl-tracking-barcode').innerText = d.courierTrackingNo || trackingId;
@@ -3783,46 +5553,134 @@ function batchPrintShippingLabels() {
   window.print();
 }
 
-function exportParcelManifestExcel() {
-  if (typeof XLSX === 'undefined') {
-    showToast('Excel library not loaded', 'error');
-    return;
-  }
-
-  const parcelRecords = state.parcels || [];
-  if (parcelRecords.length === 0) {
+function exportParcelReportPDF() {
+  const parcels = state.parcels || [];
+  if (parcels.length === 0) {
     showToast('No parcels to export yet — create parcels from the Birthday / Anniversary lists.', 'info');
     return;
   }
 
-  const data = parcelRecords.map(p => {
-    const d = state.devotees.find(x => x.id === p.devoteeId) || {};
-    return {
-      'SL NO': d.slNo || '',
-      'TRACKING ID': p.trackingId || '',
-      'DEVOTEE ID': p.devoteeId,
-      'RECIPIENT NAME': p.legalName || d.legalName,
-      'SPIRITUAL NAME': p.spiritualName || d.spiritualName,
-      'PHONE NUMBER': p.phone || d.phone,
-      'DELIVERY ADDRESS': p.address || d.address,
-      'CITY': p.city || d.city,
-      'STATE': d.state || '',
-      'PIN CODE': p.pincode || d.pincode,
-      'PARCEL TYPE': p.parcelType || '',
-      'COURIER PARTNER': p.courierPartner || 'Delivery Courier',
-      'TRACKING NO': p.courierTrackingNo || p.trackingId,
-      'STATUS': p.parcelStatusText || '',
-      'ADDRESS VERIFIED': p.addressVerified || d.addressVerified,
-      'PACKAGE CONTENTS': p.parcelDescription || d.packageContents,
-      'WEIGHT (KG)': '0.45'
-    };
+  // Same filter pipeline as the on-screen tracking table, so the PDF matches
+  // exactly what the user is looking at (Mode of Delivery / Purpose / Search).
+  const modeFilter = document.getElementById('parcel-filter-mode') ? document.getElementById('parcel-filter-mode').value : 'ALL';
+  const purposeFilter = document.getElementById('parcel-filter-purpose') ? document.getElementById('parcel-filter-purpose').value : 'ALL';
+  const search = document.getElementById('parcel-filter-search') ? document.getElementById('parcel-filter-search').value.toLowerCase().trim() : '';
+
+  const filtered = parcels.filter(p => {
+    if (modeFilter !== 'ALL' && getParcelDeliveryModeLabel(p) !== modeFilter) return false;
+    if (purposeFilter !== 'ALL') {
+      const purpose = p.parcelType || p.eventType || '';
+      if (purpose !== purposeFilter) return false;
+    }
+    if (search) {
+      const trk = (p.courierTrackingNo || p.trackingId || '').toLowerCase();
+      const sName = (p.spiritualName || '').toLowerCase();
+      const lName = (p.legalName || '').toLowerCase();
+      const phone = (p.phone || '').toLowerCase();
+      const city = (p.city || '').toLowerCase();
+      const pin = (p.pincode || '').toLowerCase();
+      const id = (p.devoteeId || '').toLowerCase();
+      if (!trk.includes(search) && !sName.includes(search) && !lName.includes(search) && !phone.includes(search) && !city.includes(search) && !pin.includes(search) && !id.includes(search)) return false;
+    }
+    return true;
+  }).sort((a, b) => {
+    const ta = a.createdAt || a.bookingDate || a.parcelCreatedAt || '';
+    const tb = b.createdAt || b.bookingDate || b.parcelCreatedAt || '';
+    if (ta && tb) return new Date(tb) - new Date(ta);
+    return 0;
   });
 
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Parcel Logistics Manifest');
-  XLSX.writeFile(wb, `ISKCON_Devotee_Parcel_Manifest_${new Date().toISOString().split('T')[0]}.xlsx`);
-  showToast('Exported Parcel Logistics Manifest successfully!', 'success');
+  if (filtered.length === 0) {
+    showToast('No parcels match the current filters.', 'info');
+    return;
+  }
+
+  const trHtml = filtered.map((p, i) => {
+    const d = state.devotees.find(x => x.id === p.devoteeId) || {};
+    const displayName = p.spiritualName || p.legalName || d.spiritualName || d.legalName || '—';
+    const legal = (p.spiritualName || d.spiritualName) ? (p.legalName || d.legalName || '') : '';
+    const phone = p.phone || d.phone || '—';
+    const purpose = p.parcelType || p.eventType || (d.birthdayRaw ? 'Birthday' : 'Anniversary') || '—';
+    const mode = getParcelDeliveryModeLabel(p);
+    const trk = p.courierTrackingNo || '—';
+    const isSelf = mode === 'Self Mode';
+    const pre = p.preCalling || (isSelf ? 'Yes' : '—');
+    const post = p.postCalling || (isSelf ? 'No' : '—');
+    const delivered = p.delivered === true;
+    const status = delivered ? 'Delivered' : 'Not Delivered';
+    return `<tr>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px">${i + 1}</td>
+      <td style="text-align:left;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px">${escapeHtml(displayName)}${legal ? `<div style="color:#64748b;font-size:9px">${escapeHtml(legal)} • ${escapeHtml(phone)}</div>` : `<div style="color:#64748b;font-size:9px">${escapeHtml(phone)}</div>`}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px">${escapeHtml(purpose)}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;white-space:nowrap">${isSelf ? '🏠 Self Mode' : '🚚 Delhivery Courier'}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;font-family:monospace;white-space:nowrap;color:${isSelf ? '#b91c1c' : '#1e293b'}">${isSelf ? 'Locked 🔒' : escapeHtml(trk)}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;white-space:nowrap;color:${pre === 'Yes' ? '#047857' : '#64748b'};font-weight:${pre === 'Yes' ? '700' : '400'}">${escapeHtml(pre)}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;white-space:nowrap;color:${post === 'No' ? '#b91c1c' : '#64748b'};font-weight:${post === 'No' ? '700' : '400'}">${escapeHtml(post)}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:5px 7px;font-size:10px;white-space:nowrap;color:${delivered ? '#047857' : '#b91c1c'};font-weight:700">${delivered ? '🟢 Delivered' : '🔴 Not Delivered'}</td>
+    </tr>`;
+  }).join('');
+
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const deliveredCount = filtered.filter(p => p.delivered === true).length;
+  const selfCount = filtered.filter(p => getParcelDeliveryModeLabel(p) === 'Self Mode').length;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ISKCON Durgapur - Parcel & Tracking Report</title>
+  <style>
+    @page { size: A4 landscape; margin: 9mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 12px; color: #1e293b; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header-box { border-bottom: 2px solid #075985; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .org-title { font-size: 17px; font-weight: 800; color: #075985; margin: 0 0 3px 0; }
+    .sub-title { font-size: 11px; color: #64748b; margin: 0; }
+    .meta-box { text-align: right; font-size: 10.5px; color: #334155; line-height: 1.5; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f1f5f9; font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .footer { margin-top: 12px; font-size: 10px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header-box">
+    <div>
+      <p class="org-title">ISKCON Durgapur — Devotee Care • Parcel &amp; Tracking Report</p>
+      <p class="sub-title">Logistics Hub: Sri Sri Radha Madan Mohan Mandir, Durgapur</p>
+    </div>
+    <div class="meta-box">
+      <div>Generated: ${dateStr}</div>
+      <div>Consignments: <strong>${filtered.length}</strong> • Delivered: <strong>${deliveredCount}</strong> • Self Mode: <strong>${selfCount}</strong></div>
+    </div>
+  </div>
+  <table border="0" cellspacing="0" cellpadding="0">
+    <thead>
+      <tr>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">S.No.</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Recipient</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Purpose</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Mode of Delivery</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Tracking No.</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Pre Calling</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Post Calling</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Status</th>
+      </tr>
+    </thead>
+    <tbody>${trHtml}</tbody>
+  </table>
+  <div class="footer">Sri Sri Radha Madan Mohan Mandir, ISKCON Durgapur — For internal seva coordination only.</div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    showToast('Please allow pop-ups for this portal.', 'error');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(() => { try { win.print(); } catch (e) {} }, 350);
+  showToast(`Parcel & Tracking Report opened for PDF export (${filtered.length} consignments).`, 'success');
 }
 
 // ----------------------------------------------------
@@ -3838,11 +5696,23 @@ function openGreetingCardModal(devoteeId, eventType = 'birthday') {
   activeGreetingDevotee = d;
   activeGreetingType = eventType;
 
-  const displayName = d.spiritualName || d.legalName;
+  let displayName = d.spiritualName || d.legalName;
+  let legalName = d.spiritualName ? `(${d.legalName})` : '';
   const photoUrl = getDirectPhotoUrl(d.photo || d.photoDirect || d.cloudinaryPhoto, d);
 
+  if (eventType === 'marriage') {
+    const matched = findMatchedSpouseDevotee(d);
+    if (matched) {
+      const spouseDisplayName = matched.spiritualName || matched.legalName;
+      displayName = `${displayName} & ${spouseDisplayName}`;
+      legalName = `(${d.legalName} & ${matched.legalName})`;
+    } else if (d.spouseName) {
+      displayName = `${displayName} & ${d.spouseName}`;
+    }
+  }
+
   document.getElementById('gc-spiritual-name').innerText = displayName;
-  document.getElementById('gc-legal-name').innerText = d.spiritualName ? `(${d.legalName})` : '';
+  document.getElementById('gc-legal-name').innerText = legalName;
 
   // Sri Sri Radha Madan Mohan image (kept in sync with the PNG download)
   const deityEl = document.getElementById('gc-deity-img');
@@ -3868,8 +5738,11 @@ function openGreetingCardModal(devoteeId, eventType = 'birthday') {
 
   if (eventType === 'marriage') {
     titleEl.innerText = 'Happy Vivaha Anniversary!';
-    const spouseText = d.spouseName ? `with ${d.spouseName}` : '';
-    dateEl.innerText = `${d.anniversaryRaw || 'Sacred Wedding'} • ${spouseText}`;
+    const matched = findMatchedSpouseDevotee(d);
+    const spouseText = matched 
+      ? `Blessed Couple: ${displayName}` 
+      : (d.spouseName ? `with ${d.spouseName}` : 'Sacred Grihastha Union');
+    dateEl.innerText = `${d.anniversaryRaw || d.anniversaryDate || 'Sacred Wedding'} • ${spouseText}`;
     quoteEl.innerText = '"May Sri Sri Radha-Madhava and Lord Sri Chaitanya Mahaprabhu bless your Grihastha family with divine harmony, devotional peace, and eternal advancement in Krishna consciousness."';
   } else if (eventType === 'initiation') {
     titleEl.innerText = 'Happy Diksa Anniversary!';
@@ -4094,6 +5967,35 @@ function sendAddressVerificationWhatsApp(devoteeId) {
   window.open(`https://wa.me/${cleanNum}?text=${encodeURIComponent(text)}`, '_blank');
 }
 
+// Mode of Delivery change in the Edit Parcel modal — Self Mode locks the tracking
+// number (not required) and forces Pre Calling ON / Post Calling OFF automatically.
+function handleEditParcelModeChange() {
+  const modeEl = document.getElementById('ep-mode');
+  if (!modeEl) return;
+  const isSelf = modeEl.value === 'Self Mode';
+  const trk = document.getElementById('ep-tracking-no');
+  const hint = document.getElementById('ep-tracking-hint');
+  if (trk) {
+    trk.disabled = isSelf;
+    trk.classList.toggle('bg-slate-100', isSelf);
+    trk.classList.toggle('cursor-not-allowed', isSelf);
+    if (isSelf) trk.value = '';
+  }
+  if (hint) {
+    hint.innerText = isSelf ? '🔒 Locked — Self Mode (temple pickup), no tracking needed' : '(13-14 digits required)';
+    hint.classList.toggle('text-amber-600', isSelf);
+    hint.classList.toggle('text-slate-500', !isSelf);
+  }
+  ['ep-pre-calling', 'ep-post-calling'].forEach(id => {
+    const tgl = document.querySelector(`div[data-input="${id}"]`);
+    if (tgl) tgl.querySelectorAll('button').forEach(b => { b.disabled = isSelf; });
+  });
+  if (isSelf) {
+    setCallingToggleValue('ep-pre-calling', 'Yes');
+    setCallingToggleValue('ep-post-calling', 'No');
+  }
+}
+
 function openEditParcelModal(devoteeId) {
   const d = state.devotees.find(x => x.id === devoteeId);
   if (!d) return;
@@ -4105,8 +6007,21 @@ function openEditParcelModal(devoteeId) {
   document.getElementById('ep-city').value = pRec.city || d.city || 'Durgapur';
   document.getElementById('ep-pincode').value = pRec.pincode || d.pincode || '713204';
   document.getElementById('ep-address-verified').value = pRec.addressVerified || d.addressVerified || 'Verified';
-  document.getElementById('ep-courier').value = pRec.courierPartner || d.courierPartner || 'Delivery Courier';
+  const epModeEl = document.getElementById('ep-mode');
+  if (epModeEl) {
+    epModeEl.value = getParcelDeliveryModeLabel({ devoteeId: d.id, deliveryMode: pRec.deliveryMode || d.deliveryMode, courierPartner: pRec.courierPartner || d.courierPartner });
+  }
   document.getElementById('ep-tracking-no').value = pRec.courierTrackingNo || d.courierTrackingNo || '';
+  if (document.getElementById('ep-pre-calling')) {
+    setCallingToggleValue('ep-pre-calling', pRec.preCalling || d.preCalling || '');
+  }
+  if (document.getElementById('ep-post-calling')) {
+    setCallingToggleValue('ep-post-calling', pRec.postCalling || d.postCalling || '');
+  }
+
+  // Apply Mode of Delivery UI state LAST — Self Mode locks the tracking input,
+  // shows the amber hint and forces Pre Calling ON / Post Calling OFF.
+  handleEditParcelModeChange();
 
   document.getElementById('edit-parcel-modal').classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
@@ -4126,8 +6041,36 @@ function handleSaveParcelEdit(e) {
   d.city = document.getElementById('ep-city').value.trim();
   d.pincode = document.getElementById('ep-pincode').value.trim();
   d.addressVerified = document.getElementById('ep-address-verified').value;
-  d.courierPartner = document.getElementById('ep-courier').value;
-  d.courierTrackingNo = document.getElementById('ep-tracking-no').value.trim();
+  const epModeVal = document.getElementById('ep-mode') ? document.getElementById('ep-mode').value : 'Delhivery Courier';
+  d.courierPartner = (epModeVal === 'Self Mode') ? 'Self Pickup' : 'Delhivery';
+  d.deliveryMode = (epModeVal === 'Self Mode') ? 'SELF' : 'DELHIVERY';
+
+  const isSelfMode = epModeVal === 'Self Mode';
+  const rawTrk = document.getElementById('ep-tracking-no') ? document.getElementById('ep-tracking-no').value.trim() : '';
+  const cleanTrk = rawTrk.replace(/\D/g, '');
+
+  if (isSelfMode) {
+    // Self Mode (temple pickup) — tracking locked & not required; Pre Calling ON, Post Calling OFF
+    d.courierTrackingNo = '';
+    d.preCalling = 'Yes';
+    d.postCalling = 'No';
+  } else {
+    if (!cleanTrk) {
+      showToast('Tracking Number is mandatory (*) — please enter the 13-14 digit number', 'error');
+      document.getElementById('ep-tracking-no')?.focus();
+      return;
+    }
+
+    if (!/^\d{13,14}$/.test(cleanTrk)) {
+      showToast(`Tracking Number must be 13-14 digits (currently ${cleanTrk.length} digits entered)`, 'error');
+      document.getElementById('ep-tracking-no')?.focus();
+      return;
+    }
+
+    d.courierTrackingNo = cleanTrk.slice(0, 14);
+    d.preCalling = document.getElementById('ep-pre-calling') ? document.getElementById('ep-pre-calling').value : d.preCalling;
+    d.postCalling = document.getElementById('ep-post-calling') ? document.getElementById('ep-post-calling').value : d.postCalling;
+  }
 
   // Sync the edited details into the live parcel record too
   const pRec = (state.parcels || []).find(x => x.devoteeId === id);
@@ -4137,7 +6080,10 @@ function handleSaveParcelEdit(e) {
     pRec.pincode = d.pincode;
     pRec.addressVerified = d.addressVerified;
     pRec.courierPartner = d.courierPartner;
+    pRec.deliveryMode = d.deliveryMode;
     pRec.courierTrackingNo = d.courierTrackingNo;
+    pRec.preCalling = d.preCalling;
+    pRec.postCalling = d.postCalling;
   }
 
   saveToStorage();
@@ -4299,16 +6245,23 @@ function handleCreateParcelDevoteeSelect(devoteeId) {
 }
 
 function populateCreateParcelFields(d, parcelTypeOverride = null) {
-  const displayName = d.spiritualName ? `${d.spiritualName} (${d.legalName})` : d.legalName;
+  const matched = findMatchedSpouseDevotee(d);
+  let displayName = d.spiritualName ? `${d.spiritualName} (${d.legalName})` : d.legalName;
+  const isAnniv = parcelTypeOverride === 'Anniversary' || (!parcelTypeOverride && d.parcelType === 'Anniversary');
+  if (matched && isAnniv) {
+    const sName = matched.spiritualName ? `${matched.spiritualName} (${matched.legalName})` : matched.legalName;
+    displayName = `${displayName} & ${sName}`;
+  }
+
   document.getElementById('cp-devotee-id').value = d.id;
   document.getElementById('cp-devotee-id-display').innerText = d.id;
   document.getElementById('cp-devotee-name').value = displayName;
-  document.getElementById('cp-phone').value = d.phone || 'N/A';
+  document.getElementById('cp-phone').value = d.phone || (matched && matched.phone) || 'N/A';
 
   // Address
-  document.getElementById('cp-address').value = d.address || '';
-  document.getElementById('cp-city').value = d.city || 'Durgapur';
-  document.getElementById('cp-pincode').value = d.pincode || '713204';
+  document.getElementById('cp-address').value = d.address || (matched && matched.address) || '';
+  document.getElementById('cp-city').value = d.city || (matched && matched.city) || 'Durgapur';
+  document.getElementById('cp-pincode').value = d.pincode || (matched && matched.pincode) || '713204';
 
   // Address Verified Badge
   const addrBadge = document.getElementById('cp-address-verified-badge');
@@ -4332,19 +6285,13 @@ function populateCreateParcelFields(d, parcelTypeOverride = null) {
   // Parcel Description
   const parcelDescEl = document.getElementById('cp-parcel-description');
   if (parcelDescEl) {
-    parcelDescEl.value = d.parcelDescription || 'Sanctified Sri Sri Radha Madhava Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita';
+    parcelDescEl.value = d.parcelDescription || 'Sanctified Sri Sri Radha Madan Mohan Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita';
   }
 
-  // Courier Company (locked to Delhivery)
-  const courierEl = document.getElementById('cp-courier');
-  if (courierEl) {
-    courierEl.value = 'Delhivery';
-  }
-
-  // Tracking Number (always blank — added manually later)
-  const trkEl = document.getElementById('cp-tracking-no');
-  if (trkEl) {
-    trkEl.value = '';
+  // Mode of Delivery (from devotee profile — shows Delhivery Courier / Self Mode)
+  const modeEl = document.getElementById('cp-mode');
+  if (modeEl) {
+    modeEl.value = (d.deliveryMode === 'SELF') ? 'Self Mode' : 'Delhivery Courier';
   }
 
   // Booking Date (Today)
@@ -4379,13 +6326,8 @@ function handleCreateParcelSubmit(e) {
   const pincode = document.getElementById('cp-pincode').value.trim();
   const parcelType = document.getElementById('cp-parcel-type').value;
   const parcelDescription = document.getElementById('cp-parcel-description').value.trim();
-  const courier = document.getElementById('cp-courier').value;
-  const trackingNo = document.getElementById('cp-tracking-no').value.trim();
-  // Validate tracking number: if provided, must be exactly 13 digits (numbers only)
-  if (trackingNo && !/^\d{13}$/.test(trackingNo)) {
-    showToast('Tracking Number must be exactly 13 digits (numbers only)', 'error');
-    return;
-  }
+  const cpMode = document.getElementById('cp-mode') ? document.getElementById('cp-mode').value : 'Delhivery Courier';
+  const parcelCourier = (cpMode === 'Self Mode') ? 'Self Pickup' : 'Delhivery';
   const bookingDate = document.getElementById('cp-booking-date').value;
   // Compute expected delivery (booking + 4 days) for tracking banner
   let expectedDeliveryDate = '';
@@ -4396,7 +6338,9 @@ function handleCreateParcelSubmit(e) {
   }
   const remarks = document.getElementById('cp-remarks').value.trim();
 
-  // Update devotee record with verified address and consignment details
+  // Update devotee record with verified address and consignment details.
+  // NOTE: Tracking Number + Pre/Post Calling are NOT part of this create form —
+  // they are managed from the Parcel & Tracking (Delivery Tracking System) tab.
   d.address = address;
   d.city = city;
   d.pincode = pincode;
@@ -4406,9 +6350,9 @@ function handleCreateParcelSubmit(e) {
   d.parcelCreatedAt = new Date().toISOString();
   d.parcelType = parcelType;
   d.parcelDescription = parcelDescription;
-  d.courierPartner = courier;
-  d.courierTrackingNo = trackingNo;
-  d.trackingId = trackingNo.startsWith('ISK') ? trackingNo : (d.trackingId || `ISK713204-${String(d.slNo || 1).padStart(3, '0')}`);
+  d.courierPartner = parcelCourier;
+  d.deliveryMode = (cpMode === 'Self Mode') ? 'SELF' : 'DELHIVERY';
+  if (cpMode === 'Self Mode') { d.preCalling = 'Yes'; d.postCalling = 'No'; } // Self Mode: Pre ON, Post OFF
   d.bookingDate = bookingDate;
   d.expectedDeliveryDate = expectedDeliveryDate;
   d.remarks = remarks;
@@ -4431,11 +6375,15 @@ function handleCreateParcelSubmit(e) {
     anniversaryDate: d.anniversaryDate,
     parcelType: parcelType,
     parcelDescription: parcelDescription,
-    courierPartner: courier,
-    courierTrackingNo: trackingNo,
-    trackingId: d.trackingId,
+    courierPartner: parcelCourier,
+    courierTrackingNo: d.courierTrackingNo || '',
+    trackingId: d.trackingId || '',
     bookingDate: bookingDate,
     expectedDeliveryDate: expectedDeliveryDate,
+    delivered: false,
+    deliveredAt: '',
+    preCalling: d.preCalling || '',
+    postCalling: d.postCalling || '',
     remarks: remarks,
     createdAt: new Date().toISOString()
   };
@@ -4521,7 +6469,17 @@ function openWishesModal(devoteeId, eventType = 'birthday') {
   activeWishesDevotee = d;
   activeCelebrationType = eventType;
   const name = d.spiritualName || d.legalName;
-  document.getElementById('wm-recipient').value = `${name} (${d.whatsapp || d.phone})`;
+  const matched = (eventType === 'marriage') ? findMatchedSpouseDevotee(d) : null;
+
+  if (matched) {
+    const spouseName = matched.spiritualName || matched.legalName;
+    const p1 = d.whatsapp || d.phone || '';
+    const p2 = matched.whatsapp || matched.phone || '';
+    const phoneStr = [p1, p2].filter(Boolean).join(' / ');
+    document.getElementById('wm-recipient').value = `${name} & ${spouseName} (${phoneStr || 'No phone'})`;
+  } else {
+    document.getElementById('wm-recipient').value = `${name} (${d.whatsapp || d.phone || 'No phone'})`;
+  }
 
   const select = document.getElementById('wm-template-type');
   if (select) {
@@ -4549,7 +6507,10 @@ function updateGreetingTemplate() {
   if (style === 'birthday') {
     msg = `Hare Krishna ${name}! 🙏\n\nPlease accept our humble obeisances. All glories to Srila Prabhupada! 🪷\n\nOn behalf of the ISKCON Devotee Celebrations Department, we wish you a very auspicious and blessed Appearance Day (Birthday)! 🎉\n\nMay Sri Sri Radha-Madhava, Sri Sri Jagannatha, Baladeva, Subhadra Maharani, and Srila Prabhupada shower Their supreme mercy upon you with excellent health, long life, and endless taste for chanting the Holy Names:\n\nHare Krishna Hare Krishna Krishna Krishna Hare Hare\nHare Rama Hare Rama Rama Rama Hare Hare ✨\n\nThank you for your sincere devotional service to the Vaishnavas.\n\nYour servants,\nISKCON Devotee Celebrations Department`;
   } else if (style === 'marriage') {
-    const spouse = d.spouseName ? ` & ${d.spouseName}` : '';
+    const matched = findMatchedSpouseDevotee(d);
+    const spouse = matched 
+      ? ` & ${matched.spiritualName || matched.legalName}`
+      : (d.spouseName ? ` & ${d.spouseName}` : '');
     msg = `Hare Krishna ${name}${spouse}! 🙏\n\nPlease accept our humble obeisances. All glories to Srila Prabhupada! 🪷\n\nOn this auspicious occasion of your Grihastha Vivaha (Marriage) Anniversary, we pray to Sri Sri Radha-Madhava and Sri Sri Gaura-Nitai to bless your family with joy, peace, harmony, and eternal progress in Krishna consciousness! 💍✨\n\nMay your home always remain an abode of Harinama sankirtana, deity seva, and Vaishnava seva.\n\nHappy Marriage Anniversary! 🙏\n\nYour servants,\nISKCON Devotee Celebrations Department`;
   } else if (style === 'initiation') {
     const guru = d.guru ? `your Spiritual Master ${d.guru}` : 'your Spiritual Master and Guru Parampara';
@@ -4572,11 +6533,15 @@ function copyWishesMessage() {
 
 function launchWhatsAppDirect() {
   if (!activeWishesDevotee) return;
-  const phone = (activeWishesDevotee.whatsapp || activeWishesDevotee.phone || '').replace(/[^0-9]/g, '');
+  const matched = (activeCelebrationType === 'marriage') ? findMatchedSpouseDevotee(activeWishesDevotee) : null;
+  let phone = (activeWishesDevotee.whatsapp || activeWishesDevotee.phone || '').replace(/[^0-9]/g, '');
+  if (!phone && matched) {
+    phone = (matched.whatsapp || matched.phone || '').replace(/[^0-9]/g, '');
+  }
   const message = encodeURIComponent(document.getElementById('wm-message').value);
 
   if (!phone) {
-    alert('No WhatsApp number provided for this devotee. You can copy the message and send manually.');
+    alert('No WhatsApp number provided for this devotee / couple. You can copy the message and send manually.');
     return;
   }
 
@@ -4673,7 +6638,7 @@ function exportFullDatabaseExcel() {
     'Devotee ID': d.id,
     'Devotee Name': d.spiritualName || d.legalName,
     'Tracking ID': d.trackingId || '',
-    'Courier Partner': d.courierPartner || 'Delivery Courier',
+    'Mode of Delivery': (d.deliveryMode === 'SELF' || d.courierPartner === 'Self Pickup' || d.courierPartner === 'Self Mode') ? 'Self Mode' : 'Delhivery Courier',
     'Courier Tracking No': d.courierTrackingNo || '',
     'Parcel Status': d.parcelStatusText || '',
     'Destination City': d.city || '',
@@ -5014,16 +6979,35 @@ function exportBirthdayListExcel() {
 
   const rows = celebrations.map(item => {
     const d = item.devotee;
+    const isCouple = !!item.isCouple && item.spouseDevotee;
+    const spouse = item.spouseDevotee;
+
+    const spiritualName = isCouple 
+      ? `${d.spiritualName || d.legalName} & ${spouse.spiritualName || spouse.legalName}`
+      : (d.spiritualName || d.legalName);
+
+    const legalName = isCouple 
+      ? `${d.legalName} & ${spouse.legalName}`
+      : d.legalName;
+
+    const phone = isCouple
+      ? `${d.phone || ''}${spouse.phone ? ' / ' + spouse.phone : ''}`
+      : (d.phone || '');
+
+    const whatsapp = isCouple
+      ? `${d.whatsapp || ''}${spouse.whatsapp ? ' / ' + spouse.whatsapp : ''}`
+      : (d.whatsapp || '');
+
     return {
       'Event Type': item.label,
-      'Spiritual Name': d.spiritualName || d.legalName,
-      'Legal Name': d.legalName,
+      'Spiritual Name': spiritualName,
+      'Legal Name': legalName,
       'Event Date': item.date,
       'Celebration Milestone': item.milestone,
       'Spouse Name': item.spouse || (d.spouseName || ''),
       'Days Remaining': item.timing.daysRemaining,
-      'Phone': d.phone,
-      'WhatsApp': d.whatsapp,
+      'Phone': phone,
+      'WhatsApp': whatsapp,
       'City / Center': d.city,
       'Guru Maharaj': d.guru,
       'Counselor / Teacher': d.counselor
@@ -5046,7 +7030,11 @@ function exportSelectedCelebrationsPDF() {
 
   const eventType = state.celebrationEventType;
   const selected = getAllCelebrations()
-    .filter(item => item.eventType === eventType && state.selectedCelebrations.has(item.devotee.id))
+    .filter(item => {
+      const matchType = (eventType === 'ALL' || item.eventType === eventType);
+      const isSelected = state.selectedCelebrations.has(item.devotee.id) || (item.spouseDevotee && state.selectedCelebrations.has(item.spouseDevotee.id));
+      return matchType && isSelected;
+    })
     .sort((a, b) => a.timing.daysRemaining - b.timing.daysRemaining);
 
   if (selected.length === 0) {
@@ -5056,18 +7044,42 @@ function exportSelectedCelebrationsPDF() {
 
   const trHtml = selected.map((item, i) => {
     const d = item.devotee;
-    const isVerified = (d.addressVerified === 'Verified' || (d.address && d.address.length >= 25 && d.addressVerified !== 'Needs Verification'));
+    const isCouple = !!item.isCouple && item.spouseDevotee;
+    const spouse = item.spouseDevotee;
+
+    const displayName = isCouple
+      ? `${d.spiritualName || d.legalName} & ${spouse.spiritualName || spouse.legalName}`
+      : `${d.spiritualName || d.legalName}${d.spiritualName ? ` (${d.legalName})` : ''}`;
+
+    const phone = isCouple
+      ? `${d.phone || ''}${spouse.phone ? ' / ' + spouse.phone : ''}` || 'N/A'
+      : (d.phone || 'N/A');
+
+    const dateText = item.rawDateStr || formatDate(item.date);
+
+    // Full mailing address: House/Street + City + State + PIN
+    const buildAddress = (dev) => {
+      if (!dev) return '';
+      return [dev.address, dev.city, dev.pincode, dev.state].filter(Boolean).join(', ') || '';
+    };
+    const addr1 = buildAddress(d);
+    const addr2 = spouse ? buildAddress(spouse) : '';
+    const address = isCouple
+      ? (addr2 && addr2 !== addr1 ? `${addr1}<br>${addr2}` : (addr1 || addr2))
+      : addr1;
+
     return `<tr>
       <td style="text-align:center;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px">${i + 1}</td>
-      <td style="text-align:left;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px">${d.spiritualName || d.legalName}${d.spiritualName ? ` (${d.legalName})` : ''}</td>
-      <td style="text-align:center;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px">${item.date}</td>
-      <td style="text-align:center;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px">${d.phone || 'N/A'}</td>
-      <td style="text-align:center;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px;font-weight:600;color:${isVerified ? '#047857' : '#b91c1c'}">${isVerified ? '🟢 Verified' : '🔴 Unverified'}</td>
+      <td style="text-align:left;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px">${displayName}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px;white-space:nowrap">${dateText}</td>
+      <td style="text-align:center;border:1px solid #cbd5e1;padding:6px 8px;font-size:11px;white-space:nowrap">${phone}</td>
+      <td style="text-align:left;border:1px solid #cbd5e1;padding:6px 8px;font-size:10px;line-height:1.4">${address || 'N/A'}</td>
     </tr>`;
   }).join('');
 
   const isAnniv = eventType === 'MARRIAGE';
   const titleLabel = isAnniv ? 'Vaishnava Vivaha Anniversaries' : 'Devotee Birthdays';
+  const dateColLabel = isAnniv ? 'Anniversary' : 'Birthday';
   const accent = isAnniv ? '#047857' : '#be185d';
   const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -5093,7 +7105,7 @@ function exportSelectedCelebrationsPDF() {
   <div class="header-box">
     <div>
       <p class="org-title">ISKCON Durgapur — Seva Portal</p>
-      <p class="sub-title">Selected ${titleLabel} — Address Verification Status</p>
+      <p class="sub-title">Selected ${titleLabel} — Name, ${dateColLabel}, Phone & Address</p>
     </div>
     <div class="meta-box">
       <div>Generated: ${dateStr}</div>
@@ -5105,14 +7117,14 @@ function exportSelectedCelebrationsPDF() {
       <tr>
         <th style="border:1px solid #cbd5e1;padding:6px 8px">S.No.</th>
         <th style="border:1px solid #cbd5e1;padding:6px 8px">Devotee Name</th>
-        <th style="border:1px solid #cbd5e1;padding:6px 8px">Date</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">${dateColLabel}</th>
         <th style="border:1px solid #cbd5e1;padding:6px 8px">Phone</th>
-        <th style="border:1px solid #cbd5e1;padding:6px 8px">Address Status</th>
+        <th style="border:1px solid #cbd5e1;padding:6px 8px">Address</th>
       </tr>
     </thead>
     <tbody>${trHtml}</tbody>
   </table>
-  <div class="footer">Sri Krishna Balaram Mandir, ISKCON Durgapur — For internal seva coordination only.</div>
+  <div class="footer">Sri Sri Radha Madan Mohan Mandir, ISKCON Durgapur — For internal seva coordination only.</div>
 </body>
 </html>`;
 

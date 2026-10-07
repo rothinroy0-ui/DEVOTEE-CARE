@@ -325,6 +325,12 @@
           <span id="live-date-time" class="text-xs text-slate-300 font-medium"></span>
         </div>
 
+        <!-- Live Cloud Sync Button -->
+        <button onclick="handleManualCloudSync()" id="cloud-sync-btn" title="Sync latest data with Supabase Cloud for all sevaks" class="hidden sm:flex items-center space-x-1.5 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700/60 px-2.5 py-1.5 rounded-lg transition text-xs font-semibold shadow-sm">
+          <i data-lucide="cloud" class="w-3.5 h-3.5 text-emerald-400"></i>
+          <span id="cloud-sync-btn-text">Cloud Sync</span>
+        </button>
+
         <div id="auth-header-container">
           <button onclick="handleSignIn(false)" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3.5 py-1.5 rounded-lg shadow-sm transition text-xs">
             <i data-lucide="log-in" class="w-4 h-4"></i>
@@ -490,25 +496,25 @@
         <!-- Total Anniversary -->
         <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm hover:shadow-md transition">
           <div class="flex items-center justify-between text-slate-500 mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider">Total Anniversary</span>
+            <span class="text-xs font-semibold uppercase tracking-wider">Total Anniversaries</span>
             <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <i data-lucide="heart" class="w-4 h-4"></i>
             </div>
           </div>
           <div id="stat-anniversary-total" class="text-2xl font-bold text-emerald-600">0</div>
-          <div class="text-[11px] text-slate-400 mt-1">This Month</div>
+          <div class="text-[11px] text-slate-400 mt-1">Couples This Month</div>
         </div>
 
         <!-- Total Marriage Anniversary -->
         <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm hover:shadow-md transition">
           <div class="flex items-center justify-between text-slate-500 mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider">Total Marriage Anniversary</span>
+            <span class="text-xs font-semibold uppercase tracking-wider">Marriage Couples</span>
             <div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
               <i data-lucide="ring" class="w-4 h-4"></i>
             </div>
           </div>
           <div id="stat-marriage-anniv" class="text-2xl font-bold text-purple-600">0</div>
-          <div class="text-[11px] text-slate-400 mt-1">This Month</div>
+          <div class="text-[11px] text-slate-400 mt-1">Merged Couples (1/Union)</div>
         </div>
 
         <!-- Total Devotee -->
@@ -539,7 +545,6 @@
             <i data-lucide="users" class="w-5 h-5 text-teal-600"></i>
             <span>Vaishnava Congregation & Devotee CARE</span>
           </h2>
-          <p class="text-xs text-slate-500 mt-0.5">Manage devotee profiles, contact information, birthdays, and residential addresses.</p>
         </div>
 
         <!-- Filter & Search Toolbar -->
@@ -590,6 +595,7 @@
                 <th class="py-3 px-4">Name</th>
                 <th class="py-3 px-3">Birthday</th>
                 <th class="py-3 px-3">Anniversary</th>
+                <th class="py-3 px-3">Marital Status</th>
                 <th class="py-3 px-3">City</th>
                 <th class="py-3 px-4">Address</th>
                 <th class="py-3 px-3">Phone</th>
@@ -619,48 +625,10 @@
     <section id="view-birthdays" class="hidden space-y-6">
       
       <!-- Top banner for Birthday & Anniversary Department -->
-      <div class="bg-gradient-to-r from-rose-700 via-pink-700 to-purple-800 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
-        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-          <div>
-            <div class="flex items-center space-x-2 mb-2">
-              <span class="text-xs bg-black/25 text-pink-100 px-3 py-0.5 rounded-full font-semibold border border-pink-300/30 flex items-center space-x-1.5">
-                <i data-lucide="cake" class="w-3.5 h-3.5 text-pink-200"></i>
-                <span>Vaishnava Appearance & Vivaha Celebrations</span>
-              </span>
-              <span class="text-xs bg-white/20 text-white px-2.5 py-0.5 rounded-full border border-white/30 font-medium">824 Devotee Master Base</span>
-            </div>
-            <h2 id="bday-dash-title" class="text-2xl sm:text-3xl font-bold font-serif tracking-tight">Devotee Birthday Wish Dashboard</h2>
-            <p class="text-pink-100 text-xs sm:text-sm max-w-2xl mt-1.5 leading-relaxed">
-              Honor congregation devotees with auspicious Vedic blessings on their Appearance Days and Vivaha Anniversaries. Send 1-click personalized WhatsApp wishes, generate festive greeting cards, and manage Amazon/Flipkart-style prasadam gift parcel tracking.
-            </p>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
-            <button onclick="openGenericGreetingCard()" class="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white border border-white/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow">
-              <i data-lucide="sparkles" class="w-4 h-4 text-pink-200"></i>
-              <span>Create Greeting Card</span>
-            </button>
-            <button onclick="switchTab('parcels')" class="bg-sky-500 hover:bg-sky-400 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-md">
-              <i data-lucide="truck" class="w-4 h-4"></i>
-              <span>Track Prasadam Parcels</span>
-            </button>
-            <button onclick="openCreateParcelModal('')" class="bg-emerald-500 hover:bg-emerald-400 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-md">
-              <i data-lucide="package-plus" class="w-4 h-4"></i>
-              <span>Create Parcel</span>
-            </button>
-            <button onclick="exportBirthdayListExcel()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow">
-              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-              <span>Export Schedule</span>
-            </button>
-            <button onclick="deleteAllBirthdayAnniversaryRecords()" class="bg-red-600 hover:bg-red-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-              <span>Delete All Records</span>
-            </button>
-            <button onclick="syncMasterDevotees()" class="bg-violet-600 hover:bg-violet-500 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5 shadow">
-              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-              <span>Restore Data</span>
-            </button>
-          </div>
+      <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="cake" class="w-5 h-5 text-pink-600"></i>
+          <h2 id="bday-dash-title" class="text-xl font-bold text-slate-800 font-serif">Devotee Birthday Wish Dashboard</h2>
         </div>
       </div>
 
@@ -681,7 +649,7 @@
             <i data-lucide="heart" class="w-4 h-4"></i>
           </div>
           <div>
-            <div class="text-[10px] uppercase font-bold text-slate-400">Anniversaries</div>
+            <div class="text-[10px] uppercase font-bold text-slate-400">Couples in View</div>
             <div id="bday-stat-anniv" class="text-xl font-bold text-emerald-600">0</div>
           </div>
         </div>
@@ -730,7 +698,7 @@
       <!-- Controls: Multi-Filter Toolbar -->
       <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3.5">
 
-        <!-- Row: Month View Selector, Date View Picker, Parcel Filter & Search -->
+        <!-- Row: Month View, Date View, City Filter & Search -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           
           <!-- Month View (Month Selector — populated dynamically, current month pre-selected) -->
@@ -748,6 +716,23 @@
             </div>
           </div>
 
+          <!-- City Filter (searchable — every city name from the database) -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">📍 City Filter:</label>
+            <div class="relative">
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="bday-city-search" autocomplete="off"
+                     placeholder="Search city..."
+                     class="w-full pl-9 pr-7 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 font-medium text-slate-700"
+                     oninput="handleCelebrationCitySearch(this.value)"
+                     onfocus="handleCelebrationCitySearch('')"
+                     onblur="onCelebrationCityBlur()"
+                     onkeydown="onCelebrationCityKeydown(event)">
+              <button type="button" id="bday-city-clear" onclick="clearCelebrationCity()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs cursor-pointer" title="Clear city filter">✕</button>
+              <div id="bday-city-dropdown" class="hidden absolute z-30 left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-xl shadow-lg text-xs"></div>
+            </div>
+          </div>
+
           <!-- Devotee Search -->
           <div>
             <label class="block text-[11px] font-semibold text-slate-500 mb-1">Search Celebration Devotees:</label>
@@ -758,6 +743,57 @@
           </div>
         </div>
 
+        <!-- Clear Filters — reset every filter in this toolbar (Month / Date / City / Search) -->
+        <div class="flex items-center justify-end pt-1 border-t border-slate-100">
+          <button onclick="clearCelebrationFilters()" class="text-rose-600 hover:text-rose-800 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset month, date, city & search filters">
+            <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
+            <span>Clear Filters</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Birthday & Anniversary: Removed section (soft-removed records — nothing is ever deleted) -->
+      <div id="anniv-removed-bar" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
+        <div class="flex items-center space-x-2 text-xs text-amber-900">
+          <span class="text-base">🗂️</span>
+          <span id="anniv-removed-bar-label" class="font-bold">Removed from Anniversary List</span>
+          <strong id="anniv-removed-count" class="bg-white border border-amber-300 px-2.5 py-0.5 rounded-full text-[11px]">0</strong>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="anniv-removed-toggle-btn" onclick="toggleRemovedAnnivSection()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer">
+            <i data-lucide="folder-open" class="w-3.5 h-3.5"></i>
+            <span id="anniv-removed-toggle-label">View Removed Records</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Removed Records Panel (soft-removed birthday/anniversary entries, restorable anytime) -->
+      <div id="anniv-removed-section" class="hidden bg-white rounded-xl border border-amber-200/80 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 bg-amber-50/70 border-b border-amber-100 flex items-center justify-between">
+          <h3 class="text-sm font-bold text-amber-900 flex items-center space-x-1.5">
+            <i data-lucide="archive" class="w-4 h-4 text-amber-700"></i>
+            <span>Removed Records</span>
+          </h3>
+          <span class="text-[11px] text-amber-700">Nothing is deleted — every record can be restored</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+                <th class="py-3 px-3">Photo</th>
+                <th class="py-3 px-3">Name</th>
+                <th class="py-3 px-3">Legal Name</th>
+                <th class="py-3 px-3">Spouse</th>
+                <th id="anniv-removed-date-col" class="py-3 px-3">Anniversary</th>
+                <th class="py-3 px-3">Devotee ID</th>
+                <th class="py-3 px-3">Phone</th>
+                <th class="py-3 px-3">Address</th>
+                <th class="py-3 px-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="anniv-removed-list"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Bulk Selection Bar (checkbox selection system — same as Devotee Directory) -->
@@ -770,7 +806,7 @@
         <div class="flex flex-wrap items-center gap-2">
           <button onclick="bulkCreateParcelsForSelected()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5">
             <i data-lucide="package-plus" class="w-3.5 h-3.5"></i>
-            <span>Create Parcels</span>
+            <span>Bulk Create Parcel</span>
           </button>
           <button onclick="exportSelectedCelebrationsPDF()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3.5 py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5">
             <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
@@ -791,10 +827,10 @@
                 <th class="py-3 px-2 text-center">S.No.</th>
                 <th class="py-3 px-4">Name</th>
                 <th id="bday-date-col-title" class="py-3 px-4">Birthday</th>
-                <th class="py-3 px-4">Type</th>
                 <th class="py-3 px-4">Phone</th>
+                <th class="py-3 px-4">City</th>
                 <th class="py-3 px-4 text-center">Address Verified</th>
-                <th class="py-3 px-4 text-center">Create Parcel</th>
+                <th class="py-3 px-4 text-center">Mode of Delivery</th>
                 <th class="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -820,43 +856,18 @@
     <!-- 3. PARCEL TRACKING SYSTEM (FLIPKART & AMAZON STYLE) -->
     <section id="view-parcels" class="hidden space-y-6">
       
-      <!-- Top Banner (Amazon/Flipkart Style Logistics Header) -->
-      <div class="bg-gradient-to-r from-sky-900 via-blue-950 to-slate-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden border border-slate-800">
-        <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <div class="flex items-center space-x-2 mb-2">
-              <span class="text-xs bg-sky-500/20 text-sky-200 px-3 py-0.5 rounded-full font-semibold border border-sky-400/30 flex items-center space-x-1.5">
-                <i data-lucide="truck" class="w-3.5 h-3.5 text-sky-300"></i>
-                <span>ISKCON Devotee Logistics Network</span>
-              </span>
-              <span class="text-xs bg-emerald-500/20 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/30 font-medium">Auto-Linked Live Tracking</span>
-            </div>
-            <h2 class="text-2xl sm:text-3xl font-bold font-serif tracking-tight">Parcel & Tracking</h2>
-            <p class="text-sky-100 text-xs sm:text-sm max-w-2xl mt-1.5 leading-relaxed">
-              Auto-synced live tracking — press <b>Create Parcel</b> from the Birthday / Anniversary celebration list and the consignment appears here instantly with its type (🎂 Birthday / 💍 Anniversary) and a live tracking journey. No separate entry needed here.
-            </p>
-          </div>
-
-          <!-- Quick Tracker Search Bar in Banner -->
-          <div class="w-full lg:w-96 bg-white/10 backdrop-blur-md p-3.5 rounded-xl border border-white/20 shadow-lg">
-            <label class="block text-xs font-semibold text-sky-200 mb-1.5 flex items-center space-x-1.5">
-              <i data-lucide="search" class="w-3.5 h-3.5"></i>
-              <span>Live Consignment Tracker</span>
-            </label>
-            <div class="flex space-x-1.5">
-              <input type="text" id="quick-parcel-search-input" placeholder="Tracking ID, Devotee ID, Name, Mobile..." class="flex-1 px-3 py-2 text-xs rounded-lg bg-white text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400 shadow-inner">
-              <button onclick="handleQuickParcelSearch()" class="bg-sky-500 hover:bg-sky-400 text-white font-bold px-3 py-2 rounded-lg text-xs transition flex items-center space-x-1 shadow">
-                <i data-lucide="navigation" class="w-3.5 h-3.5"></i>
-                <span>Track</span>
-              </button>
-            </div>
-          </div>
+      <!-- Top Banner (Logistics Header) -->
+      <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="truck" class="w-5 h-5 text-sky-600"></i>
+          <h2 class="text-xl font-bold text-slate-800 font-serif">Parcel & Tracking</h2>
         </div>
       </div>
 
-      <!-- Logistics KPI Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm hover:shadow-md transition">
+      <!-- Logistics KPI Cards (live counts from the Delivery Tracking data) -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+
+        <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm hover:shadow-md transition cursor-pointer" onclick="handleParcelKpiPurposeClick('ALL')" title="Show all consignments">
           <div class="flex items-center justify-between text-slate-500 mb-1.5">
             <span class="text-[11px] font-bold uppercase tracking-wider">Total Consignments</span>
             <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
@@ -867,28 +878,6 @@
           <div class="text-[11px] text-slate-400 mt-0.5">Created Parcels</div>
         </div>
 
-        <div class="bg-white rounded-xl p-4 border border-amber-200/80 shadow-sm hover:shadow-md transition bg-amber-50/20">
-          <div class="flex items-center justify-between text-amber-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Packed & Blessed</span>
-            <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-              <i data-lucide="box" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-packed" class="text-2xl font-bold text-amber-600">0</div>
-          <div class="text-[11px] text-amber-600 font-medium mt-0.5">Altar Sanctified</div>
-        </div>
-
-        <div class="bg-white rounded-xl p-4 border border-blue-200/80 shadow-sm hover:shadow-md transition bg-blue-50/20">
-          <div class="flex items-center justify-between text-blue-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">In Transit</span>
-            <div class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-              <i data-lucide="truck" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-transit" class="text-2xl font-bold text-blue-600">0</div>
-          <div class="text-[11px] text-blue-600 font-medium mt-0.5">Courier Hub Dispatched</div>
-        </div>
-
         <div class="bg-white rounded-xl p-4 border border-purple-200/80 shadow-sm hover:shadow-md transition bg-purple-50/20">
           <div class="flex items-center justify-between text-purple-700 mb-1.5">
             <span class="text-[11px] font-bold uppercase tracking-wider">Out for Delivery</span>
@@ -897,7 +886,7 @@
             </div>
           </div>
           <div id="stat-parcel-out" class="text-2xl font-bold text-purple-600">0</div>
-          <div class="text-[11px] text-purple-600 font-medium mt-0.5">Associate En Route</div>
+          <div class="text-[11px] text-purple-600 font-medium mt-0.5">Packed & En Route</div>
         </div>
 
         <div class="bg-white rounded-xl p-4 border border-emerald-200/80 shadow-sm hover:shadow-md transition bg-emerald-50/20">
@@ -911,15 +900,26 @@
           <div class="text-[11px] text-emerald-600 font-medium mt-0.5">Received with Blessings</div>
         </div>
 
-        <div class="bg-white rounded-xl p-4 border border-rose-200/80 shadow-sm hover:shadow-md transition bg-rose-50/20">
-          <div class="flex items-center justify-between text-rose-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Needs Verification</span>
-            <div class="w-7 h-7 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
-              <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+        <div id="parcel-kpi-bday" class="bg-white rounded-xl p-4 border border-pink-200/80 shadow-sm hover:shadow-md transition bg-pink-50/20 cursor-pointer" onclick="handleParcelKpiPurposeClick('Birthday')" title="Show Birthday parcels only">
+          <div class="flex items-center justify-between text-pink-700 mb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider">Birthday 🎂</span>
+            <div class="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center">
+              <i data-lucide="cake" class="w-4 h-4"></i>
             </div>
           </div>
-          <div id="stat-parcel-unverified" class="text-2xl font-bold text-rose-600">0</div>
-          <div class="text-[11px] text-rose-600 font-medium mt-0.5">Address Check Required</div>
+          <div id="stat-parcel-bday" class="text-2xl font-bold text-pink-600">0</div>
+          <div class="text-[11px] text-pink-600 font-medium mt-0.5">Birthday Consignments</div>
+        </div>
+
+        <div id="parcel-kpi-anniv" class="bg-white rounded-xl p-4 border border-violet-200/80 shadow-sm hover:shadow-md transition bg-violet-50/20 cursor-pointer" onclick="handleParcelKpiPurposeClick('Anniversary')" title="Show Anniversary parcels only">
+          <div class="flex items-center justify-between text-violet-700 mb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider">Anniversary 💍</span>
+            <div class="w-7 h-7 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center">
+              <i data-lucide="gem" class="w-4 h-4"></i>
+            </div>
+          </div>
+          <div id="stat-parcel-anniv" class="text-2xl font-bold text-violet-600">0</div>
+          <div class="text-[11px] text-violet-600 font-medium mt-0.5">Anniversary Consignments</div>
         </div>
       </div>
 
@@ -928,17 +928,13 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-2.5">
             
-            <!-- Courier Partner -->
+            <!-- Mode of Delivery (Delhivery Courier / Self Mode) -->
             <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Courier Partner:</label>
-              <select id="parcel-filter-courier" onchange="renderParcelsTable()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white font-medium">
-                <option value="ALL">All Courier Partners</option>
-                <option value="Delivery Courier" class="text-red-600 font-bold">Delivery Courier (Default)</option>
-                <option value="Blue Dart">Blue Dart Express</option>
-                <option value="India Post">India Post Speed Post</option>
-                <option value="Delhivery" selected>Delhivery</option>
-                <option value="DTDC">DTDC Express</option>
-                <option value="ISKCON Seva">ISKCON Seva Courier</option>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Mode of Delivery:</label>
+              <select id="parcel-filter-mode" onchange="renderParcelsTable()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white font-medium">
+                <option value="ALL">All Modes</option>
+                <option value="Delhivery Courier">🚚 Delhivery Courier</option>
+                <option value="Self Mode">🏠 Self Mode</option>
               </select>
             </div>
 
@@ -950,19 +946,38 @@
                 <input type="text" id="parcel-filter-search" oninput="renderParcelsTable()" placeholder="Name, Phone, Tracking ID, City..." class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 w-52">
               </div>
             </div>
+
+            <!-- Purpose Filter (All / Birthday / Anniversary) -->
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Purpose:</label>
+              <select id="parcel-filter-purpose" onchange="renderParcelsTable()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white font-medium">
+                <option value="ALL">All Purposes</option>
+                <option value="Birthday">🎂 Birthday</option>
+                <option value="Anniversary">💍 Anniversary</option>
+              </select>
+            </div>
+
+            <!-- Clear Filters -->
+            <div class="self-end">
+              <button onclick="clearParcelFilters()" class="text-sky-700 hover:text-sky-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset mode, purpose & search filters">
+                <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
+                <span>Clear Filters</span>
+              </button>
+            </div>
           </div>
 
           <!-- Batch Operations -->
           <div class="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
-            <button onclick="batchPrintShippingLabels()" class="bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-semibold px-3 py-2 rounded-lg shadow-sm border border-slate-700 transition flex items-center space-x-1.5">
-              <i data-lucide="printer" class="w-3.5 h-3.5 text-slate-300"></i>
-              <span>Bulk Print Shipping Labels</span>
+            <button onclick="bulkDeleteParcels()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Delete all ☑-selected consignments">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Delete Selected</span>
+              <span id="parcel-selected-badge" class="hidden bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-[10px]">0</span>
             </button>
-            <button onclick="exportParcelManifestExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5">
-              <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
-              <span>Export Manifest (.xlsx)</span>
+            <button onclick="exportParcelReportPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the current Tracking Report (respecting active filters) as PDF">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+              <span>Export Report (PDF)</span>
             </button>
-            </div>
+          </div>
         </div>
       </div>
 
@@ -972,11 +987,15 @@
           <table class="w-full text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
-                <th class="py-3.5 px-3">Purpose / Sent For</th>
-                <th class="py-3.5 px-3">Destination</th>
-                <th class="py-3.5 px-3">Verified Address</th>
-                <th class="py-3.5 px-3">Courier</th>
-                <th class="py-3.5 px-3">Tracking Number</th>
+                <th class="py-3.5 px-3 text-center">
+                  <input type="checkbox" id="parcel-select-all" onchange="toggleSelectAllParcels(this.checked)" class="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" title="Select All Consignments">
+                </th>
+                <th class="py-3.5 px-3 text-center">S.No.</th>
+                <th class="py-3.5 px-3">Recipient</th>
+                <th class="py-3.5 px-3">Purpose</th>
+                <th class="py-3.5 px-3">Tracking No.</th>
+                <th class="py-3.5 px-3 text-center">Pre Calling</th>
+                <th class="py-3.5 px-3 text-center">Post Calling</th>
                 <th class="py-3.5 px-3 text-center">Status</th>
                 <th class="py-3.5 px-4 text-center">Action</th>
               </tr>
@@ -1197,9 +1216,9 @@
               <div>
                 <label class="block font-semibold text-slate-700 mb-1">Marital Status</label>
                 <select id="df-marital" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 bg-white">
-                  <option value="Single">Single</option>
                   <option value="Married">Married</option>
-                  <option value="Widowed">Widowed</option>
+                  <option value="Widow">Widow</option>
+                  <option value="Unmarried">Unmarried</option>
                 </select>
               </div>
 
@@ -1514,6 +1533,28 @@
           </div>
         </div>
 
+        <!-- Parcel Tracking & Calling Feedback (linked from the master Person record) -->
+        <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-xs">
+          <h4 class="font-bold text-slate-800 text-xs flex items-center space-x-1.5 border-b border-slate-100 pb-2">
+            <i data-lucide="package" class="w-3.5 h-3.5 text-sky-600"></i>
+            <span>Parcel Tracking & Calling Feedback</span>
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Tracking Number</span>
+              <span id="vp-tracking-no" class="font-mono font-bold text-sky-700"></span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Pre Calling</span>
+              <span id="vp-pre-calling" class="font-semibold text-slate-800"></span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Post Calling</span>
+              <span id="vp-post-calling" class="font-semibold text-slate-800"></span>
+            </div>
+          </div>
+        </div>
+
         <!-- Direct Action Bar -->
         <div class="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200">
           <div class="flex items-center space-x-2">
@@ -1733,7 +1774,7 @@
               <span class="text-[9px] border border-black px-1.5 py-0.2 font-mono font-bold">AIR / SPEED</span>
             </div>
             <div class="text-right">
-              <span class="text-[10px] font-bold block text-red-600 tracking-wider" id="sl-courier-header">DELIVERY COURIER</span>
+              <span class="text-[10px] font-bold block text-red-600 tracking-wider" id="sl-courier-header">DELHIVERY COURIER</span>
               <span class="text-[9px] text-gray-600">STANDARD PREPAID</span>
             </div>
           </div>
@@ -1781,7 +1822,7 @@
             <div>
               <span class="font-bold uppercase text-gray-600 block">RETURN ADDRESS (SENDER):</span>
               <span class="font-bold">ISKCON Devotee Prasadam Department</span><br>
-              Sri Sri Radha Madhava Mandir, Netaji Subhas Road,<br>
+              Sri Sri Radha Madan Mohan Mandir, Netaji Subhas Road,<br>
               Durgapur, Paschim Bardhaman, West Bengal - 713204<br>
               Helpline: +91 94749 09678 / +91 62950 07332
             </div>
@@ -2002,10 +2043,10 @@
               </select>
             </div>
 
-            <!-- Courier / Delivery Company (Locked to Delhivery) -->
+            <!-- Mode of Delivery (From devotee profile — locked) -->
             <div>
-              <label class="block font-bold text-slate-700 mb-1">Courier / Delivery Company 🔒</label>
-              <input type="text" id="cp-courier" readonly value="Delhivery" class="w-full p-2 border border-slate-200 rounded-lg bg-slate-100 font-bold text-red-600 text-xs cursor-not-allowed">
+              <label class="block font-bold text-slate-700 mb-1">Mode of Delivery 🔒</label>
+              <input type="text" id="cp-mode" readonly value="Delhivery Courier" class="w-full p-2 border border-slate-200 rounded-lg bg-slate-100 font-bold text-red-600 text-xs cursor-not-allowed">
             </div>
           </div>
 
@@ -2015,16 +2056,10 @@
             <textarea id="cp-parcel-description" rows="2" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-xs" placeholder="What is being sent inside this consignment..."></textarea>
           </div>
 
-          <!-- Tracking Number, Booking Date -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Tracking Number</label>
-              <input type="text" id="cp-tracking-no" inputmode="numeric" maxlength="13" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,13)" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono font-bold text-xs text-sky-800 bg-sky-50/50" placeholder="13-digit number (optional)">
-            </div>
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Date:</label>
-              <input type="date" id="cp-booking-date" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-xs">
-            </div>
+          <!-- Booking Date -->
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Date:</label>
+            <input type="date" id="cp-booking-date" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-xs">
           </div>
 
           <!-- Remarks -->
@@ -2038,7 +2073,7 @@
         <div class="flex items-center justify-between pt-3 border-t border-slate-200">
           <div class="text-[11px] text-slate-500 flex items-center space-x-1">
             <i data-lucide="info" class="w-3.5 h-3.5 text-sky-500"></i>
-            <span>Will be automatically linked in <strong>Parcel & Tracking</strong></span>
+            <span>Will appear in <strong>Parcel &amp; Tracking</strong> — add the Tracking Number &amp; calling status there.</span>
           </div>
 
           <div class="flex items-center space-x-2">
@@ -2213,21 +2248,45 @@
             </select>
           </div>
           <div>
-            <label class="block font-bold text-slate-700 mb-1">Courier Partner:</label>
-            <select id="ep-courier" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white font-semibold">
-              <option value="Delivery Courier" selected class="text-red-600 font-bold">Delivery Courier (Default)</option>
-              <option value="Blue Dart Express">Blue Dart Express</option>
-              <option value="India Post Speed Post">India Post Speed Post</option>
-              <option value="Delhivery">Delhivery</option>
-              <option value="DTDC Express">DTDC Express</option>
-              <option value="ISKCON Seva Courier">ISKCON Seva Courier</option>
+            <label class="block font-bold text-slate-700 mb-1">Mode of Delivery:</label>
+            <select id="ep-mode" onchange="handleEditParcelModeChange()" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white font-semibold">
+              <option value="Delhivery Courier">🚚 Delhivery Courier</option>
+              <option value="Self Mode">🏠 Self Mode</option>
             </select>
           </div>
         </div>
 
         <div>
-          <label class="block font-bold text-slate-700 mb-1">Tracking Number (Courier):</label>
-          <input type="text" id="ep-tracking-no" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono" placeholder="Enter the courier tracking number (optional)">
+          <label class="block font-bold text-slate-700 mb-1">
+            Tracking Number (Courier) <span class="text-rose-600">*</span>
+            <span id="ep-tracking-hint" class="text-[11px] font-normal text-slate-500 ml-1">(13-14 digits required)</span>
+          </label>
+          <input type="text" id="ep-tracking-no" 
+                 maxlength="14" 
+                 inputmode="numeric" 
+                 pattern="[0-9]{13,14}" 
+                 oninput="this.value = this.value.replace(/\D/g, '').slice(0, 14);" 
+                 class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono tracking-widest text-slate-800 font-bold" 
+                 placeholder="Enter 13-14 digit tracking number *" required>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Pre Calling</label>
+            <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" data-input="ep-pre-calling">
+              <button type="button" class="ct-yes px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'Yes')">Yes</button>
+              <button type="button" class="ct-no px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'No')">No</button>
+              <input type="hidden" id="ep-pre-calling" value="">
+            </div>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Post Calling</label>
+            <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" data-input="ep-post-calling">
+              <button type="button" class="ct-yes px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'Yes')">Yes</button>
+              <button type="button" class="ct-no px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'No')">No</button>
+              <input type="hidden" id="ep-post-calling" value="">
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center justify-end pt-3 border-t border-slate-100">
@@ -2259,6 +2318,71 @@
     <!-- Populated dynamically with Basic Details & Contact Details -->
   </div>
 
+  <!-- Devotee Circular Enlarged Photo Preview Modal -->
+  <div id="circular-photo-preview-modal" 
+       onclick="handleCircularPreviewBackdropClick(event)"
+       class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/75 backdrop-blur-xs transition-opacity duration-200 p-4 select-none">
+    <div id="circular-photo-preview-content" 
+         class="relative flex flex-col items-center max-w-sm w-full transition-all duration-300 transform scale-90 opacity-0"
+         onclick="event.stopPropagation()">
+      <!-- Close Button -->
+      <button type="button" onclick="closeCircularPhotoPreview()" 
+              class="absolute -top-12 right-0 text-white/80 hover:text-white bg-white/10 hover:bg-white/25 rounded-full p-2 transition focus:outline-none shadow-md cursor-pointer" 
+              title="Close (Esc)">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- Circular Image / Avatar Container -->
+      <div id="circular-preview-image-box" class="relative group">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Devotee Details Under Image -->
+      <div id="circular-preview-info" class="mt-4 text-center text-white px-2 w-full">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="mt-3 text-[11px] text-white/60 text-center tracking-wide flex items-center justify-center space-x-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5 opacity-70"></i>
+        <span>বাইরে ক্লিক করুন অথবা Esc চাপুন বন্ধ করতে</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic Action Confirmation Modal (Pre Calling, Post Calling, Delivery Status, Delete) -->
+  <div id="action-confirm-modal" 
+       onclick="if(event.target === this) handleAppConfirm(false)"
+       class="fixed inset-0 z-[120] hidden items-center justify-center bg-slate-950/75 backdrop-blur-xs p-4 select-none">
+    <div class="relative bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 text-center transition-all duration-200 transform scale-100"
+         onclick="event.stopPropagation()">
+      <!-- Icon -->
+      <div id="ac-modal-icon-container" class="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-3xl mb-3.5 bg-amber-50 text-amber-600 border border-amber-200 shadow-xs">
+        ⚠️
+      </div>
+      <!-- Title -->
+      <h3 id="ac-modal-title" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Confirmation</h3>
+      <!-- Message -->
+      <p id="ac-modal-message" class="text-xs sm:text-sm text-slate-600 mt-2 leading-relaxed px-1 font-medium">
+        Are you sure you want to proceed?
+      </p>
+      <!-- Buttons: Cancel | Confirm -->
+      <div class="mt-6 flex items-center justify-center space-x-3">
+        <button type="button" 
+                id="ac-modal-cancel-btn" 
+                onclick="handleAppConfirm(false)" 
+                class="w-1/2 py-2.5 px-4 border border-slate-300 hover:bg-slate-100 rounded-xl text-slate-700 font-bold text-xs transition cursor-pointer shadow-xs">
+          Cancel
+        </button>
+        <button type="button" 
+                id="ac-modal-confirm-btn" 
+                onclick="handleAppConfirm(true)" 
+                class="w-1/2 py-2.5 px-4 rounded-xl font-bold text-xs text-white shadow-md transition cursor-pointer bg-indigo-600 hover:bg-indigo-700 active:scale-95">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Notification Toast Container -->
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
 
@@ -2267,6 +2391,6 @@
   <script src="supabase-config.js?v=3.0"></script>
   <script src="/api/config.js" onerror="/* local fallback */"></script>
   <script src="devotees_data.js"></script>
-  <script src="portal.js?v=3.0"></script>
+  <script src="portal.js?v=3.26"></script>
 </body>
 </html>
