@@ -93,6 +93,17 @@ create policy "admins update any profile"
   with check (public.is_admin());
 
 -- ------------------------------------------------------------
+-- 4b) BACKFILL — any login created BEFORE this script gets a
+--     profile row too (default role USER, runs only once)
+-- ------------------------------------------------------------
+insert into public.profiles (id, email, role)
+select u.id, u.email, 'USER'
+from auth.users u
+where u.email is not null
+  and not exists (select 1 from public.profiles p where p.id = u.id)
+on conflict (id) do nothing;
+
+-- ------------------------------------------------------------
 -- 5) ★ PROMOTE YOUR FIRST ADMIN (EDIT THE EMAIL, THEN RUN) ★
 -- ------------------------------------------------------------
 update public.profiles
