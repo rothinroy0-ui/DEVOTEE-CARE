@@ -1819,11 +1819,70 @@ function clearAuthAlert() {
   if (alertEl) alertEl.classList.add('hidden');
 }
 
-function showAuthScreen() {
+// ----------------------------------------------------
+// LOGIN PAGE — separate 🛡️ Admin / 🪷 User doors
+// ----------------------------------------------------
+// Which door is open: 'ADMIN' | 'USER' | null (door-choice screen)
+let authDoor = null;
+
+// Roles allowed through each door
+const DOOR_ROLES = {
+  ADMIN: ['SUPER_ADMIN', 'ADMIN', 'STAFF'],
+  USER: ['USER', 'VIEWER']
+};
+
+// Default view of the login page — the two-door choice screen
+function showAuthDoorChoice() {
+  authDoor = null;
+  const choice = document.getElementById('auth-door-choice');
+  const formView = document.getElementById('auth-form-view');
+  if (choice) choice.classList.remove('hidden');
+  if (formView) formView.classList.add('hidden');
+  clearAuthAlert();
+}
+
+// Open one login door from the choice screen
+function chooseAuthDoor(door) {
+  authDoor = (door === 'USER') ? 'USER' : 'ADMIN';
+  clearAuthAlert();
+  const choice = document.getElementById('auth-door-choice');
+  const formView = document.getElementById('auth-form-view');
+  const badge = document.getElementById('auth-door-badge');
+  if (choice) choice.classList.add('hidden');
+  if (formView) formView.classList.remove('hidden');
+  const isAdminDoor = authDoor === 'ADMIN';
+  if (badge) {
+    badge.innerText = isAdminDoor ? '🛡️ Admin Login' : '🪷 User Login';
+    badge.className = `text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg border ${isAdminDoor ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-300' : 'bg-teal-500/15 border-teal-400/40 text-teal-300'}`;
+  }
+  if (window.lucide) lucide.createIcons();
+}
+
+// After sign-in: the account's role must match the chosen door.
+// Returns true when allowed; on mismatch shows a red alert (the caller
+// then signs the account straight back out).
+function verifyAuthDoor() {
+  if (!authDoor) return true; // no door chosen (session restore) — the role panel decides
+  const roleKey = getActiveRoleKey();
+  if ((DOOR_ROLES[authDoor] || []).includes(roleKey)) return true;
+  const roleLabel = (USER_ROLES[roleKey] || USER_ROLES.ADMIN).label;
+  const setupHint = currentUserProfile ? '' : ' (Roles not set up yet — run supabase-auth-setup.sql first.)';
+  if (authDoor === 'ADMIN') {
+    showAuthAlert(`⛔ Admin Login is for Admin & Staff accounts — this account is ${roleLabel}, i.e. 🪷 User Panel${setupHint}. Please use User Login.`, 'error');
+  } else {
+    showAuthAlert(`⛔ User Login is for Sevak accounts — this account is ${roleLabel}, i.e. 🛡️ Admin Panel${setupHint}. Please use Admin Login.`, 'error');
+  }
+  return false;
+}
+
+function showAuthScreen(backToChoice = true) {
   const authScreen = document.getElementById('auth-screen');
   const portalApp = document.getElementById('portal-app');
   if (authScreen) authScreen.classList.remove('hidden');
   if (portalApp) portalApp.classList.add('hidden');
+  // Return to the Admin/User door choice unless the caller keeps a door open
+  // (kept open after a door-mismatch error so the message stays visible)
+  if (backToChoice) showAuthDoorChoice();
   updateAuthHeader(null);
   if (window.lucide) lucide.createIcons();
 }
@@ -1945,7 +2004,22 @@ async function handleAuthSignIn(event) {
 
     if (data && data.user) {
       currentUser = data.user;
-      showPortalDashboard(currentUser);
+      // Profile must be loaded before the Admin/User door check
+      await showPortalDashboard(currentUser);
+
+      // Separate Admin/User logins — the role must match the chosen door
+      if (!verifyAuthDoor()) {
+        const authClient = getSupabaseClient();
+        if (authClient) {
+          try { await authClient.auth.signOut(); } catch (e) { console.warn('Door-mismatch sign out:', e); }
+        }
+        currentUser = null;
+        currentUserProfile = null;
+        currentUserRole = 'VIEWER';
+        showAuthScreen(false); // stay on this door's form so the error stays visible
+        return;
+      }
+
       const name = getUserDisplayName(currentUser);
       if (typeof showToast === 'function') {
         showToast(`Hare Krishna, ${name}! Welcome back.`, 'success');
