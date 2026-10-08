@@ -31,6 +31,7 @@ let state = {
   selectedDevotees: new Set(),
   selectedCelebrations: new Set(),
   selectedParcels: new Set(),
+  devoteeAgeGroup: null, // '0-25' | '26-50' | '51-60' | '60+' — set when an Age card is clicked
   anniversaryRemovedIds: [],   // Anniversary soft-removal: records are never deleted, always restorable
   birthdayRemovedIds: []       // Birthday soft-removal (same rule as Anniversary — records are never deleted)
 };
@@ -982,21 +983,16 @@ function populateMonthFilters() {
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const curMonthNum = currentMonth + 1; // 1-12
   const curName = monthNames[currentMonth];
-  const year = todayDate.getFullYear();
 
-  // Celebration-style dropdowns: current month pre-selected as "This Month"
-  const celebrationOptions = (withAll) => {
-    let html = `<option value="${curMonthNum}" selected>🌸 This Month · ${curName} ${year}</option>`;
-    if (withAll) html += `<option value="ALL">🗓️ All 12 Months</option>`;
-    monthNames.forEach((m, i) => {
-      if (i === currentMonth) return;
-      html += `<option value="${i + 1}">${m}</option>`;
-    });
-    return html;
-  };
-
+  // Birthday/Anniversary Month View — clean options only:
+  //   1. All Months   (default — full-year view)
+  //   2-13. January → December (always in calendar sequence, no extras)
   const bdaySel = document.getElementById('bday-select-month');
-  if (bdaySel) bdaySel.innerHTML = celebrationOptions(true);
+  if (bdaySel) {
+    let html = '<option value="ALL" selected>All Months</option>';
+    monthNames.forEach((m, i) => { html += `<option value="${i + 1}">${m}</option>`; });
+    bdaySel.innerHTML = html;
+  }
 
   // Directory filter: All Months default, with a This Month shortcut
   const dirSel = document.getElementById('filter-month');
@@ -1450,11 +1446,13 @@ function initApp() {
   // Initial renders
   populateMonthFilters();
   populateCityFilter();
+  populateMaritalStatusFilter();
   updateKPIs();
   renderDashboard();
   renderDevoteesTable();
   renderBirthdaysGrid();
   renderParcelsTable();
+  renderRemovedCelebrationSection();
   initCharts();
 
   if (window.lucide) {
@@ -1483,6 +1481,7 @@ function saveToStorage() {
 }
 
 async function handleManualCloudSync() {
+  if (!requirePermission('cloud_sync', 'sync data with the cloud')) return;
   const btn = document.getElementById('cloud-sync-btn');
   const txt = document.getElementById('cloud-sync-btn-text');
   if (btn) btn.disabled = true;
@@ -1625,6 +1624,81 @@ const USER_ROLES = {
     badgeClass: 'bg-sky-500/20 text-sky-300 border border-sky-400/30'
   }
 };
+
+// ------------------------------------------------------------
+// PHASE 1: ROLE-BASED PANELS (Admin Panel / User Panel)
+// ------------------------------------------------------------
+// Which top-level panel each role belongs to.
+const ROLE_PANELS = {
+  SUPER_ADMIN: 'ADMIN',
+  ADMIN: 'ADMIN',
+  STAFF: 'ADMIN',
+  USER: 'USER',
+  VIEWER: 'USER'
+};
+
+// Tabs each role is allowed to open (nav gating + switchTab guard)
+const ROLE_TAB_ACCESS = {
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings'],
+  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed'],
+  USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels'],
+  VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed']
+};
+
+// Action permissions per role ('*' = every action)
+const ROLE_PERMISSIONS = {
+  SUPER_ADMIN: ['*'],
+  ADMIN: ['edit_devotees', 'delete_devotees', 'manage_celebrations', 'create_parcels', 'delete_parcels', 'manage_settings', 'export_data', 'cloud_sync'],
+  STAFF: ['edit_devotees', 'manage_celebrations', 'create_parcels', 'delete_parcels', 'export_data', 'cloud_sync'],
+  USER: ['create_parcels'],   // may create parcels & send wishes — main database stays read-only
+  VIEWER: []                  // read-only
+};
+
+// Resolve the signed-in role key (falls back to ADMIN, same rule as getUserRole)
+function getActiveRoleKey() {
+  const key = String(currentUserRole || 'ADMIN').trim().toUpperCase().replace(/[\s-]/g, '_');
+  return USER_ROLES[key] ? key : 'ADMIN';
+}
+
+// 'ADMIN' panel = SUPER_ADMIN/ADMIN/STAFF · 'USER' panel = USER/VIEWER
+function getActivePanel() {
+  return ROLE_PANELS[getActiveRoleKey()] || 'USER';
+}
+
+function allowedTabsForRole(roleKey) {
+  return ROLE_TAB_ACCESS[roleKey || getActiveRoleKey()] || ROLE_TAB_ACCESS.ADMIN;
+}
+
+// Does the current role have this permission?
+function can(perm) {
+  const list = ROLE_PERMISSIONS[getActiveRoleKey()] || [];
+  return list.includes('*') || list.includes(perm);
+}
+
+// Guard used at the top of every restricted action — shows a toast and
+// returns false when the signed-in role is not allowed to run it.
+function requirePermission(perm, actionLabel) {
+  if (can(perm)) return true;
+  const label = (USER_ROLES[getActiveRoleKey()] || USER_ROLES.ADMIN).label;
+  showToast(`⛔ Permission denied — ${label} cannot ${actionLabel || 'run this action'}. Ask an Admin.`, 'error');
+  return false;
+}
+
+// Apply role gating: hide nav tabs the role can't open & keep the current tab legal
+function enforceRoleUI() {
+  const allowed = allowedTabsForRole();
+
+  document.querySelectorAll('.nav-tab[data-tab]').forEach(btn => {
+    const t = btn.getAttribute('data-tab');
+    if (t) btn.classList.toggle('hidden', !allowed.includes(t));
+  });
+
+  const current = state.currentTab || 'dashboard';
+  if (!allowed.includes(current)) {
+    switchTab(allowed.includes('dashboard') ? 'dashboard' : allowed[0]);
+  }
+}
 
 async function fetchUserProfile(user) {
   if (!user || !user.id) return null;
@@ -1783,6 +1857,7 @@ function updateAuthHeader(user) {
     const division = getUserDivision();
     const displayName = getUserDisplayName(user);
     const initial = displayName.charAt(0).toUpperCase();
+    const isAdminPanel = getActivePanel() === 'ADMIN';
 
     container.innerHTML = `
       <div class="flex items-center space-x-2.5">
@@ -1795,6 +1870,7 @@ function updateAuthHeader(user) {
             <div class="flex items-center space-x-1.5">
               <span class="text-xs font-semibold text-white truncate max-w-[120px]" title="${displayName}">${displayName}</span>
               <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${roleConfig.badgeClass}">${roleConfig.label}</span>
+              <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${isAdminPanel ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-400/30' : 'bg-teal-500/20 text-teal-300 border border-teal-400/30'}" title="${isAdminPanel ? 'Admin Panel — full management access' : 'User Panel — submit & view only'}">${isAdminPanel ? '🛡️ Admin Panel' : '🪷 User Panel'}</span>
               ${division && division.toLowerCase() !== 'all' ? `
                 <span class="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-amber-500/20 text-amber-300 border border-amber-400/30">${division}</span>
               ` : ''}
@@ -1818,6 +1894,9 @@ function updateAuthHeader(user) {
       </button>
     `;
   }
+
+  // Role gate (Phase 1) — apply nav/tab gating whenever the header (and role) refreshes
+  if (user && user.email) enforceRoleUI();
 
   if (window.lucide) lucide.createIcons();
 }
@@ -2130,10 +2209,17 @@ async function initAuthSystem() {
 // TAB NAVIGATION
 // ----------------------------------------------------
 function switchTab(tabId) {
+  // Role gate (Phase 1) — a role may only open tabs belonging to its panel
+  if (!allowedTabsForRole().includes(tabId)) {
+    const roleLabel = (USER_ROLES[getActiveRoleKey()] || USER_ROLES.ADMIN).label;
+    showToast(`⛔ ${roleLabel} cannot open the "${tabId}" tab`, 'error');
+    return;
+  }
+
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -2161,11 +2247,8 @@ function switchTab(tabId) {
   if (birthdayCard) birthdayCard.classList.toggle('hidden', tabId === 'anniversaries');
   if (annivCard) annivCard.classList.toggle('hidden', tabId === 'birthdays');
 
-  // Celebration tabs (Birthday / Anniversary): Removed section bar (soft-removed records — restorable, never deleted)
-  const removedBar = document.getElementById('anniv-removed-bar');
-  const isCelebTab = (tabId === 'birthdays' || tabId === 'anniversaries');
-  if (removedBar) removedBar.classList.toggle('hidden', !isCelebTab);
-  if (isCelebTab) renderRemovedCelebrationSection();
+  // Removal Records tab — render BOTH Birthday & Anniversary removal lists separately
+  if (tabId === 'removed') renderRemovedCelebrationSection();
 
   // Highlight active nav tab button with distinct module identity
   const tabColorMap = {
@@ -2174,16 +2257,19 @@ function switchTab(tabId) {
     'anniversaries': 'bg-emerald-600 text-white shadow-sm font-semibold',
     'parcels': 'bg-sky-600 text-white shadow-sm font-semibold',
     'devotees': 'bg-teal-600 text-white shadow-sm font-semibold',
+    'removed': 'bg-amber-600 text-white shadow-sm font-semibold',
     'settings': 'bg-slate-700 text-white shadow-sm font-semibold'
   };
 
+  const allowedTabs = allowedTabsForRole();
   document.querySelectorAll('.nav-tab').forEach(btn => {
     const t = btn.getAttribute('data-tab');
+    const hiddenCls = t && !allowedTabs.includes(t) ? ' hidden' : '';
     if (t === tabId) {
       const activeColor = tabColorMap[tabId] || 'bg-indigo-600 text-white shadow-sm font-semibold';
-      btn.className = `nav-tab px-3.5 py-2 rounded-md text-xs flex items-center space-x-2 transition ${activeColor}`;
+      btn.className = `nav-tab px-3.5 py-2 rounded-md text-xs flex items-center space-x-2 transition ${activeColor}${hiddenCls}`;
     } else {
-      btn.className = 'nav-tab px-3.5 py-2 rounded-md text-xs font-semibold flex items-center space-x-2 transition text-slate-300 hover:text-white hover:bg-slate-800/60';
+      btn.className = `nav-tab px-3.5 py-2 rounded-md text-xs font-semibold flex items-center space-x-2 transition text-slate-300 hover:text-white hover:bg-slate-800/60${hiddenCls}`;
     }
   });
 
@@ -2200,6 +2286,8 @@ function switchTab(tabId) {
     setCelebrationEventType('MARRIAGE');
   } else if (tabId === 'parcels') {
     renderParcelsTable();
+  } else if (tabId === 'removed') {
+    renderRemovedCelebrationSection();
   }
 
   if (window.lucide) {
@@ -2424,6 +2512,39 @@ function getMergedAnniversaryCelebrations(devoteesList = state.devotees) {
 // ----------------------------------------------------
 // KPI STATS COMPUTATION
 // ----------------------------------------------------
+// ----------------------------------------------------
+// AGE-WISE DEVOTEE DISTRIBUTION — LIVE counts from the Database
+// (recomputed on every KPI refresh, so new devotees / age changes auto-update)
+// ----------------------------------------------------
+function getDevoteeAgeBuckets() {
+  const buckets = { '0-25': 0, '26-50': 0, '51-60': 0, '60+': 0, unknown: 0 };
+  state.devotees.forEach(d => {
+    const age = calculateAge(d.dob);
+    if (typeof age !== 'number' || !isFinite(age)) { buckets.unknown++; return; }
+    if (age <= 25) buckets['0-25']++;        // 0–25 (25 included)
+    else if (age <= 50) buckets['26-50']++;  // 26–50 (50 included)
+    else if (age <= 60) buckets['51-60']++;  // 51–60 (60 included)
+    else buckets['60+']++;                   // 61+ = Above 60
+  });
+  return buckets;
+}
+
+function ageGroupLabel(group) {
+  return { '0-25': '0–25', '26-50': '26–50', '51-60': '51–60', '60+': '60+' }[group] || group;
+}
+
+function updateAgeKpiCards() {
+  const b = getDevoteeAgeBuckets();
+  // Updates EVERY age card on every page (Dashboard + Directory) via data-age-stat
+  document.querySelectorAll('[data-age-stat]').forEach(el => {
+    const key = el.getAttribute('data-age-stat');
+    if (key && b[key] !== undefined) el.innerText = b[key];
+  });
+  const seniorEl = document.getElementById('stat-senior-devotees');
+  if (seniorEl) seniorEl.innerText = b['60+']; // Senior Vaishnavas card (60+) stays in sync
+  return b;
+}
+
 function updateKPIs() {
   const totalDevotees = state.devotees.length;
   const totalDevoteesEl = document.getElementById('stat-total-devotees');
@@ -2486,13 +2607,8 @@ function updateKPIs() {
   // Logistics & Parcel Tracking KPIs — counted LIVE from the Delivery Tracking data
   const pStats = updateParcelKpiCards();
 
-  // Senior Vaishnavas (60+)
-  const seniorCount = state.devotees.filter(d => {
-    const age = calculateAge(d.dob);
-    return typeof age === 'number' && age >= 60;
-  }).length;
-  const seniorEl = document.getElementById('stat-senior-devotees');
-  if (seniorEl) seniorEl.innerText = seniorCount;
+  // Age-wise Distribution cards (live) — Senior Vaishnavas (60+) included
+  updateAgeKpiCards();
 
   // Tracking System Stats
   const trackTotalEl = document.getElementById('track-total');
@@ -2513,6 +2629,204 @@ function updateKPIs() {
 
 // ----------------------------------------------------
 // PARCEL TRACKING KPI CARDS — live counts from the Delivery Tracking parcel records
+// ----------------------------------------------------
+// DUPLICATE PARCEL PREVENTION & DETECTION SYSTEM
+// Rule: One devotee should receive only one parcel per month,
+// whether the parcel is created for a Birthday or Anniversary.
+// ----------------------------------------------------
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+function getParcelMonthYear(p) {
+  if (!p) return null;
+  const raw = p.bookingDate || p.createdAt || p.parcelCreatedAt;
+  if (!raw) return null;
+
+  let y = null, m = null;
+  if (typeof raw === 'string' && /^\d{4}-\d{2}/.test(raw)) {
+    const parts = raw.split('T')[0].split('-');
+    y = parseInt(parts[0], 10);
+    m = parseInt(parts[1], 10); // 1-12
+  } else {
+    const d = new Date(raw);
+    if (!isNaN(d.getTime())) {
+      y = d.getFullYear();
+      m = d.getMonth() + 1;
+    }
+  }
+
+  if (!y || !m || m < 1 || m > 12) return null;
+  return {
+    year: y,
+    month: m,
+    monthName: MONTH_NAMES[m - 1],
+    label: `${MONTH_NAMES[m - 1]} ${y}`
+  };
+}
+
+function findDuplicateParcelForDevotee(devoteeId, targetYear, targetMonth, excludeParcelId = null) {
+  if (!state.parcels || !state.parcels.length) return null;
+  const targetY = parseInt(targetYear, 10);
+  const targetM = parseInt(targetMonth, 10);
+  if (!targetY || !targetM) return null;
+
+  const dev = (state.devotees || []).find(d => d.id === devoteeId);
+  const matchedSpouse = dev ? findMatchedSpouseDevotee(dev) : null;
+  const devIds = new Set();
+  if (devoteeId) devIds.add(devoteeId);
+  if (dev && dev.id) devIds.add(dev.id);
+  if (matchedSpouse && matchedSpouse.id) devIds.add(matchedSpouse.id);
+
+  const cleanPhone = (dev && dev.phone) ? dev.phone.replace(/\D/g, '') : '';
+  const spousePhone = (matchedSpouse && matchedSpouse.phone) ? matchedSpouse.phone.replace(/\D/g, '') : '';
+
+  return state.parcels.find(p => {
+    if (excludeParcelId && p.id === excludeParcelId) return false;
+
+    // Check if parcel belongs to the same devotee or matched spouse
+    const pDevId = p.devoteeId;
+    let isSame = devIds.has(pDevId);
+    if (!isSame && p.phone) {
+      const pClean = p.phone.replace(/\D/g, '');
+      if (cleanPhone && cleanPhone.length >= 10 && pClean === cleanPhone) isSame = true;
+      if (spousePhone && spousePhone.length >= 10 && pClean === spousePhone) isSame = true;
+    }
+    if (!isSame) return false;
+
+    const my = getParcelMonthYear(p);
+    if (!my) return false;
+    return my.year === targetY && my.month === targetM;
+  }) || null;
+}
+
+function getParcelsDuplicateMap() {
+  const map = new Map();
+  const parcels = state.parcels || [];
+
+  parcels.forEach(p => {
+    const my = getParcelMonthYear(p);
+    if (!my) return;
+
+    const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
+    const spouse = dev ? findMatchedSpouseDevotee(dev) : null;
+    let canonId = p.devoteeId;
+    if (spouse && spouse.id && spouse.id < canonId) {
+      canonId = spouse.id;
+    }
+    const key = `${canonId}-${my.year}-${my.month}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(p);
+  });
+
+  const dupMap = new Map();
+  map.forEach((list) => {
+    if (list.length > 1) {
+      list.forEach(p => {
+        const other = list.filter(x => x.id !== p.id);
+        const my = getParcelMonthYear(p);
+        dupMap.set(p.id, {
+          count: list.length,
+          monthYearLabel: my ? my.label : '',
+          otherParcels: other
+        });
+      });
+    }
+  });
+
+  return dupMap;
+}
+
+function showDuplicateParcelWarning(devotee, monthYearLabel, existingParcel) {
+  const modal = document.getElementById('duplicate-parcel-modal');
+  if (!modal) {
+    alert(`⚠️ Duplicate Parcel Detected\nThis devotee already has a parcel booked for ${monthYearLabel}.`);
+    return;
+  }
+
+  const dName = devotee ? (devotee.spiritualName ? `${devotee.spiritualName} (${devotee.legalName || ''})` : devotee.legalName) : (existingParcel ? (existingParcel.spiritualName || existingParcel.legalName || existingParcel.devoteeName) : 'This devotee');
+  const dId = devotee ? devotee.id : (existingParcel ? existingParcel.devoteeId : 'N/A');
+  const dPhone = devotee ? (devotee.phone || 'N/A') : (existingParcel ? (existingParcel.phone || 'N/A') : 'N/A');
+
+  const pType = existingParcel ? (existingParcel.parcelType || existingParcel.eventType || 'Prasadam Parcel') : 'Prasadam Parcel';
+  const pDate = existingParcel ? (existingParcel.bookingDate || (existingParcel.createdAt ? existingParcel.createdAt.split('T')[0] : '—')) : '—';
+  const pTrk = existingParcel ? (existingParcel.courierTrackingNo || existingParcel.trackingId || 'Pending Tracking') : '—';
+  const pStatus = existingParcel ? (existingParcel.delivered ? 'Delivered 🟢' : (existingParcel.parcelStatus || 'Packed & Dispatched 📦')) : 'Booked';
+
+  const primaryMsg = document.getElementById('dp-modal-primary-message');
+  if (primaryMsg) {
+    primaryMsg.innerHTML = `This devotee already has a parcel booked for <strong>${escapeHtml(monthYearLabel)}</strong>.`;
+  }
+  const nameEl = document.getElementById('dp-modal-devotee-name');
+  if (nameEl) nameEl.innerText = dName;
+  const idEl = document.getElementById('dp-modal-devotee-id');
+  if (idEl) idEl.innerText = dId;
+  const phoneEl = document.getElementById('dp-modal-devotee-phone');
+  if (phoneEl) phoneEl.innerText = dPhone;
+
+  const typeEl = document.getElementById('dp-modal-existing-type');
+  if (typeEl) typeEl.innerText = pType;
+  const myEl = document.getElementById('dp-modal-existing-monthyear');
+  if (myEl) myEl.innerText = monthYearLabel;
+  const dateEl = document.getElementById('dp-modal-existing-bookingdate');
+  if (dateEl) dateEl.innerText = pDate;
+  const trkEl = document.getElementById('dp-modal-existing-tracking');
+  if (trkEl) trkEl.innerText = pTrk;
+  const statusEl = document.getElementById('dp-modal-existing-status');
+  if (statusEl) statusEl.innerText = pStatus;
+
+  const viewBtn = document.getElementById('dp-modal-view-btn');
+  if (viewBtn && existingParcel) {
+    viewBtn.onclick = () => {
+      closeDuplicateParcelModal();
+      switchTab('parcels');
+      setTimeout(() => {
+        const row = document.getElementById(`parcel-row-${existingParcel.id}`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.classList.add('bg-amber-100/90', 'ring-2', 'ring-amber-500');
+          setTimeout(() => {
+            row.classList.remove('bg-amber-100/90', 'ring-2', 'ring-amber-500');
+          }, 3500);
+        }
+      }, 350);
+    };
+  }
+
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+
+  showToast(`⚠️ Duplicate Parcel Detected: This devotee already has a parcel booked for ${monthYearLabel}.`, 'warning');
+}
+
+function closeDuplicateParcelModal() {
+  const modal = document.getElementById('duplicate-parcel-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function showDuplicateParcelWarningForParcel(parcelId) {
+  const p = (state.parcels || []).find(x => x.id === parcelId);
+  if (!p) return;
+  const dupMap = getParcelsDuplicateMap();
+  const dupInfo = dupMap.get(parcelId);
+  const my = getParcelMonthYear(p);
+  const label = dupInfo ? dupInfo.monthYearLabel : (my ? my.label : 'this month');
+  const other = (dupInfo && dupInfo.otherParcels && dupInfo.otherParcels[0]) || p;
+  const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
+  showDuplicateParcelWarning(dev, label, other);
+}
+
+function handleParcelKpiDuplicateClick() {
+  const pFilter = document.getElementById('parcel-filter-purpose');
+  if (pFilter) {
+    pFilter.value = (pFilter.value === 'DUPLICATES') ? 'ALL' : 'DUPLICATES';
+    renderParcelsTable();
+  }
+}
+
+// ----------------------------------------------------
+// PARCEL TRACKING KPI CARDS — live counts from the Delivery Tracking parcel records
 // (no duplicate data — every card is computed from state.parcels on the fly)
 // ----------------------------------------------------
 function computeParcelStats() {
@@ -2520,9 +2834,6 @@ function computeParcelStats() {
   let out = 0, delivered = 0, birthday = 0, anniversary = 0, unverified = 0;
   parcels.forEach(p => {
     const s = p.parcelStatus || '';
-    // The "Packed & Billed" card was removed — those parcels (no status yet,
-    // PACKED_BLESSED) plus IN_TRANSIT / OUT_FOR_DELIVERY all feed the single
-    // "Out for Delivery" card now.
     if (!s || s === 'PACKED_BLESSED' || s === 'IN_TRANSIT' || s === 'OUT_FOR_DELIVERY') out++;
     if (p.delivered === true || s === 'DELIVERED') delivered++;
 
@@ -2532,7 +2843,8 @@ function computeParcelStats() {
 
     if (p.addressVerified === 'Needs Verification' || !p.addressVerified || (p.address && p.address.length < 15) || !p.pincode) unverified++;
   });
-  return { total: parcels.length, out, delivered, birthday, anniversary, unverified };
+  const dupMap = getParcelsDuplicateMap();
+  return { total: parcels.length, out, delivered, birthday, anniversary, unverified, duplicates: dupMap.size };
 }
 
 function updateParcelKpiCards() {
@@ -2543,20 +2855,34 @@ function updateParcelKpiCards() {
   set('stat-parcel-delivered', s.delivered);
   set('stat-parcel-bday', s.birthday);
   set('stat-parcel-anniv', s.anniversary);
+  set('stat-parcel-duplicates', s.duplicates);
   const pBadgeEl = document.getElementById('nav-parcel-badge');
   if (pBadgeEl) pBadgeEl.innerText = s.total;
+
+  const banner = document.getElementById('parcel-duplicate-banner');
+  const bannerCount = document.getElementById('parcel-duplicate-banner-count');
+  if (banner) {
+    if (s.duplicates > 0) {
+      banner.classList.remove('hidden');
+      if (bannerCount) bannerCount.innerText = `${s.duplicates} Entries`;
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
   return s;
 }
 
-// Highlight the active Purpose KPI card (Birthday / Anniversary) when its filter is applied
+// Highlight the active Purpose KPI card (Birthday / Anniversary / Duplicates) when its filter is applied
 function updateParcelKpiCardHighlights(purpose) {
-  const map = { Birthday: 'parcel-kpi-bday', Anniversary: 'parcel-kpi-anniv' };
+  const map = { Birthday: 'parcel-kpi-bday', Anniversary: 'parcel-kpi-anniv', DUPLICATES: 'parcel-kpi-duplicate' };
   Object.keys(map).forEach(k => {
     const card = document.getElementById(map[k]);
     if (!card) return;
     const active = (purpose === k);
     card.classList.toggle('ring-2', active);
-    card.classList.toggle('ring-emerald-400', active);
+    card.classList.toggle('ring-amber-400', active && k === 'DUPLICATES');
+    card.classList.toggle('ring-emerald-400', active && k !== 'DUPLICATES');
   });
 }
 
@@ -2776,6 +3102,17 @@ function renderDevoteesTable() {
   const searchQuery = (document.getElementById('devotee-search')?.value || '').toLowerCase().trim();
   const filterCity = document.getElementById('filter-city')?.value || '';
   const filterMonth = document.getElementById('filter-month')?.value || '';
+  const ageGroup = state.devoteeAgeGroup || '';
+
+  const matchesAge = (d) => {
+    if (!ageGroup) return true;
+    const age = calculateAge(d.dob);
+    if (typeof age !== 'number' || !isFinite(age)) return false;
+    if (ageGroup === '0-25') return age <= 25;
+    if (ageGroup === '26-50') return age > 25 && age <= 50;
+    if (ageGroup === '51-60') return age > 50 && age <= 60;
+    return age > 60; // '60+'
+  };
 
   const filtered = state.devotees.filter(d => {
     const matchesSearch = !searchQuery ||
@@ -2802,10 +3139,24 @@ function renderDevoteesTable() {
                      (annivParts && (annivParts.month + 1) === monthNum);
     }
 
-    return matchesSearch && matchesCity && matchesMonth;
+    return matchesSearch && matchesCity && matchesMonth && matchesAge(d);
   });
 
   document.getElementById('filtered-count').innerText = filtered.length;
+
+  // Age filter chip — visible only while an Age card filter is active
+  const ageChip = document.getElementById('age-filter-chip');
+  const ageChipLabel = document.getElementById('age-filter-chip-label');
+  if (ageChip && ageChipLabel) {
+    if (ageGroup) {
+      ageChip.classList.remove('hidden');
+      ageChip.classList.add('inline-flex');
+      ageChipLabel.innerText = `Age ${ageGroupLabel(ageGroup)}`;
+    } else {
+      ageChip.classList.add('hidden');
+      ageChip.classList.remove('inline-flex');
+    }
+  }
 
   if (filtered.length === 0) {
     tbody.innerHTML = `
@@ -3179,6 +3530,7 @@ function clearCelebrationSelection() {
 }
 
 async function bulkCreateParcelsForSelected() {
+  if (!requirePermission('create_parcels', 'create parcels in bulk')) return;
   if (!state.selectedCelebrations || state.selectedCelebrations.size === 0) {
     showToast('Please select at least one devotee using the ☑ checkbox on the list.', 'warning');
     return;
@@ -3186,9 +3538,41 @@ async function bulkCreateParcelsForSelected() {
   const selectedDevotees = state.devotees.filter(d => state.selectedCelebrations.has(d.id));
   if (selectedDevotees.length === 0) return;
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const parts = todayStr.split('-');
+  const targetYear = parseInt(parts[0], 10);
+  const targetMonth = parseInt(parts[1], 10);
+  const monthYearLabel = `${MONTH_NAMES[targetMonth - 1]} ${targetYear}`;
+
+  // Check for duplicates before creation
+  const duplicateDevotees = [];
+  const eligibleDevotees = [];
+
+  selectedDevotees.forEach(d => {
+    const dup = findDuplicateParcelForDevotee(d.id, targetYear, targetMonth);
+    if (dup) {
+      duplicateDevotees.push({ devotee: d, duplicateParcel: dup });
+    } else {
+      eligibleDevotees.push(d);
+    }
+  });
+
+  if (eligibleDevotees.length === 0) {
+    // All selected devotees already have a parcel for this month
+    if (duplicateDevotees.length === 1) {
+      showDuplicateParcelWarning(duplicateDevotees[0].devotee, monthYearLabel, duplicateDevotees[0].duplicateParcel);
+    } else {
+      showDuplicateParcelWarning(duplicateDevotees[0].devotee, monthYearLabel, duplicateDevotees[0].duplicateParcel);
+      showToast(`⚠️ Duplicate Parcel Detected: All ${duplicateDevotees.length} selected devotees already have parcels booked for ${monthYearLabel}.`, 'warning');
+    }
+    return;
+  }
+
   const confirmed = await showAppConfirm({
     title: 'Bulk Create Parcel',
-    message: `Create prasadam parcels for ${selectedDevotees.length} selected devotee(s) in one go?`,
+    message: duplicateDevotees.length > 0
+      ? `Create prasadam parcels for ${eligibleDevotees.length} eligible devotee(s)?\n\n⚠️ ${duplicateDevotees.length} devotee(s) already have a parcel booked for ${monthYearLabel} and will be skipped to prevent duplicates.`
+      : `Create prasadam parcels for ${selectedDevotees.length} selected devotee(s) in one go?`,
     confirmText: 'Confirm',
     cancelText: 'Cancel',
     icon: '📦',
@@ -3197,14 +3581,13 @@ async function bulkCreateParcelsForSelected() {
   if (!confirmed) return;
 
   const parcelType = state.celebrationEventType === 'MARRIAGE' ? 'Anniversary' : 'Birthday';
-  const todayStr = new Date().toISOString().split('T')[0];
   const exp = new Date(todayStr);
   exp.setDate(exp.getDate() + 4);
   const expectedDeliveryDate = exp.toISOString().split('T')[0];
   if (!state.parcels) state.parcels = [];
 
   let created = 0;
-  selectedDevotees.forEach(d => {
+  eligibleDevotees.forEach(d => {
     d.addressVerified = 'Verified';
     d.parcelCreated = true;
     d.hasParcel = true;
@@ -3244,12 +3627,7 @@ async function bulkCreateParcelsForSelected() {
       createdAt: new Date().toISOString()
     };
 
-    const pIdx = state.parcels.findIndex(p => p.devoteeId === d.id);
-    if (pIdx >= 0) {
-      state.parcels[pIdx] = record;
-    } else {
-      state.parcels.unshift(record);
-    }
+    state.parcels.unshift(record);
     created++;
   });
 
@@ -3259,7 +3637,12 @@ async function bulkCreateParcelsForSelected() {
   renderDevoteesTable();
   renderParcelsTable();
   clearCelebrationSelection();
-  showToast(`✅ ${created} parcel(s) created successfully!`, 'success');
+
+  if (duplicateDevotees.length > 0) {
+    showToast(`✅ ${created} parcel(s) created! ⚠️ Skipped ${duplicateDevotees.length} duplicate(s) already booked for ${monthYearLabel}.`, 'warning');
+  } else {
+    showToast(`✅ ${created} parcel(s) created successfully!`, 'success');
+  }
 }
 
 // Bulk parcel creation happens from the Birthday / Anniversary celebration lists
@@ -3286,6 +3669,7 @@ function populateCityFilter() {
 }
 
 function clearAllParcelData() {
+  if (!requirePermission('manage_settings', 'clear all parcel data')) return;
   if (!confirm('Are you sure you want to permanently DELETE ALL parcel records & clear every devotee parcel trace? This cannot be undone.')) return;
 
   // Permanent delete of every parcel entry (records + devotee traces)
@@ -3305,12 +3689,36 @@ function clearAllParcelData() {
 function resetDevoteeFilters() {
   state.currentPage = 1;
   state.selectedDevotees.clear();
+  state.devoteeAgeGroup = null;
   const search = document.getElementById('devotee-search');
   if (search) search.value = '';
   const c = document.getElementById('filter-city');
   if (c) c.value = '';
   const m = document.getElementById('filter-month');
   if (m) m.value = '';
+  renderDevoteesTable();
+}
+
+// Clicking an Age card on the Dashboard opens the Directory filtered to that age range.
+// The selected age + any search/city/month filters work together (cumulative).
+function filterDevoteesByAge(group) {
+  if (!['0-25', '26-50', '51-60', '60+'].includes(group)) return;
+  state.devoteeAgeGroup = group;
+  state.currentPage = 1;
+  const search = document.getElementById('devotee-search');
+  if (search) search.value = '';
+  const c = document.getElementById('filter-city');
+  if (c) c.value = '';
+  const m = document.getElementById('filter-month');
+  if (m) m.value = '';
+  renderDevoteesTable();
+  switchTab('devotees');
+  showToast(`Showing devotees aged ${ageGroupLabel(group)}`, 'info');
+}
+
+function clearDevoteeAgeFilter() {
+  state.devoteeAgeGroup = null;
+  state.currentPage = 1;
   renderDevoteesTable();
 }
 
@@ -3488,6 +3896,7 @@ function setDevoteeFormMode(mode) {
 
 function saveDevotee(event) {
   event.preventDefault();
+  if (!requirePermission('edit_devotees', 'add or edit devotee records')) return;
   const devoteeId = document.getElementById('devotee-id').value;
 
   const degrees = [];
@@ -3593,6 +4002,7 @@ function buildMaritalStatusSelect(d) {
 }
 
 async function handleMaritalStatusChange(devoteeId, selectEl) {
+  if (!requirePermission('edit_devotees', 'change marital status')) return;
   const prevRaw = selectEl.getAttribute('data-prev') || '';
   const newVal = selectEl.value;
   if (!newVal || newVal === '__keep__' || newVal === normalizeMarital(prevRaw)) return;
@@ -3621,6 +4031,7 @@ async function handleMaritalStatusChange(devoteeId, selectEl) {
   if (!d) return;
   d.maritalStatus = newVal;
   saveToStorage();
+  populateMaritalStatusFilter(); // keep the Marital Status filter options live
   renderDevoteesTable();
   showToast(`Marital Status updated to ${newVal}`, 'success');
 }
@@ -3844,6 +4255,7 @@ function saveParcelTracking(parcelId) {
 }
 
 async function deleteDevotee(id) {
+  if (!requirePermission('delete_devotees', 'delete devotee records')) return;
   const d = state.devotees.find(x => x.id === id);
   if (!d) return;
   const name = d.spiritualName || d.legalName;
@@ -3916,6 +4328,14 @@ function deleteAllBirthdayAnniversaryRecords() {
 // ----------------------------------------------------
 // VIEW DEVOTEE PROFILE MODAL
 // ----------------------------------------------------
+// Address Verification — single source of truth = Devotee Directory record.
+// Used by View Profile, Birthday/Anniversary list, Parcel & Tracking (shipping label).
+// The rule itself never changes per-section, so no section can show a stale state.
+function isDevoteAddressVerified(dev) {
+  if (!dev) return false;
+  return (dev.addressVerified === 'Verified' || (dev.address && dev.address.length >= 25 && dev.addressVerified !== 'Needs Verification'));
+}
+
 function viewDevoteeProfile(id) {
   const d = state.devotees.find(x => x.id === id);
   if (!d) return;
@@ -3958,6 +4378,12 @@ function viewDevoteeProfile(id) {
   if (emailEl) emailEl.innerText = d.email || 'N/A';
   const addrEl = document.getElementById('vp-address');
   if (addrEl) addrEl.innerText = (d.address ? d.address : 'No address recorded') + (d.pincode ? ' - ' + d.pincode : '');
+  const addrVerifyEl = document.getElementById('vp-address-verify');
+  if (addrVerifyEl) {
+    addrVerifyEl.innerHTML = isDevoteAddressVerified(d)
+      ? '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"><span>🟢</span><span>Verified</span></span>'
+      : '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"><span>🔴</span><span>Unverified</span></span>';
+  }
   const emergEl = document.getElementById('vp-emergency');
   if (emergEl) emergEl.innerText = `${d.emergencyName || 'None'} (${d.emergencyPhone || 'N/A'})`;
 
@@ -4007,6 +4433,12 @@ function viewDevoteeProfile(id) {
   const editBtn = document.getElementById('vp-edit-btn');
   editBtn.onclick = () => editDevotee(d.id);
 
+  // Quick address actions — edits the Directory record (single source of truth)
+  const upAddrBtn = document.getElementById('vp-update-address-btn');
+  if (upAddrBtn) upAddrBtn.onclick = () => openEditAddressModal(d.id);
+  const verAddrBtn = document.getElementById('vp-verify-address-btn');
+  if (verAddrBtn) verAddrBtn.onclick = () => openVerifyAddressModal(d.id);
+
   document.getElementById('view-profile-modal').classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 }
@@ -4022,9 +4454,21 @@ function printDevoteeProfile() {
 // ----------------------------------------------------
 // BIRTHDAY & VAISHNAVA ANNIVERSARY CELEBRATIONS
 // ----------------------------------------------------
-state.selectedCelebrationMonth = String(currentMonth + 1); // Default to the current month
+state.selectedCelebrationMonth = 'ALL'; // Default: All Months (full-year view)
 state.selectedCelebrationDate = null; // Date View — exact-date filter (overrides month)
 state.selectedCelebrationCity = null; // City Filter — searchable (every city name from the database)
+state.selectedCelebrationMode = 'ALL'; // Mode of Delivery Filter (Delhivery Courier / Self Mode)
+state.selectedCelebrationMarital = 'ALL'; // Marital Status Filter (options populate live from the database)
+
+// Friendly display map for Marital Status (used by the filter dropdown & the table badge)
+const MARITAL_DISPLAY = {
+  'Married': { icon: '💞', label: 'Married' },
+  'Grihastha': { icon: '🏡', label: 'Grihastha' },
+  'Widow': { icon: '🤍', label: 'Widow' },
+  'Single': { icon: '🕊️', label: 'Single' },
+  'Unmarried': { icon: '🕊️', label: 'Unmarried' },
+  'Brahmachari': { icon: '🕉️', label: 'Brahmachari' }
+};
 state.celebrationViewMode = 'cards';
 state.activeTrackingDevotee = null;
 state.activeGreetingDevotee = null;
@@ -4059,6 +4503,43 @@ function handleCelebrationMonthChange() {
     state.selectedCelebrationMonth = select.value;
   }
   renderBirthdaysGrid();
+}
+
+// Mode of Delivery Filter — Delhivery Courier / Self Mode (matches the per-row select)
+function handleCelebrationModeChange() {
+  const select = document.getElementById('bday-filter-mode');
+  if (select) state.selectedCelebrationMode = select.value;
+  renderBirthdaysGrid();
+}
+
+// Marital Status Filter — show only devotees/couples with the chosen status
+function handleCelebrationMaritalChange() {
+  const select = document.getElementById('bday-filter-marital');
+  if (select) state.selectedCelebrationMarital = select.value;
+  renderBirthdaysGrid();
+}
+
+// All marital statuses present in the devotee database (used by the Marital Status filter)
+function getAllMaritalStatuses() {
+  const set = new Set();
+  (state.devotees || []).forEach(d => {
+    if (d.maritalStatus && String(d.maritalStatus).trim()) set.add(String(d.maritalStatus).trim());
+  });
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+// Populate the Marital Status filter dropdown — always reflects the live database
+function populateMaritalStatusFilter() {
+  const select = document.getElementById('bday-filter-marital');
+  if (!select) return;
+  const current = select.value || 'ALL';
+  const statuses = getAllMaritalStatuses();
+  select.innerHTML = '<option value="ALL" selected>All Statuses</option>' +
+    statuses.map(s => {
+      const m = MARITAL_DISPLAY[s] || { icon: '◆', label: s };
+      return `<option value="${escapeHtml(s)}">${m.icon} ${escapeHtml(m.label)}</option>`;
+    }).join('');
+  select.value = statuses.includes(current) ? current : 'ALL';
 }
 
 // Date View — exact-date filter (shows every Birthday & Anniversary on that day)
@@ -4129,13 +4610,19 @@ function clearCelebrationCity() {
   renderBirthdaysGrid();
 }
 
-// Clear EVERY filter in the Birthday / Anniversary toolbar (Month / Date / City / Search)
+// Clear EVERY filter in the Birthday / Anniversary toolbar (Month / Date / City / Mode / Search)
 function clearCelebrationFilters() {
-  state.selectedCelebrationMonth = String(currentMonth + 1);
+  state.selectedCelebrationMonth = 'ALL'; // Clear resets to All Months (full-year view)
   const monthEl = document.getElementById('bday-select-month');
   if (monthEl) monthEl.value = state.selectedCelebrationMonth;
   clearCelebrationDate();
   clearCelebrationCity();
+  const modeEl = document.getElementById('bday-filter-mode');
+  if (modeEl) modeEl.value = 'ALL';
+  state.selectedCelebrationMode = 'ALL';
+  const maritalEl = document.getElementById('bday-filter-marital');
+  if (maritalEl) maritalEl.value = 'ALL';
+  state.selectedCelebrationMarital = 'ALL';
   const searchEl = document.getElementById('bday-search-input');
   if (searchEl) searchEl.value = '';
   renderBirthdaysGrid();
@@ -4237,6 +4724,23 @@ function isBdayEntryRemoved(item) {
   return (item.coupleIds || [item.id]).some(id => removed.includes(id));
 }
 
+// Small status badge shown in the celebration table's "Marital Status" column
+function getMaritalStatusBadgeHtml(status) {
+  const s = (status || '').trim();
+  if (!s) return '';
+  const meta = {
+    'Married': { icon: '💞', cls: 'bg-pink-50 text-pink-700 border-pink-200' },
+    'Grihastha': { icon: '🏡', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    'Widow': { icon: '🤍', cls: 'bg-slate-100 text-slate-600 border-slate-200' },
+    'Single': { icon: '🕊️', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+    'Unmarried': { icon: '🕊️', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+    'Brahmachari': { icon: '🕉️', cls: 'bg-violet-50 text-violet-700 border-violet-200' }
+  };
+  const m = meta[s] || { icon: '◆', cls: 'bg-slate-50 text-slate-600 border-slate-200' };
+  return `<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${m.cls} shadow-xs cursor-default" title="Marital Status: ${escapeHtml(s)}">` +
+    `<span>${m.icon}</span><span>${escapeHtml(s)}</span></span>`;
+}
+
 function renderBirthdaysGrid() {
   const container = document.getElementById('bday-cards-grid');
   const tableBody = document.getElementById('bday-table-body');
@@ -4305,6 +4809,22 @@ function renderBirthdaysGrid() {
       if (!c1 && !c2) return false;
     }
 
+    // 6. Mode of Delivery filter — matches the per-row Delivery select exactly
+    //    (Self Mode when the devotee's deliveryMode is SELF, otherwise Delhivery Courier)
+    const modeFilter = state.selectedCelebrationMode || 'ALL';
+    if (modeFilter !== 'ALL') {
+      const mode = (d.deliveryMode === 'SELF') ? 'Self Mode' : 'Delhivery Courier';
+      if (mode !== modeFilter) return false;
+    }
+
+    // 7. Marital Status filter — a couple matches when EITHER spouse has the chosen status
+    const maritalFilter = state.selectedCelebrationMarital || 'ALL';
+    if (maritalFilter !== 'ALL') {
+      const statuses = [d.maritalStatus, item.spouseDevotee ? item.spouseDevotee.maritalStatus : null]
+        .map(s => (s || '').trim());
+      if (!statuses.includes(maritalFilter)) return false;
+    }
+
     return true;
   }).sort((a, b) => {
     if (a.timing.daysRemaining !== null && b.timing.daysRemaining !== null) {
@@ -4343,7 +4863,7 @@ function renderBirthdaysGrid() {
     if (container) container.innerHTML = '';
     tableBody.innerHTML = `
       <tr>
-        <td colspan="9" class="text-center py-12 text-slate-400">
+        <td colspan="10" class="text-center py-12 text-slate-400">
           <div class="flex flex-col items-center space-y-1.5">
             <span class="text-2xl">🎂</span>
             <span class="font-bold text-sm text-slate-700">No celebrations found for selected filters</span>
@@ -4365,12 +4885,21 @@ function renderBirthdaysGrid() {
     const spouseDevotee = item.spouseDevotee;
     const displayName = d.spiritualName || d.legalName;
     const secondaryName = d.spiritualName ? d.legalName : '';
-    const isDevVerified = (dev) => !dev ? false : (dev.addressVerified === 'Verified' || (dev.address && dev.address.length >= 25 && dev.addressVerified !== 'Needs Verification'));
-    const isVerified = isDevVerified(d) || (spouseDevotee && isDevVerified(spouseDevotee));
+    const isVerified = isDevoteAddressVerified(d) || (spouseDevotee && isDevoteAddressVerified(spouseDevotee));
     const bdayDateText = item.rawDateStr || formatDate(item.date);
     const eventIcon = item.eventType === 'MARRIAGE' ? '💍' : '🎂';
     const serialNo = idx + 1;
     const isSel = state.selectedCelebrations.has(d.id) || (spouseDevotee && state.selectedCelebrations.has(spouseDevotee.id));
+
+    // Marital Status cell — one badge per distinct status among the displayed devotee(s)
+    const shownStatuses = [...new Set(
+      (isCouple && spouseDevotee ? [d, spouseDevotee] : [d])
+        .map(dev => (dev.maritalStatus || '').trim())
+        .filter(Boolean)
+    )];
+    const maritalCell = shownStatuses.length
+      ? `<div class="flex flex-col items-start space-y-0.5">${shownStatuses.map(s => getMaritalStatusBadgeHtml(s)).join('')}</div>`
+      : '<span class="text-slate-300 text-[10px] italic">—</span>';
 
     return `
       <tr class="hover:bg-slate-50/90 transition border-b border-slate-100 ${isSel ? 'bg-pink-50/40' : ''}">
@@ -4514,7 +5043,12 @@ function renderBirthdaysGrid() {
           `}
         </td>
 
-        <!-- 5. Address Verified -->
+        <!-- 5. Marital Status -->
+        <td class="py-2 px-1.5 whitespace-nowrap">
+          ${maritalCell}
+        </td>
+
+        <!-- 6. Address Verified -->
         <td class="py-2 px-1.5 text-center">
           <div class="inline-flex flex-col items-center">
             ${isVerified ? `
@@ -4531,7 +5065,7 @@ function renderBirthdaysGrid() {
           </div>
         </td>
 
-        <!-- 6. Mode of Delivery (Delhivery Courier / Self Mode) -->
+        <!-- 7. Mode of Delivery (Delhivery Courier / Self Mode) -->
         <td class="py-2 px-2 text-center whitespace-nowrap">
           <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
             class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
@@ -4540,7 +5074,7 @@ function renderBirthdaysGrid() {
           </select>
         </td>
 
-        <!-- 7. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
+        <!-- 8. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
         <td class="py-2 px-2 whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
             <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">
@@ -4568,11 +5102,29 @@ function renderBirthdaysGrid() {
 // ----------------------------------------------------
 
 // Accept — keep (or restore) a devotee/couple in the Anniversary list, eligible for parcels
-function acceptAnniversaryEntry(devId) {
+async function acceptAnniversaryEntry(devId) {
+  if (!requirePermission('manage_celebrations', 'restore entries to the anniversary list')) return;
   const target = getMergedAnniversaryCelebrations().find(it =>
     it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
   );
   const ids = target ? (target.coupleIds || [devId]) : [devId];
+  const pending = ids.filter(id => (state.anniversaryRemovedIds || []).includes(id));
+
+  // Already in the list — nothing to restore
+  if (!pending.length) {
+    showToast('✅ Already in the Anniversary list & eligible for parcels.', 'success');
+    return;
+  }
+
+  const confirmed = await showAppConfirm({
+    title: 'Restore to Anniversary List?',
+    message: `Are you sure you want to restore ${ids.length > 1 ? 'this couple' : 'this devotee'} back to the Anniversary list?\n\nThe record will be eligible for parcels again.`,
+    confirmText: 'Restore',
+    cancelText: 'Cancel',
+    icon: '↩️'
+  });
+  if (!confirmed) return;
+
   const before = (state.anniversaryRemovedIds || []).length;
   state.anniversaryRemovedIds = (state.anniversaryRemovedIds || []).filter(id => !ids.includes(id));
   const restoredCount = before - state.anniversaryRemovedIds.length;
@@ -4581,9 +5133,7 @@ function acceptAnniversaryEntry(devId) {
   if (restoredCount > 0) showRemovedAnnivSection(false); // return to the main Anniversary list
   renderBirthdaysGrid();
   renderRemovedAnnivSection();
-  showToast(restoredCount > 0
-    ? '✅ Restored to the Anniversary list — now eligible for parcels.'
-    : '✅ Already in the Anniversary list & eligible for parcels.', 'success');
+  showToast('✅ Restored to the Anniversary list — now eligible for parcels.', 'success');
   if (window.lucide) lucide.createIcons();
 }
 
@@ -4632,13 +5182,20 @@ function setCelebrationDeliveryMode(devId, mode) {
 
   ids.forEach(id => {
     const dev = state.devotees.find(x => x.id === id);
-    if (dev) dev.deliveryMode = mode;
+    if (dev) {
+      dev.deliveryMode = mode;
+      // Self Mode rule: Pre Calling ON / Post Calling OFF — applied automatically
+      if (mode === 'SELF') { dev.preCalling = 'Yes'; dev.postCalling = 'No'; }
+    }
   });
 
   // Sync the courier partner on any existing live parcel for these devotees
   (state.parcels || []).forEach(p => {
     if (ids.includes(p.devoteeId)) {
       p.courierPartner = (mode === 'SELF') ? 'Self Pickup' : 'Delhivery';
+      p.deliveryMode = mode;
+      // Self Mode rule applies automatically to every Self Mode consignment
+      if (mode === 'SELF') { p.preCalling = 'Yes'; p.postCalling = 'No'; }
     }
   });
 
@@ -4652,6 +5209,7 @@ function setCelebrationDeliveryMode(devId, mode) {
 
 // Shared action handler — routes to Anniversary (couple) or Birthday (individual) soft-removal
 function removeCelebrationEntry(devId, eventType) {
+  if (!requirePermission('manage_celebrations', 'remove celebration entries')) return;
   if (eventType === 'MARRIAGE') return removeAnniversaryEntry(devId);
   return removeBirthdayEntry(devId);
 }
@@ -4691,11 +5249,29 @@ async function removeBirthdayEntry(devId) {
 }
 
 // Accept / Restore — bring a devotee back to the Birthday list, eligible for parcels again
-function acceptBirthdayEntry(devId) {
+async function acceptBirthdayEntry(devId) {
+  if (!requirePermission('manage_celebrations', 'restore entries to the birthday list')) return;
   const target = getAllBirthdayCelebrations().find(it =>
     it.devotee.id === devId || (it.spouseDevotee && it.spouseDevotee.id === devId)
   );
   const ids = target ? (target.coupleIds || [devId]) : [devId];
+  const pending = ids.filter(id => (state.birthdayRemovedIds || []).includes(id));
+
+  // Already in the list — nothing to restore
+  if (!pending.length) {
+    showToast('✅ Already in the Birthday list & eligible for parcels.', 'success');
+    return;
+  }
+
+  const confirmed = await showAppConfirm({
+    title: 'Restore to Birthday List?',
+    message: `Are you sure you want to restore ${ids.length > 1 ? 'this devotees' : 'this devotee'} back to the Birthday list?\n\nThe record will be eligible for parcels again.`,
+    confirmText: 'Restore',
+    cancelText: 'Cancel',
+    icon: '↩️'
+  });
+  if (!confirmed) return;
+
   const before = (state.birthdayRemovedIds || []).length;
   state.birthdayRemovedIds = (state.birthdayRemovedIds || []).filter(id => !ids.includes(id));
   const restoredCount = before - state.birthdayRemovedIds.length;
@@ -4704,9 +5280,7 @@ function acceptBirthdayEntry(devId) {
   if (restoredCount > 0) showRemovedAnnivSection(false); // return to the main Birthday list
   renderBirthdaysGrid();
   renderRemovedCelebrationSection();
-  showToast(restoredCount > 0
-    ? '✅ Restored to the Birthday list — now eligible for parcels.'
-    : '✅ Already in the Birthday list & eligible for parcels.', 'success');
+  showToast('✅ Restored to the Birthday list — now eligible for parcels.', 'success');
   if (window.lucide) lucide.createIcons();
 }
 
@@ -4731,48 +5305,79 @@ function renderRemovedAnnivSection() {
 }
 
 function renderRemovedCelebrationSection() {
-  const isAnniv = state.currentTab === 'anniversaries';
-  const removed = isAnniv ? (state.anniversaryRemovedIds || []) : (state.birthdayRemovedIds || []);
-  const listEl = document.getElementById('anniv-removed-list');
-  const countEl = document.getElementById('anniv-removed-count');
-  const labelEl = document.getElementById('anniv-removed-toggle-label');
-  const barLabelEl = document.getElementById('anniv-removed-bar-label');
-  const dateColEl = document.getElementById('anniv-removed-date-col');
+  // Removal Records tab — Birthday & Anniversary removal lists rendered SEPARATELY,
+  // both always visible (soft-removed records — nothing is ever deleted).
+  const bdayRemoved = state.birthdayRemovedIds || [];
+  const annivRemoved = state.anniversaryRemovedIds || [];
 
-  // Dynamic section labels per tab
-  if (barLabelEl) barLabelEl.innerText = isAnniv ? 'Removed from Anniversary List' : 'Removed from Birthday List';
-  if (dateColEl) dateColEl.innerText = isAnniv ? 'Anniversary' : 'Birthday';
+  // 1) Birthday Removal List
+  const bdayItems = getAllBirthdayCelebrations()
+    .filter(it => (it.coupleIds || [it.id]).some(id => bdayRemoved.includes(id)))
+    .sort((a, b) => (a.timing && b.timing) ? a.timing.daysRemaining - b.timing.daysRemaining : 0);
+  const bdayCount = bdayItems.length || bdayRemoved.length;
+  const bdayCountEl = document.getElementById('removed-bday-count');
+  if (bdayCountEl) bdayCountEl.innerText = String(bdayCount);
+  const bdayListEl = document.getElementById('removed-bday-list');
+  if (bdayListEl) {
+    bdayListEl.innerHTML = buildRemovedRows({
+      items: bdayItems,
+      count: bdayCount,
+      isAnniv: false,
+      emptyText: 'Records removed from the Birthday list appear here — nothing is ever deleted.'
+    });
+  }
 
-  // Count REMOVED ENTRIES (a merged couple = 1 entry, matching the main list)
-  const allEntries = isAnniv ? getMergedAnniversaryCelebrations() : getAllBirthdayCelebrations();
-  const removedItems = allEntries
-    .filter(it => (it.coupleIds || [it.id]).some(id => removed.includes(id)))
-    .sort((a, b) => a.timing.daysRemaining - b.timing.daysRemaining);
-  const entryCount = removedItems.length || removed.length;
+  // 2) Anniversary Removal List (a merged couple = 1 entry, matching the main list)
+  const annivItems = getMergedAnniversaryCelebrations()
+    .filter(it => (it.coupleIds || [it.id]).some(id => annivRemoved.includes(id)))
+    .sort((a, b) => (a.timing && b.timing) ? a.timing.daysRemaining - b.timing.daysRemaining : 0);
+  const annivCount = annivItems.length || annivRemoved.length;
+  const annivCountEl = document.getElementById('removed-anniv-count');
+  if (annivCountEl) annivCountEl.innerText = String(annivCount);
+  const annivListEl = document.getElementById('removed-anniv-list');
+  if (annivListEl) {
+    annivListEl.innerHTML = buildRemovedRows({
+      items: annivItems,
+      count: annivCount,
+      isAnniv: true,
+      emptyText: 'Records removed from the Anniversary list appear here — nothing is ever deleted.'
+    });
+  }
 
-  if (countEl) countEl.innerText = String(entryCount);
-  if (labelEl) labelEl.innerText = entryCount ? `View Removed Records (${entryCount})` : 'View Removed Records';
+  // Nav badge — total removed entries across both lists
+  const navBadge = document.getElementById('nav-removed-badge');
+  if (navBadge) {
+    const total = bdayCount + annivCount;
+    navBadge.innerText = String(total);
+    navBadge.classList.toggle('hidden', total === 0);
+  }
 
-  if (!listEl) return;
+  if (window.lucide) lucide.createIcons();
+}
 
-  if (!entryCount) {
-    listEl.innerHTML = `
+// Shared row builder for the Removal Records tab lists (Birthday or Anniversary)
+function buildRemovedRows({ items = [], count = 0, isAnniv = false, emptyText = '' }) {
+  if (!count) {
+    return `
       <tr>
         <td colspan="9" class="text-center py-12 text-slate-400">
           <div class="flex flex-col items-center space-y-1.5">
             <span class="text-2xl">🗂️</span>
-            <span class="font-bold text-sm text-slate-600">Removed section is empty</span>
-            <span class="text-xs text-slate-400">Records removed from the ${isAnniv ? 'Anniversary' : 'Birthday'} list appear here — nothing is ever deleted.</span>
+            <span class="font-bold text-sm text-slate-600">${isAnniv ? 'Anniversary' : 'Birthday'} removal list is empty</span>
+            <span class="text-xs text-slate-400">${escapeHtml(emptyText)}</span>
           </div>
         </td>
       </tr>`;
-    return;
   }
 
   const buildAddr = (dev) => dev ? ([dev.address, dev.city, dev.pincode, dev.state].filter(Boolean).join(', ')) : '';
   const dateIcon = isAnniv ? '💍' : '🎂';
+  const acceptFn = isAnniv ? 'acceptAnniversaryEntry' : 'acceptBirthdayEntry';
+  const restoreTitle = isAnniv
+    ? 'Restore to the Anniversary list & make eligible for parcels'
+    : 'Restore to the Birthday list & make eligible for parcels';
 
-  listEl.innerHTML = removedItems.map(item => {
+  return items.map(item => {
     const d = item.devotee;
     const spouse = item.spouseDevotee;
     const isCouple = !!item.isCouple && spouse;
@@ -4823,14 +5428,60 @@ function renderRemovedCelebrationSection() {
         <td class="py-2 px-3 whitespace-nowrap">${phoneCell}</td>
         <td class="py-2 px-3 min-w-[200px]">${addrCell}</td>
         <td class="py-2 px-3 text-right whitespace-nowrap">
-          <button onclick="${isAnniv ? "acceptAnniversaryEntry" : "acceptBirthdayEntry"}('${d.id}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-[11px] transition shadow-xs cursor-pointer" title="${isAnniv ? 'Restore to the Anniversary list & make eligible for parcels' : 'Restore to the Birthday list & make eligible for parcels'}">
+          <button onclick="${acceptFn}('${d.id}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1 rounded text-[11px] transition shadow-xs cursor-pointer" title="${restoreTitle}">
             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             <span>Restore</span>
           </button>
         </td>
       </tr>`;
   }).join('');
+}
 
+// Restore EVERY Birthday record back to the Birthday list
+async function restoreAllBirthdayRemoved() {
+  if (!requirePermission('manage_celebrations', 'restore birthday entries in bulk')) return;
+  const removed = state.birthdayRemovedIds || [];
+  if (!removed.length) { showToast('Birthday removal list is already empty.', 'info'); return; }
+
+  const confirmed = await showAppConfirm({
+    title: 'Restore All Birthday Records?',
+    message: `Are you sure you want to restore ALL ${removed.length} removed Birthday record(s) back to the Birthday list?\n\nEvery record will be eligible for parcels again.`,
+    confirmText: 'Restore All',
+    cancelText: 'Cancel',
+    icon: '↩️'
+  });
+  if (!confirmed) return;
+
+  const n = removed.length;
+  state.birthdayRemovedIds = [];
+  saveToStorage();
+  renderBirthdaysGrid();
+  renderRemovedCelebrationSection();
+  showToast(`✅ Restored ${n} record(s) back to the Birthday list.`, 'success');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Restore EVERY Anniversary couple back to the Anniversary list
+async function restoreAllAnniversaryRemoved() {
+  if (!requirePermission('manage_celebrations', 'restore anniversary entries in bulk')) return;
+  const removed = state.anniversaryRemovedIds || [];
+  if (!removed.length) { showToast('Anniversary removal list is already empty.', 'info'); return; }
+
+  const confirmed = await showAppConfirm({
+    title: 'Restore All Anniversary Records?',
+    message: `Are you sure you want to restore ALL ${removed.length} removed Anniversary couple record(s) back to the Anniversary list?\n\nEvery record will be eligible for parcels again.`,
+    confirmText: 'Restore All',
+    cancelText: 'Cancel',
+    icon: '↩️'
+  });
+  if (!confirmed) return;
+
+  const n = removed.length;
+  state.anniversaryRemovedIds = [];
+  saveToStorage();
+  renderBirthdaysGrid();
+  renderRemovedCelebrationSection();
+  showToast(`✅ Restored ${n} couple record(s) back to the Anniversary list.`, 'success');
   if (window.lucide) lucide.createIcons();
 }
 
@@ -4889,7 +5540,7 @@ function getParcelDeliveryModeLabel(p) {
   return isSelf ? 'Self Mode' : 'Delhivery Courier';
 }
 
-// Clear EVERY filter in the Parcel & Tracking toolbar (Mode / Purpose / Search)
+// Clear EVERY filter in the Parcel & Tracking toolbar (Mode / Purpose / Date / Search)
 function clearParcelFilters() {
   const modeEl = document.getElementById('parcel-filter-mode');
   if (modeEl) modeEl.value = 'ALL';
@@ -4897,8 +5548,40 @@ function clearParcelFilters() {
   if (purposeEl) purposeEl.value = 'ALL';
   const searchEl = document.getElementById('parcel-filter-search');
   if (searchEl) searchEl.value = '';
+  const dateEl = document.getElementById('parcel-filter-date');
+  if (dateEl) dateEl.value = '';
+  const dateClearBtn = document.getElementById('parcel-date-clear');
+  if (dateClearBtn) dateClearBtn.classList.add('hidden');
   renderParcelsTable();
   showToast('All parcel filters cleared', 'info');
+}
+
+// Date View — exact created-date filter for the Parcel & Tracking list
+function handleParcelDateChange() {
+  const input = document.getElementById('parcel-filter-date');
+  const clearBtn = document.getElementById('parcel-date-clear');
+  if (clearBtn) clearBtn.classList.toggle('hidden', !(input && input.value));
+  renderParcelsTable();
+}
+
+function clearParcelDate() {
+  const input = document.getElementById('parcel-filter-date');
+  if (input) input.value = '';
+  const clearBtn = document.getElementById('parcel-date-clear');
+  if (clearBtn) clearBtn.classList.add('hidden');
+  renderParcelsTable();
+}
+
+// Normalize a parcel's creation timestamp to its LOCAL YYYY-MM-DD date string
+function getParcelCreatedDate(p) {
+  const ts = p && (p.createdAt || p.bookingDate || p.parcelCreatedAt || '');
+  if (!ts) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts; // already a plain date
+  const dt = new Date(ts);
+  if (isNaN(dt.getTime())) return '';
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${dt.getFullYear()}-${m}-${day}`;
 }
 
 function renderParcelsTable() {
@@ -4910,6 +5593,7 @@ function renderParcelsTable() {
   const modeFilter = document.getElementById('parcel-filter-mode') ? document.getElementById('parcel-filter-mode').value : 'ALL';
   const purposeFilter = document.getElementById('parcel-filter-purpose') ? document.getElementById('parcel-filter-purpose').value : 'ALL';
   const search = document.getElementById('parcel-filter-search') ? document.getElementById('parcel-filter-search').value.toLowerCase().trim() : '';
+  const dateFilter = document.getElementById('parcel-filter-date') ? document.getElementById('parcel-filter-date').value : '';
   updateParcelKpiCardHighlights(purposeFilter);
 
   // Parcel Tracking lists ONLY live auto-synced parcel records — created from the
@@ -4921,6 +5605,9 @@ function renderParcelsTable() {
     if (modeFilter !== 'ALL') {
       if (getParcelDeliveryModeLabel(p) !== modeFilter) return false;
     }
+
+    // 1a. Date Created filter — exact local date the consignment was created
+    if (dateFilter && getParcelCreatedDate(p) !== dateFilter) return false;
 
     // 1b. Purpose Filter (All / Birthday / Anniversary)
     if (purposeFilter !== 'ALL') {
@@ -5061,22 +5748,14 @@ function renderParcelsTable() {
           `}
         </td>
 
-        <!-- 5. Pre Calling — Yes/No toggle (Self Mode: locked ON ❌) -->
+        <!-- 5. Pre Calling — Yes/No toggle (editable for EVERY parcel, incl. Self Mode — lock removed) -->
         <td class="py-2.5 px-3 text-center">
-          ${isSelfMode ? `
-          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-emerald-50 border border-emerald-300 rounded-lg cursor-not-allowed" id="parcel-cell-pre-${p.id}" title="Self Mode — Pre Calling always ON (locked)">
-            <button type="button" disabled class="${TGL_YES_ACTIVE} opacity-90 cursor-not-allowed select-none" style="pointer-events:none">Yes</button>
-            <button type="button" disabled class="${TGL_IDLE_NO} cursor-not-allowed select-none" style="pointer-events:none">No</button>
-            <span class="text-[10px] leading-none pl-0.5">🔒</span>
-            <input type="hidden" id="pc-pre-${p.id}" value="Yes">
-          </div>
-          ` : `
-          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" id="parcel-cell-pre-${p.id}">
+          <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" id="parcel-cell-pre-${p.id}" title="${isSelfMode ? 'Self Mode defaults to ON — now editable manually' : 'Toggle Pre Calling'}" style="${isSelfMode ? 'border-color:#a7f3d0;background:#ecfdf5;' : ''}">
             <button type="button" class="${d.preCalling === 'Yes' ? TGL_YES_ACTIVE : TGL_IDLE_YES}" onclick="toggleParcelCalling('${p.id}', 'preCalling', 'Yes')">Yes</button>
             <button type="button" class="${d.preCalling === 'No' ? TGL_NO_ACTIVE : TGL_IDLE_NO}" onclick="toggleParcelCalling('${p.id}', 'preCalling', 'No')">No</button>
             <input type="hidden" id="pc-pre-${p.id}" value="${d.preCalling || ''}">
           </div>
-          `}
+          ${isSelfMode ? '<div class="text-[9px] text-emerald-700 font-bold mt-0.5">🏠 Self Mode — editable now</div>' : ''}
         </td>
 
         <!-- 6. Post Calling — Yes/No toggle (Self Mode: locked OFF ❌) -->
@@ -5250,6 +5929,7 @@ function clearParcelSelection() {
 }
 
 async function bulkDeleteParcels() {
+  if (!requirePermission('delete_parcels', 'delete parcels in bulk')) return;
   if (!state.selectedParcels || state.selectedParcels.size === 0) {
     showToast('Please select at least one parcel record to delete', 'error');
     return;
@@ -5292,6 +5972,7 @@ async function bulkDeleteParcels() {
 }
 
 async function deleteParcelRecord(parcelId, devoteeId) {
+  if (!requirePermission('delete_parcels', 'delete parcel records')) return;
   const p = (state.parcels || []).find(x => x.id === parcelId);
   const dev = state.devotees.find(x => x.id === devoteeId);
   const name = (dev && (dev.spiritualName || dev.legalName)) || (p && (p.spiritualName || p.legalName)) || 'this devotee';
@@ -5374,7 +6055,7 @@ function openParcelTrackerModal(devoteeId) {
   
   const addrBadge = document.getElementById('pt-addr-badge');
   if (addrBadge) {
-    if (d.addressVerified === 'Verified' || (d.address && d.address.length >= 20)) {
+    if (isDevoteAddressVerified(d)) {
       addrBadge.className = 'bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full';
       addrBadge.innerText = 'Verified Address ✅';
     } else {
@@ -5968,7 +6649,8 @@ function sendAddressVerificationWhatsApp(devoteeId) {
 }
 
 // Mode of Delivery change in the Edit Parcel modal — Self Mode locks the tracking
-// number (not required) and forces Pre Calling ON / Post Calling OFF automatically.
+// number (not required) and forces Post Calling OFF automatically. Pre Calling is
+// now user-editable for every parcel (lock removed).
 function handleEditParcelModeChange() {
   const modeEl = document.getElementById('ep-mode');
   if (!modeEl) return;
@@ -5986,12 +6668,12 @@ function handleEditParcelModeChange() {
     hint.classList.toggle('text-amber-600', isSelf);
     hint.classList.toggle('text-slate-500', !isSelf);
   }
-  ['ep-pre-calling', 'ep-post-calling'].forEach(id => {
-    const tgl = document.querySelector(`div[data-input="${id}"]`);
-    if (tgl) tgl.querySelectorAll('button').forEach(b => { b.disabled = isSelf; });
-  });
+  // Pre Calling: always editable. Post Calling: locked OFF for Self Mode only.
+  const preTgl = document.querySelector('div[data-input="ep-pre-calling"]');
+  if (preTgl) preTgl.querySelectorAll('button').forEach(b => { b.disabled = false; });
+  const postTgl = document.querySelector('div[data-input="ep-post-calling"]');
+  if (postTgl) postTgl.querySelectorAll('button').forEach(b => { b.disabled = isSelf; });
   if (isSelf) {
-    setCallingToggleValue('ep-pre-calling', 'Yes');
     setCallingToggleValue('ep-post-calling', 'No');
   }
 }
@@ -6050,10 +6732,12 @@ function handleSaveParcelEdit(e) {
   const cleanTrk = rawTrk.replace(/\D/g, '');
 
   if (isSelfMode) {
-    // Self Mode (temple pickup) — tracking locked & not required; Pre Calling ON, Post Calling OFF
+    // Self Mode (temple pickup) — tracking locked & not required; Post Calling stays OFF
+    // (Self Mode rule). Pre Calling is user-editable (lock removed) — read the modal value.
     d.courierTrackingNo = '';
-    d.preCalling = 'Yes';
     d.postCalling = 'No';
+    const preVal = document.getElementById('ep-pre-calling') ? document.getElementById('ep-pre-calling').value : '';
+    d.preCalling = preVal || d.preCalling || 'Yes';
   } else {
     if (!cleanTrk) {
       showToast('Tracking Number is mandatory (*) — please enter the 13-14 digit number', 'error');
@@ -6102,7 +6786,7 @@ function toggleAddressVerification(devoteeId) {
   if (!d) return;
 
   const displayName = d.spiritualName || d.legalName;
-  const isCurrentlyVerified = (d.addressVerified === 'Verified' || (d.address && d.address.length >= 25 && d.addressVerified !== 'Needs Verification'));
+  const isCurrentlyVerified = isDevoteAddressVerified(d);
 
   if (isCurrentlyVerified) {
     d.addressVerified = 'Needs Verification';
@@ -6155,8 +6839,63 @@ function handleSaveAddressVerification(e) {
   renderBirthdaysGrid();
   renderDevoteesTable();
   renderParcelsTable();
+  refreshProfileAddressView(id); // flip the profile badge 🔴 → 🟢 immediately
+  syncDevoteeRecordToCloud(d);   // best-effort cloud mirror
   closeVerifyAddressModal();
   showToast(`Address for ${d.spiritualName || d.legalName} updated and marked as ✅ Verified!`, 'success');
+}
+
+// Live-refresh the View Profile modal's address line + 🟢/🔴 badge after any
+// address save — the Profile never keeps a stale copy of the Directory record.
+function refreshProfileAddressView(id) {
+  const d = state.devotees.find(x => x.id === id);
+  if (!d) return;
+  const addrEl = document.getElementById('vp-address');
+  if (addrEl) addrEl.innerText = (d.address ? d.address : 'No address recorded') + (d.pincode ? ' - ' + d.pincode : '');
+  const badgeEl = document.getElementById('vp-address-verify');
+  if (badgeEl) {
+    badgeEl.innerHTML = isDevoteAddressVerified(d)
+      ? '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"><span>🟢</span><span>Verified</span></span>'
+      : '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"><span>🔴</span><span>Unverified</span></span>';
+  }
+}
+
+// Best-effort mirror of ONE Directory record to Supabase (silent — no toast needed).
+// The local Devotee Directory stays the single source of truth; the cloud copy is
+// kept in step when the table/policies are provisioned (see supabase-setup.sql).
+function syncDevoteeRecordToCloud(d) {
+  const client = getSupabaseClient();
+  if (!client || !d) return;
+  (async () => {
+    try {
+      const row = {
+        'SL NO': d.slNo || 0,
+        'DEVOTEE ID': d.id || '',
+        'NAME': d.legalName || '',
+        'INITIATED NAME': d.spiritualName || '',
+        'SPOUSE NAME': d.spouseName || '',
+        'BIRTHDAY': d.birthdayRaw || '',
+        'ANNIVERSARY': d.anniversaryRaw || '',
+        'CONTACT NO': d.phone || '',
+        'ADDRESS': d.address || '',
+        'CITY': d.city || '',
+        'STATE': d.state || '',
+        'PIN CODE': d.pincode || '',
+        'PHOTO': d.photo || ''
+      };
+      const make = (onConflict) => onConflict
+        ? client.from('devotees').upsert([row], { onConflict })
+        : client.from('devotees').insert([row]);
+      let { data, error } = await make('DEVOTEE ID');
+      if (error && /no unique or exclusion constraint matching/i.test(error.message || '')) {
+        ({ data, error } = await make(null));
+      }
+      if (error) console.warn('Address cloud sync skipped:', error.message);
+      else console.log('☁️ Devotee record synced to cloud:', d.id);
+    } catch (e) {
+      console.warn('Address cloud sync exception:', e);
+    }
+  })();
 }
 
 // ----------------------------------------------------
@@ -6198,6 +6937,8 @@ function handleSaveAddressEdit(e) {
   renderBirthdaysGrid();
   renderDevoteesTable();
   renderParcelsTable();
+  refreshProfileAddressView(id); // the open View Profile modal updates instantly — no stale copy
+  syncDevoteeRecordToCloud(d);   // best-effort cloud mirror
   closeEditAddressModal();
   showToast(`Address for ${d.spiritualName || d.legalName} updated successfully!`, 'success');
 }
@@ -6266,7 +7007,7 @@ function populateCreateParcelFields(d, parcelTypeOverride = null) {
   // Address Verified Badge
   const addrBadge = document.getElementById('cp-address-verified-badge');
   if (addrBadge) {
-    if (d.addressVerified === 'Verified' || (d.address && d.address.length >= 25)) {
+    if (isDevoteAddressVerified(d)) {
       addrBadge.className = 'inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300';
       addrBadge.innerHTML = '<span>✅</span> <span>Verified Address</span>';
     } else {
@@ -6553,6 +7294,7 @@ function launchWhatsAppDirect() {
 // EXPORT & IMPORT (EXCEL / JSON)
 // ----------------------------------------------------
 function downloadJsonBackup() {
+  if (!requirePermission('export_data', 'download the full database backup')) return;
   const data = {
     exportDate: new Date().toISOString(),
     version: '1.0',
@@ -6571,6 +7313,10 @@ function downloadJsonBackup() {
 }
 
 function restoreJsonBackup(event) {
+  if (!requirePermission('manage_settings', 'restore a database backup')) {
+    if (event && event.target) event.target.value = ''; // let the user pick another file later
+    return;
+  }
   const file = event.target.files[0];
   if (!file) return;
 
@@ -6595,6 +7341,7 @@ function restoreJsonBackup(event) {
 }
 
 function exportFullDatabaseExcel() {
+  if (!requirePermission('export_data', 'export the full Excel workbook')) return;
   if (!window.XLSX) {
     alert('Excel engine loading. Please check internet connection.');
     return;
@@ -6900,14 +7647,26 @@ function exportSelectedDevoteesPDF() {
   }
 }
 
-const exportFilteredDevoteesPDF = exportSelectedDevoteesPDF;
-
-function exportFilteredDevoteesCSV() {
+// Shared "filtered Directory list" resolver — used by the Directory table, CSV export and
+// PDF export so every export respects EXACTLY the filters shown on screen
+// (search + city + month + age group). One rule, no drift between copies.
+function getFilteredDirectoryDevotees() {
   const searchQuery = (document.getElementById('devotee-search')?.value || '').toLowerCase().trim();
   const filterCity = document.getElementById('filter-city')?.value || '';
   const filterMonth = document.getElementById('filter-month')?.value || '';
+  const ageGroup = state.devoteeAgeGroup || '';
 
-  const filtered = state.devotees.filter(d => {
+  const matchesAge = (d) => {
+    if (!ageGroup) return true;
+    const age = calculateAge(d.dob);
+    if (typeof age !== 'number' || !isFinite(age)) return false;
+    if (ageGroup === '0-25') return age <= 25;
+    if (ageGroup === '26-50') return age > 25 && age <= 50;
+    if (ageGroup === '51-60') return age > 50 && age <= 60;
+    return age > 60; // '60+'
+  };
+
+  return state.devotees.filter(d => {
     const matchesSearch = !searchQuery ||
       (d.legalName && d.legalName.toLowerCase().includes(searchQuery)) ||
       (d.spiritualName && d.spiritualName.toLowerCase().includes(searchQuery)) ||
@@ -6923,12 +7682,146 @@ function exportFilteredDevoteesCSV() {
       const monthNum = parseInt(filterMonth);
       const dobParts = parseDateParts(d.dob);
       const annivParts = parseDateParts(d.anniversaryDate || d.anniversaryRaw || d.anniversary);
+      // Month filter applies to BOTH Birthday and Anniversary
       matchesMonth = (dobParts && (dobParts.month + 1) === monthNum) ||
                      (annivParts && (annivParts.month + 1) === monthNum);
     }
 
-    return matchesSearch && matchesCity && matchesMonth;
+    return matchesSearch && matchesCity && matchesMonth && matchesAge(d);
   });
+}
+
+// Export the CURRENTLY FILTERED Devotee Directory list as a printable PDF report
+// (respects search, city, month and the age-group filter exactly like the table).
+function exportFilteredDevoteesPDF() {
+  if (!requirePermission('export_data', 'export the directory as PDF')) return;
+  const filteredList = getFilteredDirectoryDevotees()
+    .sort((a, b) => (parseInt(a.slNo) || 0) - (parseInt(b.slNo) || 0));
+  if (filteredList.length === 0) {
+    showToast('No devotees to export. Adjust the filters and try again.', 'info');
+    alert('No devotees to export. Adjust the filters and try again.');
+    return;
+  }
+
+  const dateStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Human-readable filter context for the report header
+  const filterParts = [];
+  const ageGroup = state.devoteeAgeGroup || '';
+  const srch = (document.getElementById('devotee-search')?.value || '').trim();
+  const fCity = document.getElementById('filter-city')?.value || '';
+  const fMonth = document.getElementById('filter-month')?.value || '';
+  if (ageGroup) filterParts.push(`Age ${ageGroupLabel(ageGroup)}`);
+  if (fCity) filterParts.push(`City: ${fCity}`);
+  if (fMonth) filterParts.push(`Month: ${getMonthName(parseInt(fMonth))}`);
+  if (srch) filterParts.push(`Search: "${srch}"`);
+  const scopeLabel = filterParts.length ? filterParts.join(' • ') : 'Full Directory';
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ISKCON Devotee Directory - Report</title>
+  <style>
+    @page { size: A4 landscape; margin: 10mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 12px; color: #1e293b; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header-box { border-bottom: 2px solid #0f766e; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .org-title { font-size: 18px; font-weight: 800; color: #0f766e; margin: 0 0 3px 0; letter-spacing: -0.3px; }
+    .sub-title { font-size: 11px; color: #64748b; margin: 0; }
+    .meta-box { text-align: right; font-size: 10.5px; color: #334155; line-height: 1.4; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-weight: 700; font-size: 10px; }
+    .scope-line { font-weight: 700; color: #0f766e; margin-top: 2px; max-width: 380px; word-break: break-word; }
+    table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: 4px; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    th { background: #0f766e; color: #ffffff; padding: 7px 8px; font-weight: 700; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; text-align: left; border: 1px solid #0d6b63; }
+    th.center, td.center { text-align: center; }
+    td { padding: 6px 8px; border: 1px solid #e2e8f0; vertical-align: middle; color: #334155; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .sno-col { font-weight: 800; font-family: "Courier New", Courier, monospace; color: #0f766e; font-size: 11px; }
+    .devotee-main { font-weight: 700; color: #0f172a; font-size: 11px; }
+    .devotee-sub { font-size: 9.5px; color: #64748b; margin-top: 1px; }
+    .city-tag { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #f0fdfa; color: #115e59; border: 1px solid #ccfbf1; font-weight: 600; font-size: 10px; }
+    .footer-bar { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 9.5px; color: #94a3b8; display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+  <div class="header-box">
+    <div>
+      <div class="org-title">ISKCON Devotee Directory — Report</div>
+      <p class="sub-title">Sri Sri Radha Madan Mohan Mandir, Durgapur • Official Congregation Database</p>
+    </div>
+    <div class="meta-box">
+      <div>Export Date: <strong>${dateStr}</strong></div>
+      <div>Records: <span class="badge">${filteredList.length} Devotee(s)</span></div>
+      <div class="scope-line">Scope: ${escapeHtml(scopeLabel)}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width: 45px;">S.No.</th>
+        <th style="width: 190px;">Name</th>
+        <th style="width: 100px;">Birthday</th>
+        <th style="width: 95px;">Anniversary</th>
+        <th class="center" style="width: 45px;">Age</th>
+        <th style="width: 100px;">Phone</th>
+        <th style="width: 110px;">City</th>
+        <th>Address</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filteredList.map(d => {
+        const displayName = d.spiritualName || d.legalName || 'N/A';
+        const secondary = (d.spiritualName && d.legalName) ? d.legalName : '';
+        const age = calculateAge(d.dob);
+        const bday = d.birthdayRaw || formatDate(d.dob);
+        const anniv = d.anniversaryRaw || d.anniversaryDate || d.anniversary || '—';
+        const phone = d.phone || 'N/A';
+        const city = d.city || 'N/A';
+        const addr = (d.address ? d.address : 'No address recorded') + (d.pincode ? ' - ' + d.pincode : '');
+        return `
+          <tr>
+            <td class="center sno-col">${d.slNo || ''}</td>
+            <td>
+              <div class="devotee-main">${escapeHtml(displayName)}</div>
+              ${secondary ? `<div class="devotee-sub">${escapeHtml(secondary)}</div>` : ''}
+            </td>
+            <td>${escapeHtml(bday)}</td>
+            <td>${escapeHtml(anniv)}</td>
+            <td class="center">${typeof age === 'number' && age > 0 ? age + ' yrs' : 'N/A'}</td>
+            <td>${escapeHtml(phone)}</td>
+            <td><span class="city-tag">${escapeHtml(city)}</span></td>
+            <td>${escapeHtml(addr)}</td>
+          </tr>
+        `;
+      }).join('')}
+    </tbody>
+  </table>
+
+  <div class="footer-bar">
+    <span>ISKCON Congregation Department • Devotee Directory Report</span>
+    <span>Generated automatically via Portal Management System</span>
+  </div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 400);
+    showToast(`PDF generated for ${filteredList.length} record(s).`, 'success');
+  } else {
+    alert('Popup blocked! Please allow popups to export the PDF.');
+  }
+}
+
+function exportFilteredDevoteesCSV() {
+  if (!requirePermission('export_data', 'export the directory as CSV')) return;
+  const filtered = getFilteredDirectoryDevotees();
 
   if (filtered.length === 0) {
     showToast('No devotees to export.', 'info');
@@ -7022,6 +7915,7 @@ function exportBirthdayListExcel() {
 }
 
 function exportSelectedCelebrationsPDF() {
+  if (!requirePermission('export_data', 'export selected celebrations as PDF')) return;
   if (!state.selectedCelebrations || state.selectedCelebrations.size === 0) {
     showToast('Please select at least one devotee.', 'warning');
     alert('Please select at least one record.');
@@ -7204,6 +8098,7 @@ function handleExcelImport(event) {
 }
 
 function confirmResetToSampleData() {
+  if (!requirePermission('manage_settings', 'reset the database to sample data')) return;
   if (confirm('Load authentic ISKCON devotee sample data? Any unsaved local edits will be replaced.')) {
     const seed = getInitialSampleData();
     state.devotees = seed.devotees;
@@ -7215,6 +8110,7 @@ function confirmResetToSampleData() {
 }
 
 function confirmClearDatabase() {
+  if (!requirePermission('manage_settings', 'purge the entire database')) return;
   if (confirm('WARNING: Are you sure you want to permanently clear the devotee database? Make sure you have exported a JSON backup first!')) {
     state.devotees = [];
     state.counselors = [];

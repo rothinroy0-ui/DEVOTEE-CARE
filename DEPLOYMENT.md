@@ -61,7 +61,9 @@ project **and** Supabase Auth knows the deployed site. Follow these 5 steps once
    { "full_name": "Your Name" }
    ```
    The portal shows this name in the top-right profile pill. Without it, it shows your
-   email prefix. Role defaults to **Admin** so every module stays accessible.
+   email prefix. Role defaults to **Admin** so every module stays accessible —
+   after enabling roles (see *Roles & Panels* below), promote this account to
+   `SUPER_ADMIN` so it can manage the other logins.
 
 ---
 
@@ -84,6 +86,36 @@ After a successful login the portal calls `initSupabaseAndSync()` which reads th
 2. Check **Deployments** shows a successful build.
 3. Visit your Vercel URL → you should see the **"Sign In to Portal"** screen.
 4. Sign in with the account from Step 3 → the dashboard opens with your name + role badge.
+
+---
+
+## Roles & Panels — 🛡️ Admin Panel vs 🪷 User Panel (Phase 1)
+
+Every login now lands in a role-based panel. The role comes from the `profiles`
+table in Supabase; **until you run `supabase-auth-setup.sql` (below) every account
+behaves as Admin exactly as before** — nothing breaks.
+
+| Role | Panel | Tabs opened | Can do |
+|---|---|---|---|
+| `SUPER_ADMIN` / `ADMIN` | 🛡️ Admin | all 7 (incl. Settings) | everything |
+| `STAFF` | 🛡️ Admin | all except Settings | edit devotees, remove/restore, parcels, export, cloud sync |
+| `USER` | 🪷 User | Dashboard, Birthday, Anniversary, Parcels | view + create parcels + send wishes — main database is read-only |
+| `VIEWER` | 🪷 User | all except Settings | read-only (no export, no create) |
+
+**One-time setup (same pattern as the parcels table):**
+
+1. Supabase → **SQL Editor → New query** → paste all of `supabase-auth-setup.sql` → **Run**.
+   Creates `profiles` + signup trigger (new users always start as `USER`) + Row Level
+   Security so roles can't be edited from the browser.
+2. In that file, **edit the email in section 5** and re-run it to promote yourself to
+   `SUPER_ADMIN`.
+3. Add further logins via **Authentication → Users → Add user** (they get `USER`/🪷
+   automatically). Promote anyone with:
+   `update public.profiles set role='STAFF' where email='...';`
+
+Blocked actions don't fail silently — they show a red toast
+*"⛔ Permission denied — … cannot … Ask an Admin."* and the nav hides tabs the role
+cannot open.
 
 ---
 
