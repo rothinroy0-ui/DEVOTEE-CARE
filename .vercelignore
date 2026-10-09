@@ -1,0 +1,10 @@
+# Environment secrets — never uploaded to Vercel
+# (Serverless /api/config.js reads these from Vercel's Environment Variables)
+.env
+.env.local
+.env.*.local
+
+# Local OS / editor noise
+Thumbs.db
+.DS_Store
+*.log
