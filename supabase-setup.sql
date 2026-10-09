@@ -31,13 +31,13 @@ create table if not exists public.parcels (
   address text,
   city text,
   pincode text,
-  address_verified text,
+  address_verified text default null,   -- never auto-verified: NULL until a user explicitly selects
   status text default 'Packed',
   event_type text,
   courier_partner text,
   courier_tracking_no text,
   tracking_id text,
-  delivery_mode text,
+  delivery_mode text default null,      -- never auto-assigned: NULL until a user explicitly selects
   pre_calling text,
   post_calling text,
   booking_date text,
@@ -122,6 +122,38 @@ do $$ begin
   end if;
 end $$;
 
+-- ----------------------------------------------------------------------------
+-- 6) ACTIVITY LOG / AUDIT HISTORY
+--    Every data-changing action (create / edit / remove / restore / delete /
+--    import / clear) is recorded by the portal locally today; this table lets
+--    the audit trail live in the cloud too. Writing to it is best-effort —
+--    if the table is missing, the local audit log still works.
+-- ----------------------------------------------------------------------------
+create table if not exists public.activity_log (
+  id text primary key,
+  action text not null,
+  entity text,
+  summary text,
+  target_id text,
+  actor text,
+  actor_role text,
+  created_at timestamptz default now()
+);
+
+create index if not exists activity_log_created_at_idx on public.activity_log (created_at desc);
+create index if not exists activity_log_action_idx on public.activity_log (action);
+
+alter table public.activity_log enable row level security;
+
+-- Signed-in accounts may read the trail and append their own actions.
+drop policy if exists "activity_log_auth_select" on public.activity_log;
+create policy "activity_log_auth_select" on public.activity_log
+  for select to authenticated using (true);
+
+drop policy if exists "activity_log_auth_insert" on public.activity_log;
+create policy "activity_log_auth_insert" on public.activity_log
+  for insert to authenticated with check (true);
+
 -- ============================================================================
 -- OPTIONAL SECTION — CLOUD MASTER DEVOTEE SEED
 --
@@ -144,3 +176,16 @@ end $$;
 -- ============================================================================
 
 -- ✅ Done — verify with:  select count(*) from public.parcels;
+
+-- ----------------------------------------------------------------------------
+-- 7) NEUTRAL DEFAULTS (Marital Status / Address Verified / Mode of Delivery)
+--
+-- These three fields must stay BLANK/NULL until an authorized user explicitly
+-- selects a value. The portal never auto-assigns them on create / edit / import:
+--   * parcels.address_verified -> NULL (no 'Verified' default)
+--   * parcels.delivery_mode    -> NULL (no 'DELHIVERY' default)
+--   * devotees.marital_status  -> the optional `devotees` table (see above) must
+--                                 keep this column nullable with no default so
+--                                 imported / newly created rows stay blank.
+-- Existing, manually chosen values are preserved untouched.
+-- ----------------------------------------------------------------------------

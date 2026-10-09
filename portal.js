@@ -12,7 +12,8 @@ const STORAGE_KEYS = {
   ANNIV_REMOVED: 'iskcon_devotee_care_anniv_removed_v1',
   BDAY_REMOVED: 'iskcon_devotee_care_bday_removed_v1',
   INITIALIZED: 'iskcon_devotee_care_initialized_v1',
-  PARCEL_PURGED: 'iskcon_devotee_care_parcels_purged_v2'
+  PARCEL_PURGED: 'iskcon_devotee_care_parcels_purged_v2',
+  ACTIVITY: 'iskcon_devotee_care_activity_v1'
 };
 
 // Global State
@@ -33,7 +34,8 @@ let state = {
   selectedParcels: new Set(),
   devoteeAgeGroup: null, // '0-25' | '26-50' | '51-60' | '60+' — set when an Age card is clicked
   anniversaryRemovedIds: [],   // Anniversary soft-removal: records are never deleted, always restorable
-  birthdayRemovedIds: []       // Birthday soft-removal (same rule as Anniversary — records are never deleted)
+  birthdayRemovedIds: [],      // Birthday soft-removal (same rule as Anniversary — records are never deleted)
+  activityLog: []              // 🧾 Audit history: who changed what & when (newest first)
 };
 
 // Reference current date for real-time calculations
@@ -1470,6 +1472,7 @@ function saveToStorage() {
   localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels || []));
   localStorage.setItem(STORAGE_KEYS.ANNIV_REMOVED, JSON.stringify(state.anniversaryRemovedIds || []));
   localStorage.setItem(STORAGE_KEYS.BDAY_REMOVED, JSON.stringify(state.birthdayRemovedIds || []));
+  localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(state.activityLog || []));
 
   // Auto-sync parcels to Supabase Cloud so all users see changes (debounced 1s).
   // Silent: background saves must not nag the user while the cloud table is
@@ -1497,6 +1500,7 @@ async function handleManualCloudSync() {
     // 3. Fetch fresh devotees from Supabase
     await initSupabaseAndSync();
 
+    logActivity('sync', 'Database', 'Cloud sync completed.');
     showToast('☁️ Cloud Sync Complete! All data is synchronized between all sevaks.', 'success');
   } catch (e) {
     console.error('Manual sync error:', e);
@@ -1519,6 +1523,9 @@ function loadFromStorage() {
     const rawBdayRemoved = localStorage.getItem(STORAGE_KEYS.BDAY_REMOVED);
     state.birthdayRemovedIds = rawBdayRemoved ? JSON.parse(rawBdayRemoved) : [];
     if (!Array.isArray(state.birthdayRemovedIds)) state.birthdayRemovedIds = [];
+    const rawActivity = localStorage.getItem(STORAGE_KEYS.ACTIVITY);
+    state.activityLog = rawActivity ? JSON.parse(rawActivity) : [];
+    if (!Array.isArray(state.activityLog)) state.activityLog = [];
   } catch (e) {
     console.error('Error loading data from storage:', e);
     const seed = getInitialSampleData();
@@ -1720,11 +1727,11 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings'],
-  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed'],
-  USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels'],
-  VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed']
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings', 'system'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings', 'system'],
+  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'system'],
+  USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels', 'system'],
+  VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'system']
 };
 
 // Action permissions per role ('*' = every action)
@@ -2262,6 +2269,21 @@ function updateAuthHeader(user) {
   if (window.lucide) lucide.createIcons();
 }
 
+function openProfileModalSafe() {
+  if (currentAuthUser && currentAuthUser.email) {
+    const roleKey = getUserRole(currentAuthUser);
+    const roleConfig = USER_ROLES[roleKey] || USER_ROLES.ADMIN;
+    showToast(`Signed in as ${currentAuthUser.email} (${roleConfig.label})`, 'info');
+  } else {
+    showAuthScreen();
+  }
+}
+
+function handleSignIn(arg) {
+  showAuthScreen();
+}
+window.handleSignIn = handleSignIn;
+
 async function handleAuthSignIn(event) {
   event.preventDefault();
   clearAuthAlert();
@@ -2626,6 +2648,155 @@ async function initAuthSystem() {
 // ----------------------------------------------------
 // TAB NAVIGATION
 // ----------------------------------------------------
+// ======================================================================
+// 🧾 ACTIVITY LOG / AUDIT HISTORY
+// Every data-changing action is recorded with who / what / when.
+// Stored locally right now (newest first) and ready to sync to the
+// Supabase `activity_log` table when the cloud is provisioned.
+// ======================================================================
+const ACTIVITY_LOG_MAX = 500;
+
+const ACTIVITY_ACTIONS = {
+  create:  { label: 'Created',  icon: 'plus-circle',   color: 'emerald' },
+  edit:    { label: 'Updated',  icon: 'pencil',        color: 'sky' },
+  remove:  { label: 'Removed',  icon: 'archive',       color: 'amber' },
+  restore: { label: 'Restored', icon: 'rotate-ccw',    color: 'emerald' },
+  delete:  { label: 'Deleted',  icon: 'trash-2',       color: 'rose' },
+  import:  { label: 'Imported', icon: 'upload',        color: 'violet' },
+  clear:   { label: 'Cleared',  icon: 'alert-octagon', color: 'rose' },
+  sync:    { label: 'Synced',   icon: 'cloud',         color: 'sky' }
+};
+
+function persistActivityLog() {
+  try { localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(state.activityLog || [])); }
+  catch (e) { /* ignore quota errors */ }
+}
+
+// Human label for whoever performed the action (email + role, or "Public")
+function getActivityActor() {
+  const roleLabel = ((USER_ROLES[getActiveRoleKey()] || {}).label) || getActiveRoleKey();
+  if (typeof PUBLIC_OPEN_ACCESS !== 'undefined' && PUBLIC_OPEN_ACCESS) {
+    return `Public access · ${roleLabel}`;
+  }
+  const email = (currentUser && currentUser.email) || (currentUserProfile && currentUserProfile.email) || '';
+  return email ? `${email} · ${roleLabel}` : roleLabel;
+}
+
+// Record one audit entry. Safe to call from anywhere (never throws).
+function logActivity(action, entity, summary, targetId) {
+  try {
+    if (!Array.isArray(state.activityLog)) state.activityLog = [];
+    state.activityLog.unshift({
+      id: 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      ts: Date.now(),
+      action: action || 'edit',
+      entity: entity || 'System',
+      summary: summary || '',
+      targetId: targetId || null,
+      actor: getActivityActor(),
+      actorRole: getActiveRoleKey()
+    });
+    if (state.activityLog.length > ACTIVITY_LOG_MAX) state.activityLog.length = ACTIVITY_LOG_MAX;
+    persistActivityLog();
+    if (typeof renderRecentChanges === 'function') renderRecentChanges();
+    if (typeof renderActivityLog === 'function') renderActivityLog();
+  } catch (e) { console.warn('logActivity failed:', e); }
+}
+
+function formatActivityWhen(ts) {
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + ' min ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + ' hr ago';
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return days + ' day' + (days > 1 ? 's' : '') + ' ago';
+  return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function activityItemHtml(entry) {
+  const meta = ACTIVITY_ACTIONS[entry.action] || { label: entry.action, icon: 'activity', color: 'slate' };
+  return `
+    <div class="flex items-start space-x-3 py-2.5 border-b border-slate-100 last:border-0">
+      <div class="w-8 h-8 rounded-lg bg-${meta.color}-100 text-${meta.color}-700 flex items-center justify-center shrink-0">
+        <i data-lucide="${meta.icon}" class="w-4 h-4"></i>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="text-xs text-slate-700 leading-snug"><span class="font-bold">${escapeHtml(meta.label)}</span> — ${escapeHtml(entry.summary || '')}</div>
+        <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(entry.actor || '')} · ${formatActivityWhen(entry.ts)}</div>
+      </div>
+    </div>`;
+}
+
+function getFilteredActivityLog() {
+  const action = (document.getElementById('activity-filter') || {}).value || 'ALL';
+  const q = ((document.getElementById('activity-search') || {}).value || '').trim().toLowerCase();
+  return (state.activityLog || []).filter(e => {
+    if (action !== 'ALL' && e.action !== action) return false;
+    if (q && !`${e.summary || ''} ${e.actor || ''} ${e.entity || ''}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function renderActivityLog() {
+  const host = document.getElementById('activity-log-list');
+  if (!host) return;
+  const countEl = document.getElementById('activity-count');
+  if (countEl) countEl.innerText = (state.activityLog || []).length;
+  const list = getFilteredActivityLog();
+  host.innerHTML = list.length
+    ? list.slice(0, 200).map(activityItemHtml).join('')
+    : `<div class="text-xs text-slate-400 py-6 text-center">No activity recorded yet. Changes you make (add / edit / remove / parcel) will appear here.</div>`;
+  if (window.lucide) lucide.createIcons();
+}
+
+function renderRecentChanges() {
+  const host = document.getElementById('recent-changes-list');
+  if (!host) return;
+  const list = (state.activityLog || []).slice(0, 6);
+  host.innerHTML = list.length
+    ? list.map(activityItemHtml).join('')
+    : `<div class="text-xs text-slate-400 py-5 text-center">No recent changes yet.</div>`;
+  if (window.lucide) lucide.createIcons();
+}
+
+async function clearActivityLog() {
+  if (!requirePermission('manage_settings', 'clear the activity log')) return;
+  const confirmed = await showAppConfirm({
+    title: 'Clear Activity Log?',
+    message: 'This only clears the audit history list. Devotee records and parcels are not affected.',
+    confirmText: 'Clear Log',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🧾'
+  });
+  if (!confirmed) return;
+  state.activityLog = [];
+  persistActivityLog();
+  renderActivityLog();
+  renderRecentChanges();
+  showToast('Activity log cleared.', 'info');
+}
+
+function exportActivityLogCsv() {
+  if (!requirePermission('export_data', 'export the activity log')) return;
+  const list = getFilteredActivityLog();
+  if (!list.length) { showToast('No activity to export.', 'info'); return; }
+  const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const rows = [['When', 'Action', 'Entity', 'Summary', 'Actor', 'Role'].map(esc).join(',')];
+  list.forEach(e => rows.push([
+    new Date(e.ts).toLocaleString('en-GB'), e.action, e.entity, e.summary, e.actor, e.actorRole
+  ].map(esc).join(',')));
+  const blob = new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ISKCON_Activity_Log_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Activity log exported as CSV.', 'success');
+}
+
 function switchTab(tabId) {
   // Role gate (Phase 1) — a role may only open tabs belonging to its panel
   if (!allowedTabsForRole().includes(tabId)) {
@@ -2637,7 +2808,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'system'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -2686,6 +2857,7 @@ function switchTab(tabId) {
     updateKPIs();
     renderDashboard();
     initCharts();
+    renderRecentChanges();
   } else if (tabId === 'devotees') {
     renderDevoteesTable();
   } else if (tabId === 'birthdays') {
@@ -2696,6 +2868,8 @@ function switchTab(tabId) {
     renderParcelsTable();
   } else if (tabId === 'removed') {
     renderRemovedCelebrationSection();
+  } else if (tabId === 'system') {
+    renderActivityLog();
   }
 
   // Re-label freshly rendered tables for the phone card layout
@@ -2941,7 +3115,7 @@ function getDevoteeAgeBuckets() {
 }
 
 function ageGroupLabel(group) {
-  return { '0-25': '0–25', '26-50': '26–50', '51-60': '51–60', '60+': '60+' }[group] || group;
+  return { '0-25': '0-25', '26-50': '25-50', '51-60': '50-60', '60+': 'Above 60' }[group] || group;
 }
 
 function updateAgeKpiCards() {
@@ -2962,6 +3136,8 @@ function updateKPIs() {
   if (totalDevoteesEl) totalDevoteesEl.innerText = totalDevotees;
   const totalCountEl = document.getElementById('total-count');
   if (totalCountEl) totalCountEl.innerText = totalDevotees;
+  const pagTotalEl = document.getElementById('pagination-total-count');
+  if (pagTotalEl) pagTotalEl.innerText = totalDevotees;
 
   // Birthdays & Initiation Anniversaries (individual devotees)
   let bdaysThisMonth = 0;
@@ -3598,8 +3774,10 @@ function renderDevoteesTable() {
   // Update page info
   const pageStartEl = document.getElementById('page-start');
   const pageEndEl = document.getElementById('page-end');
-  if (pageStartEl) pageStartEl.innerText = startIndex + 1;
+  const pagTotalEl = document.getElementById('pagination-total-count');
+  if (pageStartEl) pageStartEl.innerText = filtered.length > 0 ? (startIndex + 1) : 0;
   if (pageEndEl) pageEndEl.innerText = endIndex;
+  if (pagTotalEl) pagTotalEl.innerText = filtered.length;
 
   tbody.innerHTML = pageItems.map((d, idx) => {
     const displayName = d.spiritualName ? d.spiritualName : d.legalName;
@@ -3676,10 +3854,12 @@ function renderDevoteesTable() {
           </span>
         </td>
 
-        <!-- 5. Address Column (Verified status derived from the address above) -->
+        <!-- 5. Address Column (verification is explicit — never derived from the address text) -->
         <td data-label="Address" class="py-3.5 px-4 min-w-[230px] max-w-sm">
-          <div class="rounded-lg border p-2.5 transition ${d.address ? 'bg-emerald-50 border-emerald-300' : 'bg-slate-50 border-slate-200'}">
-            ${d.address ? '<div class="text-[10px] font-bold mb-1 text-emerald-700">✓ Verified</div>' : ''}
+          <div class="rounded-lg border p-2.5 transition ${isDevoteAddressVerified(d) ? 'bg-emerald-50 border-emerald-300' : (d.address ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200')}">
+            ${isDevoteAddressVerified(d)
+              ? '<div class="text-[10px] font-bold mb-1 text-emerald-700">✓ Verified</div>'
+              : (d.address ? '<div class="text-[10px] font-bold mb-1 text-amber-700">Unverified</div>' : '')}
             <div class="text-xs font-bold text-slate-800 leading-snug">
               ${d.address || '<span class="text-slate-400 italic font-normal">No address recorded</span>'}
             </div>
@@ -3851,6 +4031,8 @@ function updateSelectedCountUI() {
       summaryBadge.classList.remove('inline-flex');
     }
   }
+
+  updateSelectAllBanner();
 }
 
 function clearDevoteeSelection() {
@@ -3865,6 +4047,46 @@ function clearDevoteeSelection() {
   updateSelectAllCheckbox();
   updateSelectedCountUI();
   showToast('Devotee selection cleared.', 'info');
+}
+
+// "Select all across every page" — ticks every devotee that matches the
+// current filters (search / city / month / age), not just the visible page.
+function selectAllFilteredDevotees() {
+  const list = getFilteredDirectoryDevotees();
+  if (!list.length) { showToast('No devotees match the current filters.', 'info'); return; }
+  list.forEach(d => state.selectedDevotees.add(d.id));
+  renderDevoteesTable();
+  updateSelectedCountUI();
+  showToast(`Selected all ${list.length} matching devotee(s) — now click Export Selected PDF.`, 'success');
+}
+
+// Contextual helper shown above the table:
+//  • whole page ticked and more pages exist → offer "Select all N matching"
+//  • every matching devotee selected        → offer "Clear selection"
+function updateSelectAllBanner() {
+  const banner = document.getElementById('devotee-select-all-banner');
+  if (!banner) return;
+  const total = getFilteredDirectoryDevotees().length;
+  const selected = state.selectedDevotees ? state.selectedDevotees.size : 0;
+
+  let html = '';
+  if (total > 0 && selected >= total) {
+    html = `<span>All <strong>${total}</strong> matching devotee(s) are selected.</span>
+      <button onclick="clearDevoteeSelection()" class="text-teal-700 underline font-bold">Clear selection</button>`;
+  } else if (total > 0) {
+    html = `<span>${selected > 0 ? `${selected} of <strong>${total}</strong> matching devotee(s) selected` : `<strong>${total}</strong> matching devotee(s) — pick them all for a PDF`}.</span>
+      <button onclick="selectAllFilteredDevotees()" class="text-teal-700 underline font-bold">Select all ${total} matching</button>`;
+  }
+
+  if (html) {
+    banner.innerHTML = html;
+    banner.classList.remove('hidden');
+    banner.classList.add('flex');
+  } else {
+    banner.innerHTML = '';
+    banner.classList.add('hidden');
+    banner.classList.remove('flex');
+  }
 }
 
 // ----------------------------------------------------
@@ -3999,12 +4221,12 @@ async function bulkCreateParcelsForSelected() {
 
   let created = 0;
   eligibleDevotees.forEach(d => {
-    d.addressVerified = 'Verified';
     d.parcelCreated = true;
     d.hasParcel = true;
     d.parcelCreatedAt = new Date().toISOString();
     d.parcelType = parcelType;
-    d.courierPartner = (d.deliveryMode === 'SELF') ? 'Self Pickup' : 'Delhivery';
+    if (d.deliveryMode === 'SELF') d.courierPartner = 'Self Pickup';
+    else if (d.deliveryMode === 'DELHIVERY') d.courierPartner = 'Delhivery';
     d.courierTrackingNo = ''; // blank at creation — added manually later
     if (d.deliveryMode === 'SELF') { d.preCalling = 'Yes'; d.postCalling = 'No'; } // Self Mode: Pre ON, Post OFF (locked)
     d.trackingId = d.trackingId || `ISK713204-${String(d.slNo || 1).padStart(3, '0')}`;
@@ -4021,13 +4243,13 @@ async function bulkCreateParcelsForSelected() {
       address: d.address,
       city: d.city,
       pincode: d.pincode,
-      addressVerified: 'Verified',
+      addressVerified: d.addressVerified || '',
       dob: d.dob,
       birthdayRaw: d.birthdayRaw,
       anniversaryDate: d.anniversaryDate,
       parcelType: parcelType,
       parcelDescription: d.parcelDescription || 'Sanctified Sri Sri Radha Madan Mohan Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita',
-      courierPartner: d.courierPartner || 'Delhivery',
+      courierPartner: d.courierPartner || '',
       courierTrackingNo: '',
       preCalling: d.preCalling || '',
       postCalling: d.postCalling || '',
@@ -4185,7 +4407,8 @@ function openDevoteeModal(devoteeId = null) {
           maritalEl.prepend(legacyOpt);
           maritalEl.value = rawMarital;
         } else {
-          maritalEl.value = 'Unmarried';
+          // No value on the record → keep the neutral placeholder (never assume Unmarried).
+          maritalEl.value = '';
         }
       }
       document.getElementById('df-phone').value = d.phone || '';
@@ -4375,6 +4598,10 @@ function saveDevotee(event) {
     state.devotees.unshift(devoteeData);
     showToast('New devotee registered successfully!', 'success');
   }
+
+  const _actName = devoteeData.spiritualName || devoteeData.legalName || 'devotee';
+  if (devoteeId) logActivity('edit', 'Devotee', `Updated devotee "${_actName}".`, devoteeId);
+  else logActivity('create', 'Devotee', `Created devotee "${_actName}".`, devoteeData.id);
 
   saveToStorage();
   updateDevoteeAutocompleteList();
@@ -4686,6 +4913,7 @@ async function deleteDevotee(id) {
   if (state.selectedCelebrations) state.selectedCelebrations.delete(id);
   if (state.selectedParcels) state.selectedParcels.delete(id);
   saveToStorage();
+  logActivity('delete', 'Devotee', `Deleted devotee "${name}".`, id);
   updateDevoteeAutocompleteList();
   updateKPIs();
   renderDevoteesTable();
@@ -4744,7 +4972,8 @@ function deleteAllBirthdayAnniversaryRecords() {
 // The rule itself never changes per-section, so no section can show a stale state.
 function isDevoteAddressVerified(dev) {
   if (!dev) return false;
-  return (dev.addressVerified === 'Verified' || (dev.address && dev.address.length >= 25 && dev.addressVerified !== 'Needs Verification'));
+  // Explicit only — never infer "Verified" from the address text/length.
+  return dev.addressVerified === 'Verified';
 }
 
 function viewDevoteeProfile(id) {
@@ -5224,8 +5453,7 @@ function renderBirthdaysGrid() {
     //    (Self Mode when the devotee's deliveryMode is SELF, otherwise Delhivery Courier)
     const modeFilter = state.selectedCelebrationMode || 'ALL';
     if (modeFilter !== 'ALL') {
-      const mode = (d.deliveryMode === 'SELF') ? 'Self Mode' : 'Delhivery Courier';
-      if (mode !== modeFilter) return false;
+      if (deriveDeliveryModeLabel(d) !== modeFilter) return false;
     }
 
     // 7. Marital Status filter — a couple matches when EITHER spouse has the chosen status
@@ -5480,7 +5708,8 @@ function renderBirthdaysGrid() {
         <td class="py-2 px-2 text-center whitespace-nowrap">
           <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
             class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
-            <option value="DELHIVERY" ${d.deliveryMode === 'SELF' ? '' : 'selected'}>Delhivery Courier</option>
+            <option value="" disabled ${d.deliveryMode ? '' : 'selected'}>Select Delivery Mode</option>
+            <option value="DELHIVERY" ${d.deliveryMode === 'DELHIVERY' ? 'selected' : ''}>Delhivery Courier</option>
             <option value="SELF" ${d.deliveryMode === 'SELF' ? 'selected' : ''}>Self Mode</option>
           </select>
         </td>
@@ -5576,6 +5805,7 @@ async function removeAnniversaryEntry(devId) {
   }
 
   saveToStorage();
+  logActivity('remove', 'Anniversary', `Removed anniversary wish for ${names}.`, ids[0]);
   renderBirthdaysGrid();
   renderRemovedAnnivSection();
   showToast('🗂️ Moved to the Removed section — record is safe & restorable.', 'success');
@@ -5591,10 +5821,14 @@ function setCelebrationDeliveryMode(devId, mode) {
   );
   if (merged && merged.coupleIds) ids = merged.coupleIds;
 
+  // Blank (placeholder) means "not chosen" — never auto-assign a delivery mode.
+  if (!mode) return;
+
   ids.forEach(id => {
     const dev = state.devotees.find(x => x.id === id);
     if (dev) {
       dev.deliveryMode = mode;
+      dev.courierPartner = (mode === 'SELF') ? 'Self Pickup' : 'Delhivery';
       // Self Mode rule: Pre Calling ON / Post Calling OFF — applied automatically
       if (mode === 'SELF') { dev.preCalling = 'Yes'; dev.postCalling = 'No'; }
     }
@@ -5653,6 +5887,7 @@ async function removeBirthdayEntry(devId) {
   }
 
   saveToStorage();
+  logActivity('remove', 'Birthday', `Removed birthday wish for ${names}.`, ids[0]);
   renderBirthdaysGrid();
   renderRemovedCelebrationSection();
   showToast('🗂️ Moved to the Removed section — record is safe & restorable.', 'success');
@@ -5688,6 +5923,7 @@ async function acceptBirthdayEntry(devId) {
   const restoredCount = before - state.birthdayRemovedIds.length;
 
   saveToStorage();
+  if (restoredCount > 0) logActivity('restore', 'Birthday', `Restored ${restoredCount} birthday record(s) to the list.`, ids[0]);
   if (restoredCount > 0) showRemovedAnnivSection(false); // return to the main Birthday list
   renderBirthdaysGrid();
   renderRemovedCelebrationSection();
@@ -5866,6 +6102,7 @@ async function restoreAllBirthdayRemoved() {
   const n = removed.length;
   state.birthdayRemovedIds = [];
   saveToStorage();
+  logActivity('restore', 'Birthday', `Restored all ${n} removed birthday record(s).`);
   renderBirthdaysGrid();
   renderRemovedCelebrationSection();
   showToast(`✅ Restored ${n} record(s) back to the Birthday list.`, 'success');
@@ -5890,6 +6127,7 @@ async function restoreAllAnniversaryRemoved() {
   const n = removed.length;
   state.anniversaryRemovedIds = [];
   saveToStorage();
+  logActivity('restore', 'Anniversary', `Restored all ${n} removed anniversary record(s).`);
   renderBirthdaysGrid();
   renderRemovedCelebrationSection();
   showToast(`✅ Restored ${n} couple record(s) back to the Anniversary list.`, 'success');
@@ -5938,17 +6176,27 @@ function getCourierTrackingUrl(courier, trackingNo) {
   return 'https://www.delhivery.com/track';
 }
 
+// Mode of Delivery label for any record (devotee or consignment).
+// NEVER invents a mode: a record with no chosen mode returns 'Not Set'.
+function deriveDeliveryModeLabel(rec) {
+  const cp = String((rec && rec.courierPartner) || '').toLowerCase();
+  const mode = (rec && rec.deliveryMode) || '';
+  if (['self pickup', 'self mode', 'self'].includes(cp) || mode === 'SELF') return 'Self Mode';
+  if (cp || mode === 'DELHIVERY') return 'Delhivery Courier';
+  return 'Not Set';
+}
+
 // Mode of Delivery for a consignment (Delhivery Courier / Self Mode) —
 // replaces the old Courier Partner display in the Tracking tab. The real
 // courierPartner is still kept in the record only to build tracking links.
 function getParcelDeliveryModeLabel(p) {
   const devo = (state.devotees || []).find(x => x.id === (p && p.devoteeId)) || {};
-  const cp = String((p && p.courierPartner) || devo.courierPartner || '').toLowerCase();
-  const pMode = (p && p.deliveryMode) || '';
   // The consignment's own courierPartner / deliveryMode is authoritative (Self Pickup persists
   // per parcel even if the devotee is later switched back); the devotee profile is a fallback.
-  const isSelf = ['self pickup', 'self mode', 'self'].includes(cp) || pMode === 'SELF' || (!cp && devo.deliveryMode === 'SELF');
-  return isSelf ? 'Self Mode' : 'Delhivery Courier';
+  return deriveDeliveryModeLabel({
+    courierPartner: (p && p.courierPartner) || devo.courierPartner,
+    deliveryMode: (p && p.deliveryMode) || devo.deliveryMode
+  });
 }
 
 // Clear EVERY filter in the Parcel & Tracking toolbar (Mode / Purpose / Date / Search)
@@ -6244,6 +6492,8 @@ async function toggleParcelDelivered(parcelId, devoteeId) {
   p.delivered = (nextStatus === 'Delivered');
   p.deliveredAt = p.delivered ? new Date().toISOString() : '';
   localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+  const _pName = p.devoteeName || p.spiritualName || p.legalName || (state.devotees.find(x => x.id === devoteeId) || {}).legalName || 'devotee';
+  logActivity('edit', 'Parcel', `Parcel for "${_pName}" marked ${nextStatus}.`, parcelId);
 
   // Mirror onto the devotee record too
   const devo = state.devotees.find(x => x.id === devoteeId);
@@ -6375,6 +6625,7 @@ async function bulkDeleteParcels() {
 
   state.selectedParcels.clear();
   saveToStorage();
+  logActivity('delete', 'Parcel', `Deleted ${count} parcel consignment(s).`);
   updateKPIs();
   renderDevoteesTable();
   renderBirthdaysGrid();
@@ -6402,6 +6653,7 @@ async function deleteParcelRecord(parcelId, devoteeId) {
   if (dev) clearDevoteeParcelTrace(dev);
   if (state.selectedParcels) state.selectedParcels.delete(parcelId);
   saveToStorage();
+  logActivity('delete', 'Parcel', `Deleted parcel consignment for "${name}".`, parcelId);
   updateKPIs();
   renderParcelsTable();
   renderBirthdaysGrid();
@@ -6597,6 +6849,7 @@ function updateParcelStatusDirect(newStatus) {
   }
 
   saveToStorage();
+  logActivity('edit', 'Parcel', `Status for "${activeTrackingDevotee.spiritualName || activeTrackingDevotee.legalName || 'devotee'}" set to ${activeTrackingDevotee.parcelStatusText}.`, activeTrackingDevotee.id);
   updateKPIs();
   renderParcelsTable();
   renderBirthdaysGrid();
@@ -7099,10 +7352,11 @@ function openEditParcelModal(devoteeId) {
   document.getElementById('ep-address').value = pRec.address || d.address || '';
   document.getElementById('ep-city').value = pRec.city || d.city || 'Durgapur';
   document.getElementById('ep-pincode').value = pRec.pincode || d.pincode || '713204';
-  document.getElementById('ep-address-verified').value = pRec.addressVerified || d.addressVerified || 'Verified';
+  document.getElementById('ep-address-verified').value = pRec.addressVerified || d.addressVerified || '';
   const epModeEl = document.getElementById('ep-mode');
   if (epModeEl) {
-    epModeEl.value = getParcelDeliveryModeLabel({ devoteeId: d.id, deliveryMode: pRec.deliveryMode || d.deliveryMode, courierPartner: pRec.courierPartner || d.courierPartner });
+    const modeLabel = getParcelDeliveryModeLabel({ devoteeId: d.id, deliveryMode: pRec.deliveryMode || d.deliveryMode, courierPartner: pRec.courierPartner || d.courierPartner });
+    epModeEl.value = (modeLabel === 'Not Set') ? '' : modeLabel;
   }
   document.getElementById('ep-tracking-no').value = pRec.courierTrackingNo || d.courierTrackingNo || '';
   if (document.getElementById('ep-pre-calling')) {
@@ -7130,11 +7384,17 @@ function handleSaveParcelEdit(e) {
   const d = state.devotees.find(x => x.id === id);
   if (!d) return;
 
+  const epModeVal = document.getElementById('ep-mode') ? document.getElementById('ep-mode').value : '';
+  if (!epModeVal) {
+    showToast('Please select Mode of Delivery (Delhivery Courier or Self Mode)', 'error');
+    document.getElementById('ep-mode')?.focus();
+    return;
+  }
+
   d.address = document.getElementById('ep-address').value.trim();
   d.city = document.getElementById('ep-city').value.trim();
   d.pincode = document.getElementById('ep-pincode').value.trim();
   d.addressVerified = document.getElementById('ep-address-verified').value;
-  const epModeVal = document.getElementById('ep-mode') ? document.getElementById('ep-mode').value : 'Delhivery Courier';
   d.courierPartner = (epModeVal === 'Self Mode') ? 'Self Pickup' : 'Delhivery';
   d.deliveryMode = (epModeVal === 'Self Mode') ? 'SELF' : 'DELHIVERY';
 
@@ -7423,7 +7683,7 @@ function populateCreateParcelFields(d, parcelTypeOverride = null) {
       addrBadge.innerHTML = '<span>✅</span> <span>Verified Address</span>';
     } else {
       addrBadge.className = 'inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300';
-      addrBadge.innerHTML = '<span>⚠️</span> <span>Will be Marked Verified on Dispatch</span>';
+      addrBadge.innerHTML = '<span>⚠️</span> <span>Not Verified - update from Devotee Directory</span>';
     }
   }
 
@@ -7440,10 +7700,10 @@ function populateCreateParcelFields(d, parcelTypeOverride = null) {
     parcelDescEl.value = d.parcelDescription || 'Sanctified Sri Sri Radha Madan Mohan Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita';
   }
 
-  // Mode of Delivery (from devotee profile — shows Delhivery Courier / Self Mode)
+  // Mode of Delivery — never pre-assigned; the user must choose it explicitly.
   const modeEl = document.getElementById('cp-mode');
   if (modeEl) {
-    modeEl.value = (d.deliveryMode === 'SELF') ? 'Self Mode' : 'Delhivery Courier';
+    modeEl.value = '';
   }
 
   // Booking Date (Today)
@@ -7478,7 +7738,12 @@ function handleCreateParcelSubmit(e) {
   const pincode = document.getElementById('cp-pincode').value.trim();
   const parcelType = document.getElementById('cp-parcel-type').value;
   const parcelDescription = document.getElementById('cp-parcel-description').value.trim();
-  const cpMode = document.getElementById('cp-mode') ? document.getElementById('cp-mode').value : 'Delhivery Courier';
+  const cpMode = document.getElementById('cp-mode') ? document.getElementById('cp-mode').value : '';
+  if (!cpMode) {
+    showToast('Please select Mode of Delivery (Delhivery Courier or Self Mode)', 'error');
+    document.getElementById('cp-mode')?.focus();
+    return;
+  }
   const parcelCourier = (cpMode === 'Self Mode') ? 'Self Pickup' : 'Delhivery';
   const bookingDate = document.getElementById('cp-booking-date').value;
   // Compute expected delivery (booking + 4 days) for tracking banner
@@ -7496,7 +7761,6 @@ function handleCreateParcelSubmit(e) {
   d.address = address;
   d.city = city;
   d.pincode = pincode;
-  d.addressVerified = 'Verified';
   d.parcelCreated = true;
   d.hasParcel = true;
   d.parcelCreatedAt = new Date().toISOString();
@@ -7521,7 +7785,7 @@ function handleCreateParcelSubmit(e) {
     address: d.address,
     city: d.city,
     pincode: d.pincode,
-    addressVerified: 'Verified',
+    addressVerified: d.addressVerified || '',
     dob: d.dob,
     birthdayRaw: d.birthdayRaw,
     anniversaryDate: d.anniversaryDate,
@@ -7549,6 +7813,7 @@ function handleCreateParcelSubmit(e) {
 
   // Persist to storage
   saveToStorage();
+  logActivity('create', 'Parcel', `Created parcel for "${d.spiritualName || d.legalName}" (${parcelType}).`, parcelRecord.id);
   updateKPIs();
   renderBirthdaysGrid();
   renderDevoteesTable();
@@ -7603,6 +7868,7 @@ function syncMasterDevotees() {
   if (typeof DURGAPUR_DEVOTEES !== 'undefined' && Array.isArray(DURGAPUR_DEVOTEES)) {
     state.devotees = DURGAPUR_DEVOTEES;
     saveToStorage();
+    logActivity('sync', 'Database', `Synced all ${state.devotees.length} master devotee records.`);
     initApp();
     showToast(`Successfully synced all ${state.devotees.length} master devotees!`, 'success');
   }
@@ -7739,6 +8005,7 @@ function restoreJsonBackup(event) {
         state.devotees = parsed.devotees;
         state.counselors = parsed.counselors || [];
         saveToStorage();
+        logActivity('import', 'Database', `Restored database from JSON backup (${state.devotees.length} devotees).`);
         initApp();
         showToast('Database successfully restored from JSON backup!', 'success');
       } else {
@@ -7796,7 +8063,7 @@ function exportFullDatabaseExcel() {
     'Devotee ID': d.id,
     'Devotee Name': d.spiritualName || d.legalName,
     'Tracking ID': d.trackingId || '',
-    'Mode of Delivery': (d.deliveryMode === 'SELF' || d.courierPartner === 'Self Pickup' || d.courierPartner === 'Self Mode') ? 'Self Mode' : 'Delhivery Courier',
+    'Mode of Delivery': deriveDeliveryModeLabel(d),
     'Courier Tracking No': d.courierTrackingNo || '',
     'Parcel Status': d.parcelStatusText || '',
     'Destination City': d.city || '',
@@ -7829,6 +8096,7 @@ function exportFilteredDevoteesExcel() {
 }
 
 function exportSelectedDevoteesPDF() {
+  if (!requirePermission('export_data', 'export the directory as PDF')) return;
   if (!state.selectedDevotees || state.selectedDevotees.size === 0) {
     showToast('Please select at least one record.', 'warning');
     alert('Please select at least one record.');
@@ -8084,7 +8352,11 @@ function getFilteredDirectoryDevotees() {
       (d.phone && d.phone.toLowerCase().includes(searchQuery)) ||
       (d.city && d.city.toLowerCase().includes(searchQuery)) ||
       (d.address && d.address.toLowerCase().includes(searchQuery)) ||
-      (d.pincode && d.pincode.toLowerCase().includes(searchQuery));
+      (d.pincode && d.pincode.toLowerCase().includes(searchQuery)) ||
+      (d.guru && d.guru.toLowerCase().includes(searchQuery)) ||
+      (d.currentSeva && d.currentSeva.toLowerCase().includes(searchQuery)) ||
+      (d.courierTrackingNo && d.courierTrackingNo.toLowerCase().includes(searchQuery)) ||
+      (d.trackingId && d.trackingId.toLowerCase().includes(searchQuery));
 
     const matchesCity = !filterCity || (d.city && d.city.toLowerCase() === filterCity.toLowerCase());
 
@@ -8499,6 +8771,7 @@ function handleExcelImport(event) {
       });
 
       saveToStorage();
+      logActivity('import', 'Database', `Imported ${importedCount} devotee record(s) from Excel.`);
       initApp();
       showToast(`Successfully imported ${importedCount} devotee records!`, 'success');
     } catch (err) {
@@ -8515,6 +8788,7 @@ function confirmResetToSampleData() {
     state.devotees = seed.devotees;
     state.counselors = seed.counselors;
     saveToStorage();
+    logActivity('import', 'Database', `Reset database to sample data (${state.devotees.length} devotees).`);
     initApp();
     showToast('Reset to authentic sample data!', 'success');
   }
@@ -8526,6 +8800,7 @@ function confirmClearDatabase() {
     state.devotees = [];
     state.counselors = [];
     saveToStorage();
+    logActivity('clear', 'Database', 'Cleared the entire local devotee database.');
     initApp();
     showToast('Database wiped successfully', 'info');
   }
