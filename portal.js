@@ -1932,18 +1932,22 @@ const DOOR_ROLES = {
 };
 
 // ----------------------------------------------------
-// 🟢 PUBLIC LANDING MODE (TEMPORARY)
+// 🟢 PUBLIC MODES (TEMPORARY) — while Supabase auth is being fixed
 // ----------------------------------------------------
-// While the Supabase authentication issue is being fixed, the public sees a
-// clean "Get Started" landing page instead of the login / sign-up screen.
-// The Get Started button opens ONLY a welcome page — it never opens the Admin
-// panel, the devotee database, or any protected data.
+// Two switchable public modes, checked in this order:
 //
-// Existing users, database records, tables and Supabase settings are all left
-// untouched. To RESTORE the original login system, set the value below to
-// `false` — nothing else needs to change (the login doors, forms, role rules
-// and URL route guard are all still present).
-const PUBLIC_LANDING_MODE = true;
+//   1. PUBLIC_OPEN_ACCESS → the WHOLE site opens for everyone, NO login at all.
+//   2. PUBLIC_LANDING_MODE → a clean "Get Started" landing + welcome page only.
+//
+// Set BOTH to false to restore the original login / role system — nothing else
+// needs to change (the login doors, forms, role rules and URL route guard are
+// all still present and untouched). No users, records, tables or Supabase
+// settings are ever modified here.
+//
+// ⚠️ Heads-up: OPEN ACCESS shows every dashboard, the devotee directory and all
+// records to ANY visitor. Use it only while the site is not yet public.
+const PUBLIC_OPEN_ACCESS = true;
+const PUBLIC_LANDING_MODE = true; // only used when OPEN ACCESS is off
 
 // Show the public landing (Get Started) view and keep the login UI hidden.
 function showLandingView() {
@@ -1977,6 +1981,27 @@ function openWelcomePage() {
 // Back to the landing view.
 function closeWelcomePage() {
   showLandingView();
+}
+
+// 🟢 Open the whole portal to everyone — no login, full access.
+function enterPublicPortal() {
+  currentUser = null;
+  currentUserProfile = null;
+  currentUserRole = 'SUPER_ADMIN'; // full UI access while the portal is public
+
+  hidePublicLandingViews();
+  if (typeof hideAccessDenied === 'function') hideAccessDenied();
+  if (typeof clearAuthAlert === 'function') clearAuthAlert();
+
+  const authScreen = document.getElementById('auth-screen');
+  const portalApp = document.getElementById('portal-app');
+  if (authScreen) authScreen.classList.add('hidden');
+  if (portalApp) portalApp.classList.remove('hidden');
+
+  updateAuthHeader(null);
+  enforceRoleUI();
+  switchTab('dashboard');
+  if (window.lucide) lucide.createIcons();
 }
 
 // ----------------------------------------------------
@@ -2135,6 +2160,12 @@ function showAuthScreen(backToChoice = true) {
   if (authScreen) authScreen.classList.remove('hidden');
   if (portalApp) portalApp.classList.add('hidden');
 
+  // 🟢 Public open-access mode — the portal stays open, never the login UI.
+  if (PUBLIC_OPEN_ACCESS) {
+    enterPublicPortal();
+    return;
+  }
+
   // 🟢 Temporary public landing mode — never reveal the login / sign-up UI.
   if (PUBLIC_LANDING_MODE) {
     showLandingView();
@@ -2207,6 +2238,14 @@ function updateAuthHeader(user) {
           <span class="hidden md:inline">Logout</span>
         </button>
       </div>
+    `;
+  } else if (PUBLIC_OPEN_ACCESS) {
+    // Public open-access mode — no login / logout controls.
+    container.innerHTML = `
+      <span class="flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-400/30 font-semibold px-3 py-1.5 rounded-lg text-xs" title="Open access — no login required">
+        <i data-lucide="unlock" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Open Access</span>
+      </span>
     `;
   } else {
     container.innerHTML = `
@@ -2503,6 +2542,13 @@ function setupAuthListener() {
 }
 
 async function initAuthSystem() {
+  // 🟢 Public OPEN-ACCESS mode — no login; the whole portal is public.
+  if (PUBLIC_OPEN_ACCESS) {
+    console.log('🟢 Public OPEN-ACCESS mode ON — opening the portal for everyone (no login).');
+    enterPublicPortal();
+    return;
+  }
+
   // 🟢 Temporary public landing mode — bypass authentication entirely so that no
   // login attempt, sign-up form, or database error can reach the landing page.
   // No Supabase request is made here, so the broken-auth issue cannot surface.
@@ -2895,7 +2941,7 @@ function getDevoteeAgeBuckets() {
 }
 
 function ageGroupLabel(group) {
-  return { '0-25': '0–25', '26-50': '26–50', '51-60': '51–60', '60+': '60+' }[group] || group;
+  return { '0-25': '0-25', '26-50': '25-50', '51-60': '50-60', '60+': 'Above 60' }[group] || group;
 }
 
 function updateAgeKpiCards() {
