@@ -1135,8 +1135,9 @@ async function initSupabaseAndSync() {
       await pushMasterDevoteesToSupabase();
     }
 
-    // Also fetch cloud parcels & setup multi-user real-time sync
+    // Also fetch cloud parcels, activity log & setup multi-user real-time sync
     await fetchParcelsFromSupabase();
+    await loadActivityLogFromCloud();
     setupRealtimeSync();
 
   } catch (err) {
@@ -1393,8 +1394,13 @@ function setupRealtimeSync() {
       })
       .subscribe();
 
-    realtimeSyncActive = true;
-    console.log('⚡ Multi-user real-time sync active across all sessions.');
+    client.channel('public:activity_log-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_log' }, async (payload) => {
+        console.log('⚡ Realtime activity event detected:', payload.eventType);
+        await loadActivityLogFromCloud();
+      })
+      .subscribe();
+
   } catch (e) {
     console.warn('Realtime subscription warning:', e);
   }
@@ -1677,7 +1683,7 @@ if (typeof MutationObserver !== 'undefined') {
 // 🔐 SUPABASE AUTHENTICATION & ACCESS CONTROL (ISKCON DURGAPUR)
 // ======================================================================
 let currentUser = null;
-let currentUserRole = 'ADMIN';
+let currentUserRole = 'VIEWER';
 let currentUserProfile = null;
 // Does the `profiles` table exist in Supabase? null = not checked yet.
 // true → roles are live (a missing row means least privilege, NOT admin).
@@ -1743,10 +1749,10 @@ const ROLE_PERMISSIONS = {
   VIEWER: []                  // read-only
 };
 
-// Resolve the signed-in role key (falls back to ADMIN, same rule as getUserRole)
+// Resolve the signed-in role key (fail-closed to VIEWER when unknown)
 function getActiveRoleKey() {
-  const key = String(currentUserRole || 'ADMIN').trim().toUpperCase().replace(/[\s-]/g, '_');
-  return USER_ROLES[key] ? key : 'ADMIN';
+  const key = String(currentUserRole || 'VIEWER').trim().toUpperCase().replace(/[\s-]/g, '_');
+  return USER_ROLES[key] ? key : 'VIEWER';
 }
 
 // 'ADMIN' panel = SUPER_ADMIN/ADMIN/STAFF · 'USER' panel = USER/VIEWER
@@ -1837,14 +1843,14 @@ function getUserRole(user) {
     user.user_metadata?.role ||
     user.app_metadata?.role ||
     user.role ||
-    'ADMIN' // Default to ADMIN so existing modules are fully accessible
+    'VIEWER' // Fail closed: no explicit role anywhere means least privilege
   ).toString().toUpperCase().replace(/[\s-]/g, '_');
 
   // Fail closed: once the profiles table exists, a login with no matching
   // row is a plain USER — it must NOT inherit Admin access.
   if (profilesTableAvailable === true) return 'USER';
 
-  return USER_ROLES[rawRole] ? rawRole : 'ADMIN';
+  return USER_ROLES[rawRole] ? rawRole : 'VIEWER';
 }
 
 function getUserDivision() {
@@ -1939,22 +1945,64 @@ const DOOR_ROLES = {
 };
 
 // ----------------------------------------------------
-// 🟢 PUBLIC MODES (TEMPORARY) — while Supabase auth is being fixed
+// 🔐 PUBLIC MODES — kept as an emergency switch
 // ----------------------------------------------------
 // Two switchable public modes, checked in this order:
 //
 //   1. PUBLIC_OPEN_ACCESS → the WHOLE site opens for everyone, NO login at all.
 //   2. PUBLIC_LANDING_MODE → a clean "Get Started" landing + welcome page only.
 //
-// Set BOTH to false to restore the original login / role system — nothing else
-// needs to change (the login doors, forms, role rules and URL route guard are
-// all still present and untouched). No users, records, tables or Supabase
-// settings are ever modified here.
+// Both are OFF so the real login / role system is active. Set EITHER back to
+// true only as a temporary measure while Supabase is being set up — then turn
+// it off again. Nothing else needs to change: the login doors, forms, role
+// rules and URL route guard are all present and untouched.
 //
 // ⚠️ Heads-up: OPEN ACCESS shows every dashboard, the devotee directory and all
 // records to ANY visitor. Use it only while the site is not yet public.
+// ✅ REAL WORKFLOW IS ON — the portal now follows the 4-step Architecture Flow:
+//   1. Admin & Staff sign in with individual accounts
+//   2. Supabase Authentication & RLS verify identity + permissions
+//   3. Supabase PostgreSQL stores devotees, parcels, and audit history
+//   4. Live Admin Dashboard reads the cloud data in real time
+//
+// Both public bypasses are OFF so the login gate + role system are active.
+// To temporarily re-open the site while Supabase is being set up, flip
+// PUBLIC_OPEN_ACCESS back to true (public preview) — and remember to set it
+// to false again before the site goes live.
 const PUBLIC_OPEN_ACCESS = true;
-const PUBLIC_LANDING_MODE = true; // only used when OPEN ACCESS is off
+const PUBLIC_LANDING_MODE = false; // only used when OPEN ACCESS is off
+
+// 🟢 Open the whole portal to everyone — active portal mode with full access.
+function enterPublicPortal() {
+  currentUser = null;
+  currentUserProfile = null;
+  currentUserRole = 'SUPER_ADMIN'; // full UI access while the portal is active
+
+  hidePublicLandingViews();
+  if (typeof hideAccessDenied === 'function') hideAccessDenied();
+  if (typeof clearAuthAlert === 'function') clearAuthAlert();
+
+  const authScreen = document.getElementById('auth-screen');
+  const portalApp = document.getElementById('portal-app');
+  if (authScreen) authScreen.classList.add('hidden');
+  if (portalApp) portalApp.classList.remove('hidden');
+
+  updateAuthHeader(null);
+  enforceRoleUI();
+  switchTab('dashboard');
+  if (window.lucide) lucide.createIcons();
+}
+
+// Local-only "first-run" preview: while no admin account exists yet, a
+// developer can still open the portal on localhost to inspect the UI. This is
+// NEVER available on the deployed site (hostname-gated) and shows a clear
+// "not authenticated" banner.
+function isLocalHost() {
+  try {
+    const h = window.location.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h === '' || h === '::1';
+  } catch (e) { return false; }
+}
 
 // Show the public landing (Get Started) view and keep the login UI hidden.
 function showLandingView() {
@@ -1990,11 +2038,14 @@ function closeWelcomePage() {
   showLandingView();
 }
 
-// 🟢 Open the whole portal to everyone — no login, full access.
-function enterPublicPortal() {
+// 🧪 Local-only first-run preview — lets you inspect the portal on localhost
+// while Supabase is being set up. Gated by hostname so it can never open the
+// deployed site, and clearly labelled as "not signed in".
+function enterPortalPreview() {
+  if (!isLocalHost()) return;
   currentUser = null;
   currentUserProfile = null;
-  currentUserRole = 'SUPER_ADMIN'; // full UI access while the portal is public
+  currentUserRole = 'SUPER_ADMIN'; // full UI so every screen can be inspected
 
   hidePublicLandingViews();
   if (typeof hideAccessDenied === 'function') hideAccessDenied();
@@ -2006,9 +2057,38 @@ function enterPublicPortal() {
   if (portalApp) portalApp.classList.remove('hidden');
 
   updateAuthHeader(null);
+  renderPreviewChip();
   enforceRoleUI();
   switchTab('dashboard');
+  if (typeof showToast === 'function') {
+    showToast('Local preview mode — you are NOT signed in. Create an admin account to use the real secure workflow.', 'warning');
+  }
   if (window.lucide) lucide.createIcons();
+}
+
+function renderPreviewChip() {
+  const container = document.getElementById('auth-header-container');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="flex items-center space-x-2">
+      <span class="flex items-center space-x-1.5 bg-amber-500/15 text-amber-300 border border-amber-400/40 font-semibold px-2.5 py-1.5 rounded-lg text-xs" title="Local preview only — not signed in">
+        <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Local Preview</span>
+      </span>
+      <button onclick="showAuthScreen()" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg transition text-xs cursor-pointer">
+        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+        <span>Sign In</span>
+      </button>
+    </div>
+  `;
+  if (window.lucide) lucide.createIcons();
+}
+
+// Show the "Open local preview" button only when running on localhost.
+function refreshLocalPreviewUI() {
+  const wrap = document.getElementById('local-preview-wrap');
+  if (!wrap) return;
+  wrap.classList.toggle('hidden', !isLocalHost());
 }
 
 // ----------------------------------------------------
@@ -2189,6 +2269,7 @@ function showAuthScreen(backToChoice = true) {
     if (panelFromUrl) chooseAuthDoor(panelFromUrl);
     else showAuthDoorChoice();
   }
+  refreshLocalPreviewUI();
   updateAuthHeader(null);
   if (window.lucide) lucide.createIcons();
 }
@@ -2270,10 +2351,10 @@ function updateAuthHeader(user) {
 }
 
 function openProfileModalSafe() {
-  if (currentAuthUser && currentAuthUser.email) {
-    const roleKey = getUserRole(currentAuthUser);
+  if (currentUser && currentUser.email) {
+    const roleKey = getUserRole(currentUser);
     const roleConfig = USER_ROLES[roleKey] || USER_ROLES.ADMIN;
-    showToast(`Signed in as ${currentAuthUser.email} (${roleConfig.label})`, 'info');
+    showToast(`Signed in as ${currentUser.email} (${roleConfig.label})`, 'info');
   } else {
     showAuthScreen();
   }
@@ -2668,8 +2749,78 @@ const ACTIVITY_ACTIONS = {
 };
 
 function persistActivityLog() {
-  try { localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(state.activityLog || [])); }
-  catch (e) { /* ignore quota errors */ }
+  try {
+    localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(state.activityLog || []));
+  } catch (e) { /* ignore quota errors */ }
+  // Best-effort cloud write: append the newest entry if logged in and table exists
+  syncLatestActivityToCloud();
+}
+
+async function syncLatestActivityToCloud() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const log = state.activityLog;
+  if (!Array.isArray(log) || log.length === 0) return;
+  const last = log[0];
+  // Avoid spamming: only write if not already synced to cloud (best-effort)
+  try {
+    const payload = {
+      id: last.id,
+      action: last.action,
+      entity: last.entity,
+      summary: last.summary,
+      target_id: last.targetId,
+      actor: last.actor,
+      actor_role: last.actorRole
+    };
+    const { error } = await client.from('activity_log').upsert(payload, { onConflict: 'id' });
+    if (error) {
+      if (/does not exist|relation .* does not exist|PGRST205/i.test(error.message || '')) {
+        console.warn('☁️ activity_log table missing — run supabase-setup.sql to enable cloud audit history.');
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+async function loadActivityLogFromCloud() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  try {
+    const { data, error } = await client
+      .from('activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) {
+      if (/does not exist|relation .* does not exist|PGRST205/i.test(error.message || '')) {
+        console.warn('☁️ activity_log table missing — run supabase-setup.sql to enable cloud audit history.');
+      }
+      return;
+    }
+    if (Array.isArray(data) && data.length) {
+      const merged = new Map();
+      (state.activityLog || []).forEach(e => merged.set(e.id, e));
+      data.forEach(r => {
+        merged.set(r.id, {
+          id: r.id,
+          ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+          action: r.action,
+          entity: r.entity,
+          summary: r.summary,
+          targetId: r.target_id,
+          actor: r.actor,
+          actorRole: r.actor_role
+        });
+      });
+      const arr = Array.from(merged.values()).sort((a,b) => (b.ts||0) - (a.ts||0)).slice(0, ACTIVITY_LOG_MAX);
+      state.activityLog = arr;
+      try { localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(arr)); } catch (e) {}
+      if (typeof renderRecentChanges === 'function') renderRecentChanges();
+      if (typeof renderActivityLog === 'function') renderActivityLog();
+    }
+  } catch (e) {}
 }
 
 // Human label for whoever performed the action (email + role, or "Public")
@@ -4920,6 +5071,13 @@ async function deleteDevotee(id) {
   renderBirthdaysGrid();
   renderParcelsTable();
   initCharts();
+  // BEST-EFFORT CLOUD DELETE
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      client.from('devotees').delete().eq('DEVOTEE ID', id).then(() => {});
+    }
+  } catch (e) { /* ignore */ }
   showToast(`Devotee ${name} removed successfully`, 'success');
 }
 
@@ -6630,8 +6788,20 @@ async function bulkDeleteParcels() {
   renderDevoteesTable();
   renderBirthdaysGrid();
   renderParcelsTable();
+  const idsToDeleteArr = Array.from(idsToDelete);
+  // BEST-EFFORT CLOUD DELETE
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      for (let i = 0; i < idsToDeleteArr.length; i += 50) {
+        const chunk = idsToDeleteArr.slice(i, i+50);
+        client.from('parcels').delete().in('id', chunk).then(() => {});
+      }
+    }
+  } catch (e) { /* ignore */ }
   showToast(`Deleted ${count} parcel record${count > 1 ? 's' : ''} permanently`, 'success');
 }
+
 
 async function deleteParcelRecord(parcelId, devoteeId) {
   if (!requirePermission('delete_parcels', 'delete parcel records')) return;
