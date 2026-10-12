@@ -1461,6 +1461,7 @@ function initApp() {
   renderBirthdaysGrid();
   renderParcelsTable();
   renderRemovedCelebrationSection();
+  updateActivityNavBadge();
   initCharts();
 
   if (window.lucide) {
@@ -1733,11 +1734,11 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'settings', 'system'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'settings', 'system'],
-  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'system'],
-  USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels', 'system'],
-  VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'system']
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'activity', 'settings', 'system'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'activity', 'settings', 'system'],
+  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'activity', 'system'],
+  USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels', 'activity', 'system'],
+  VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'activity', 'system']
 };
 
 // Action permissions per role ('*' = every action)
@@ -3207,6 +3208,9 @@ async function handleAuthSignIn(event) {
       // 🌸 Beautiful birthday-style Devotional Welcome Celebration & Flower Shower
       triggerWelcomeCelebration(currentUser, currentUserProfile);
 
+      // Log sign-in activity in audit history
+      logActivity('login', 'Authentication', `Devotee signed in: ${name} (${getUserRole(currentUser)})`);
+
       // Sync fresh live devotee data from Supabase
       await initSupabaseAndSync();
     }
@@ -3598,14 +3602,18 @@ async function initAuthSystem() {
 const ACTIVITY_LOG_MAX = 500;
 
 const ACTIVITY_ACTIONS = {
-  create:  { label: 'Created',  icon: 'plus-circle',   color: 'emerald' },
-  edit:    { label: 'Updated',  icon: 'pencil',        color: 'sky' },
-  remove:  { label: 'Removed',  icon: 'archive',       color: 'amber' },
-  restore: { label: 'Restored', icon: 'rotate-ccw',    color: 'emerald' },
-  delete:  { label: 'Deleted',  icon: 'trash-2',       color: 'rose' },
-  import:  { label: 'Imported', icon: 'upload',        color: 'violet' },
-  clear:   { label: 'Cleared',  icon: 'alert-octagon', color: 'rose' },
-  sync:    { label: 'Synced',   icon: 'cloud',         color: 'sky' }
+  create:         { label: 'Created',          icon: 'plus-circle',   color: 'emerald' },
+  edit:           { label: 'Updated',          icon: 'pencil',        color: 'sky' },
+  remove:         { label: 'Removed',          icon: 'archive',       color: 'amber' },
+  restore:        { label: 'Restored',         icon: 'rotate-ccw',    color: 'emerald' },
+  delete:         { label: 'Deleted',          icon: 'trash-2',       color: 'rose' },
+  import:         { label: 'Imported',         icon: 'upload',        color: 'violet' },
+  clear:          { label: 'Cleared',          icon: 'alert-octagon', color: 'rose' },
+  sync:           { label: 'Synced',           icon: 'cloud',         color: 'sky' },
+  parcel:         { label: 'Parcel Updated',   icon: 'truck',         color: 'indigo' },
+  login:          { label: 'Devotee Login',    icon: 'log-in',        color: 'teal' },
+  request_delete: { label: 'Delete Requested', icon: 'help-circle',   color: 'amber' },
+  reject_delete:  { label: 'Delete Rejected',  icon: 'x-circle',      color: 'slate' }
 };
 
 function persistActivityLog() {
@@ -3677,6 +3685,7 @@ async function loadActivityLogFromCloud() {
       const arr = Array.from(merged.values()).sort((a,b) => (b.ts||0) - (a.ts||0)).slice(0, ACTIVITY_LOG_MAX);
       state.activityLog = arr;
       try { localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(arr)); } catch (e) {}
+      if (typeof updateActivityNavBadge === 'function') updateActivityNavBadge();
       if (typeof renderRecentChanges === 'function') renderRecentChanges();
       if (typeof renderActivityLog === 'function') renderActivityLog();
     }
@@ -3709,6 +3718,7 @@ function logActivity(action, entity, summary, targetId) {
     });
     if (state.activityLog.length > ACTIVITY_LOG_MAX) state.activityLog.length = ACTIVITY_LOG_MAX;
     persistActivityLog();
+    if (typeof updateActivityNavBadge === 'function') updateActivityNavBadge();
     if (typeof renderRecentChanges === 'function') renderRecentChanges();
     if (typeof renderActivityLog === 'function') renderActivityLog();
   } catch (e) { console.warn('logActivity failed:', e); }
@@ -3725,16 +3735,50 @@ function formatActivityWhen(ts) {
   return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function updateActivityNavBadge() {
+  const badge = document.getElementById('nav-activity-badge');
+  if (badge) {
+    const count = (state.activityLog || []).length;
+    badge.innerText = count;
+  }
+}
+
 function activityItemHtml(entry) {
-  const meta = ACTIVITY_ACTIONS[entry.action] || { label: entry.action, icon: 'activity', color: 'slate' };
+  const meta = ACTIVITY_ACTIONS[entry.action] || { label: entry.action || 'Activity', icon: 'activity', color: 'slate' };
+  const colorMap = {
+    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+    sky: 'bg-sky-50 text-sky-700 border-sky-200/80',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200/80',
+    rose: 'bg-rose-50 text-rose-700 border-rose-200/80',
+    violet: 'bg-violet-50 text-violet-700 border-violet-200/80',
+    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+    teal: 'bg-teal-50 text-teal-700 border-teal-200/80',
+    slate: 'bg-slate-50 text-slate-700 border-slate-200/80'
+  };
+  const badgeClass = colorMap[meta.color] || colorMap.slate;
+
   return `
-    <div class="flex items-start space-x-3 py-2.5 border-b border-slate-100 last:border-0">
-      <div class="w-8 h-8 rounded-lg bg-${meta.color}-100 text-${meta.color}-700 flex items-center justify-center shrink-0">
+    <div class="flex items-start space-x-3.5 p-3.5 hover:bg-slate-50/70 transition-colors border-b border-slate-100 last:border-0 rounded-xl">
+      <div class="w-9 h-9 rounded-xl ${badgeClass} border flex items-center justify-center shrink-0 shadow-xs mt-0.5">
         <i data-lucide="${meta.icon}" class="w-4 h-4"></i>
       </div>
       <div class="min-w-0 flex-1">
-        <div class="text-xs text-slate-700 leading-snug"><span class="font-bold">${escapeHtml(meta.label)}</span> — ${escapeHtml(entry.summary || '')}</div>
-        <div class="text-[10px] text-slate-400 mt-0.5">${escapeHtml(entry.actor || '')} · ${formatActivityWhen(entry.ts)}</div>
+        <div class="flex flex-wrap items-center justify-between gap-1 mb-1">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-bold text-slate-800">${escapeHtml(meta.label)}</span>
+            ${entry.entity ? `<span class="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md uppercase">${escapeHtml(entry.entity)}</span>` : ''}
+          </div>
+          <span class="text-[11px] font-medium text-slate-400 shrink-0 flex items-center space-x-1" title="${new Date(entry.ts).toLocaleString()}">
+            <i data-lucide="clock" class="w-3 h-3"></i>
+            <span>${formatActivityWhen(entry.ts)}</span>
+          </span>
+        </div>
+        <p class="text-xs text-slate-700 leading-relaxed font-normal">${escapeHtml(entry.summary || '')}</p>
+        <div class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1.5">
+          <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
+          <span class="font-medium text-slate-500">${escapeHtml(entry.actor || 'System')}</span>
+          ${entry.actorRole ? `<span class="text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200">${escapeHtml(entry.actorRole)}</span>` : ''}
+        </div>
       </div>
     </div>`;
 }
@@ -3743,21 +3787,57 @@ function getFilteredActivityLog() {
   const action = (document.getElementById('activity-filter') || {}).value || 'ALL';
   const q = ((document.getElementById('activity-search') || {}).value || '').trim().toLowerCase();
   return (state.activityLog || []).filter(e => {
-    if (action !== 'ALL' && e.action !== action) return false;
-    if (q && !`${e.summary || ''} ${e.actor || ''} ${e.entity || ''}`.toLowerCase().includes(q)) return false;
+    if (action !== 'ALL') {
+      if (action === 'parcel') {
+        const isParcel = (e.entity || '').toLowerCase().includes('parcel') || e.action === 'parcel';
+        if (!isParcel) return false;
+      } else if (e.action !== action) {
+        return false;
+      }
+    }
+    if (q && !`${e.summary || ''} ${e.actor || ''} ${e.entity || ''} ${e.action || ''}`.toLowerCase().includes(q)) return false;
     return true;
   });
 }
 
 function renderActivityLog() {
+  updateActivityNavBadge();
   const host = document.getElementById('activity-log-list');
   if (!host) return;
+
   const countEl = document.getElementById('activity-count');
-  if (countEl) countEl.innerText = (state.activityLog || []).length;
+  const totalKpi = document.getElementById('activity-kpi-total');
+  const todayKpi = document.getElementById('activity-kpi-today');
+  const updatesKpi = document.getElementById('activity-kpi-updates');
+  const parcelsKpi = document.getElementById('activity-kpi-parcels');
+
+  const allLogs = state.activityLog || [];
+  if (countEl) countEl.innerText = allLogs.length;
+  if (totalKpi) totalKpi.innerText = allLogs.length;
+
+  // Calculate Today count
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const todayTs = startOfToday.getTime();
+  const todayCount = allLogs.filter(e => (e.ts || 0) >= todayTs).length;
+  if (todayKpi) todayKpi.innerText = todayCount;
+
+  // Calculate Updates count
+  const updatesCount = allLogs.filter(e => e.action === 'create' || e.action === 'edit').length;
+  if (updatesKpi) updatesKpi.innerText = updatesCount;
+
+  // Calculate Parcels count
+  const parcelsCount = allLogs.filter(e => (e.entity || '').toLowerCase().includes('parcel') || e.action === 'parcel').length;
+  if (parcelsKpi) parcelsKpi.innerText = parcelsCount;
+
   const list = getFilteredActivityLog();
   host.innerHTML = list.length
-    ? list.slice(0, 200).map(activityItemHtml).join('')
-    : `<div class="text-xs text-slate-400 py-6 text-center">No activity recorded yet. Changes you make (add / edit / remove / parcel) will appear here.</div>`;
+    ? list.slice(0, 300).map(activityItemHtml).join('')
+    : `<div class="text-xs text-slate-400 py-12 text-center flex flex-col items-center justify-center space-y-2">
+         <span class="text-3xl">📜</span>
+         <span class="font-semibold text-slate-600">No activity recorded yet</span>
+         <span class="text-[11px] text-slate-400">All actions performed in the devotee portal will be tracked here.</span>
+       </div>`;
   if (window.lucide) lucide.createIcons();
 }
 
@@ -3786,6 +3866,7 @@ async function clearActivityLog() {
   persistActivityLog();
   renderActivityLog();
   renderRecentChanges();
+  updateActivityNavBadge();
   showToast('Activity log cleared.', 'info');
 }
 
@@ -3819,7 +3900,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'system'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'activity', 'system'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -3835,6 +3916,11 @@ function switchTab(tabId) {
   // Deletion Requests tab — fetch and render pending requests
   if (tabId === 'requests') {
     fetchDeleteRequests();
+  }
+
+  // Activity Log tab — render full activity list & metrics
+  if (tabId === 'activity') {
+    renderActivityLog();
   }
 
   // Dynamic heading for split Birthday / Anniversary tabs
@@ -3884,6 +3970,8 @@ function switchTab(tabId) {
     renderParcelsTable();
   } else if (tabId === 'removed') {
     renderRemovedCelebrationSection();
+  } else if (tabId === 'activity') {
+    renderActivityLog();
   } else if (tabId === 'system') {
     renderActivityLog();
   }

@@ -827,6 +827,11 @@
               <span>Requests</span>
               <span id="nav-requests-badge" class="ml-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] px-1.5 py-0.2 rounded-full font-semibold hidden">0</span>
             </button>
+            <button onclick="switchTab('activity')" class="nav-tab flex items-center space-x-2" data-tab="activity">
+              <i data-lucide="history" class="w-4 h-4"></i>
+              <span>Activity Log</span>
+              <span id="nav-activity-badge" class="ml-1 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] px-1.5 py-0.2 rounded-full font-semibold">0</span>
+            </button>
             <button onclick="switchTab('system')" class="nav-tab flex items-center space-x-2" data-tab="system">
               <i data-lucide="shield-check" class="w-4 h-4"></i>
               <span>System</span>
@@ -1036,7 +1041,7 @@
             <i data-lucide="history" class="w-4 h-4 text-amber-600"></i>
             <span>Recent Changes</span>
           </h3>
-          <button onclick="switchTab('system')" class="text-[11px] font-semibold text-teal-700 hover:text-teal-800">View all →</button>
+          <button onclick="switchTab('activity')" class="text-[11px] font-semibold text-teal-700 hover:text-teal-800">View all →</button>
         </div>
         <div id="recent-changes-list"></div>
       </div>
@@ -1940,41 +1945,23 @@
         </div>
       </div>
 
-      <!-- Audit History (Activity Log) -->
+      <!-- Audit History Link Card -->
       <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
-            <i data-lucide="clipboard-list" class="w-4 h-4 text-amber-600"></i>
-            <span>Audit History</span>
-            <span id="activity-count" class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">0</span>
-          </h3>
-          <div class="flex items-center space-x-2">
-            <button onclick="exportActivityLogCsv()" class="text-[11px] font-semibold text-slate-600 hover:text-slate-800 border border-slate-300 rounded-lg px-2.5 py-1 flex items-center space-x-1 cursor-pointer">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i><span>Export CSV</span>
-            </button>
-            <button onclick="clearActivityLog()" class="text-[11px] font-semibold text-rose-600 hover:text-rose-700 border border-rose-200 rounded-lg px-2.5 py-1 flex items-center space-x-1 cursor-pointer">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Clear</span>
-            </button>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="space-y-1">
+            <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
+              <i data-lucide="history" class="w-4 h-4 text-amber-600"></i>
+              <span>Live Audit Trail &amp; Activity Log</span>
+            </h3>
+            <p class="text-xs text-slate-500">
+              All devotee modifications, parcel actions, calls, and sevak activities are now housed in the dedicated <strong>Activity Log</strong> tab.
+            </p>
           </div>
+          <button type="button" onclick="switchTab('activity')" class="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center space-x-1.5 shrink-0 cursor-pointer">
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            <span>Open Activity Log Tab</span>
+          </button>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-          <div class="relative">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-            <input id="activity-search" type="text" oninput="renderActivityLog()" placeholder="Search activity..." class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
-          </div>
-          <select id="activity-filter" onchange="renderActivityLog()" class="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white">
-            <option value="ALL">All activity</option>
-            <option value="create">Created</option>
-            <option value="edit">Updated</option>
-            <option value="remove">Removed</option>
-            <option value="restore">Restored</option>
-            <option value="delete">Deleted</option>
-            <option value="import">Imported</option>
-            <option value="clear">Cleared</option>
-            <option value="sync">Synced</option>
-          </select>
-        </div>
-        <div id="activity-log-list" class="max-h-96 overflow-y-auto"></div>
       </div>
 
     </section>
@@ -2039,6 +2026,146 @@
         <!-- Requests List Container -->
         <div id="delete-requests-container" class="divide-y divide-slate-100">
           <!-- Rendered dynamically via renderDeleteRequests() -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 9. ACTIVITY LOG VIEW (Dedicated Real-time Audit Trail for All Portal Actions) -->
+    <section id="view-activity" class="hidden space-y-6">
+
+      <!-- Executive Header Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 text-white border border-indigo-900/50 shadow-xl relative overflow-hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div class="space-y-1.5">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+              <span>🧾 Complete Audit Trail</span>
+            </div>
+            <h2 class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
+              <span>All Portal Activity Log</span>
+              <span class="text-amber-400 text-lg">🪷</span>
+            </h2>
+            <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Real-time audit history tracking all devotee additions, edits, removals, parcels, calls, deletion requests, and devotee logins across all sevak accounts.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" onclick="loadActivityLogFromCloud(true)" class="py-2 px-3.5 bg-slate-800/80 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-700 transition flex items-center space-x-1.5 cursor-pointer shadow-sm active:scale-95">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Refresh Log</span>
+            </button>
+            <button type="button" onclick="exportActivityLogCsv()" class="py-2 px-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl border border-indigo-500/50 transition flex items-center space-x-1.5 cursor-pointer shadow-sm active:scale-95">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Export CSV</span>
+            </button>
+            <button type="button" onclick="clearActivityLog()" class="py-2 px-3.5 bg-rose-900/40 hover:bg-rose-800/60 text-rose-200 font-semibold text-xs rounded-xl border border-rose-800/60 transition flex items-center space-x-1.5 cursor-pointer shadow-sm active:scale-95">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Clear History</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Activities</span>
+            <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+              <i data-lucide="clipboard-list" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div id="activity-kpi-total" class="text-2xl font-black text-slate-800 mt-2">0</div>
+          <span class="text-[10.5px] text-slate-500 mt-0.5 block">Audit entries recorded</span>
+        </div>
+        <div class="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600">Today's Activity</span>
+            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div id="activity-kpi-today" class="text-2xl font-black text-amber-600 mt-2">0</div>
+          <span class="text-[10.5px] text-amber-700/80 mt-0.5 block">Actions logged today</span>
+        </div>
+        <div class="bg-white rounded-xl border border-sky-200/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-600">Profile Edits</span>
+            <div class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+              <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div id="activity-kpi-updates" class="text-2xl font-black text-sky-600 mt-2">0</div>
+          <span class="text-[10.5px] text-sky-700/80 mt-0.5 block">Devotee creates &amp; edits</span>
+        </div>
+        <div class="bg-white rounded-xl border border-indigo-200/80 p-4 shadow-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600">Parcels &amp; Tracking</span>
+            <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <div id="activity-kpi-parcels" class="text-2xl font-black text-indigo-600 mt-2">0</div>
+          <span class="text-[10.5px] text-indigo-700/80 mt-0.5 block">Dispatch &amp; delivery actions</span>
+        </div>
+      </div>
+
+      <!-- Main Activity Feed Card -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        
+        <!-- Filter and Search Header -->
+        <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/60">
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div class="relative flex-1 max-w-md">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <i data-lucide="search" class="w-4 h-4"></i>
+              </div>
+              <input 
+                id="activity-search" 
+                type="text" 
+                oninput="renderActivityLog()" 
+                placeholder="Search activity by name, action, or devotee..." 
+                class="w-full pl-10 pr-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-xs">
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <div class="relative min-w-[170px]">
+                <select 
+                  id="activity-filter" 
+                  onchange="renderActivityLog()" 
+                  class="w-full py-2.5 px-3 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
+                  <option value="ALL">📁 All Activities</option>
+                  <option value="create">🟢 Created</option>
+                  <option value="edit">🔵 Updated</option>
+                  <option value="remove">🟡 Removed</option>
+                  <option value="restore">🔄 Restored</option>
+                  <option value="delete">🔴 Deleted</option>
+                  <option value="parcel">📦 Parcels</option>
+                  <option value="request_delete">📝 Deletion Requests</option>
+                  <option value="sync">☁️ Cloud Synced</option>
+                  <option value="login">🔐 Devotee Logins</option>
+                </select>
+              </div>
+              <span class="text-xs font-semibold text-slate-500 bg-white border border-slate-200/80 px-3 py-2 rounded-xl shadow-xs shrink-0 flex items-center space-x-1">
+                <span>Count:</span>
+                <span id="activity-count" class="font-bold text-slate-800">0</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity Feed List -->
+        <div id="activity-log-list" class="divide-y divide-slate-100 p-2 sm:p-3 max-h-[700px] overflow-y-auto">
+          <!-- Populated dynamically via renderActivityLog() -->
+        </div>
+
+        <!-- Footer status -->
+        <div class="p-3.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Live Audit Trail Connected</span>
+          </div>
+          <span>Showing latest portal events</span>
         </div>
       </div>
 
