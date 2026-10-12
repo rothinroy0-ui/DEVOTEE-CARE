@@ -1138,6 +1138,7 @@ async function initSupabaseAndSync() {
     // Also fetch cloud parcels, activity log & setup multi-user real-time sync
     await fetchParcelsFromSupabase();
     await loadActivityLogFromCloud();
+    await loadStaffListFromCloud();
     setupRealtimeSync();
 
   } catch (err) {
@@ -1485,6 +1486,7 @@ function initApp() {
   renderParcelsTable();
   renderRemovedCelebrationSection();
   updateActivityNavBadge();
+  loadStaffListFromCloud();
   initCharts();
 
   if (window.lucide) {
@@ -1757,9 +1759,9 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'activity', 'settings', 'system'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'activity', 'settings', 'system'],
-  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'activity', 'system'],
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings', 'system'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings', 'system'],
+  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'system'],
   USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels', 'activity', 'system'],
   VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'activity', 'system']
 };
@@ -2603,6 +2605,396 @@ window.fetchDeleteRequests = fetchDeleteRequests;
 window.filterDeleteRequests = filterDeleteRequests;
 window.approveDeleteRequest = approveDeleteRequest;
 window.rejectDeleteRequest = rejectDeleteRequest;
+
+// ======================================================================
+// 👑 STAFF & ROLE-BASED ACCESS CONTROL (RBAC) MANAGEMENT
+// ======================================================================
+
+state.staffList = [];
+
+function updateStaffNavBadge() {
+  const badge = document.getElementById('nav-roles-badge');
+  if (!badge) return;
+  const count = (state.staffList || []).length;
+  badge.innerText = count;
+  badge.classList.toggle('hidden', count === 0);
+}
+
+function updateStaffKPIs() {
+  const list = state.staffList || [];
+  const superAdminCount = list.filter(u => u.role === 'SUPER_ADMIN').length;
+  const adminCount = list.filter(u => u.role === 'ADMIN').length;
+  const staffCount = list.filter(u => u.role === 'STAFF').length;
+  const viewerCount = list.filter(u => u.role === 'VIEWER' || u.role === 'USER').length;
+
+  const elSuper = document.getElementById('roles-kpi-super-admin');
+  if (elSuper) elSuper.innerText = superAdminCount;
+
+  const elAdmin = document.getElementById('roles-kpi-admin');
+  if (elAdmin) elAdmin.innerText = adminCount;
+
+  const elStaff = document.getElementById('roles-kpi-staff');
+  if (elStaff) elStaff.innerText = staffCount;
+
+  const elViewer = document.getElementById('roles-kpi-viewer');
+  if (elViewer) elViewer.innerText = viewerCount;
+
+  const countEl = document.getElementById('staff-table-count');
+  if (countEl) countEl.innerText = `${list.length} Sevak${list.length === 1 ? '' : 's'}`;
+
+  updateStaffNavBadge();
+}
+
+async function loadStaffListFromCloud(forceToast = false) {
+  const client = getSupabaseClient();
+  let staffData = [];
+
+  if (client) {
+    try {
+      // 1. Try user_profiles table
+      let { data, error } = await client
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        // 2. Fallback to profiles table
+        const pRes = await client.from('profiles').select('*');
+        if (!pRes.error && pRes.data && pRes.data.length > 0) {
+          data = pRes.data;
+        }
+      }
+
+      if (data && data.length > 0) {
+        staffData = data.map(u => ({
+          id: u.id,
+          email: u.email || 'N/A',
+          fullName: u.full_name || (u.email ? u.email.split('@')[0] : 'Sevak'),
+          role: String(u.role || 'STAFF').toUpperCase(),
+          division: u.division || 'Devotee Care',
+          createdAt: u.created_at || new Date().toISOString(),
+          status: 'Active'
+        }));
+      }
+    } catch (e) {
+      console.warn('Error fetching staff list from Supabase:', e);
+    }
+  }
+
+  // Ensure default/current user is represented if empty or offline
+  if (staffData.length === 0) {
+    const curEmail = (currentUser && currentUser.email) || 'admin@iskcon.org';
+    const curName = (currentUserProfile && currentUserProfile.full_name) || 'Rathin Roy Prabhu';
+    const curRole = getActiveRoleKey() || 'SUPER_ADMIN';
+
+    staffData = [
+      {
+        id: (currentUser && currentUser.id) || 'usr_super_admin',
+        email: curEmail,
+        fullName: curName,
+        role: curRole,
+        division: 'All',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        status: 'Active'
+      },
+      {
+        id: 'usr_staff_01',
+        email: 'devoteecare.staff@iskcon.org',
+        fullName: 'Devotee Care Sevak',
+        role: 'STAFF',
+        division: 'Congregation Care',
+        createdAt: '2026-02-15T00:00:00.000Z',
+        status: 'Active'
+      },
+      {
+        id: 'usr_viewer_01',
+        email: 'congregation.viewer@iskcon.org',
+        fullName: 'Congregation Visitor',
+        role: 'VIEWER',
+        division: 'General',
+        createdAt: '2026-03-01T00:00:00.000Z',
+        status: 'Active'
+      }
+    ];
+  }
+
+  // Merge any local additions if cached
+  try {
+    const cached = JSON.parse(localStorage.getItem('iskcon_staff_list_cache') || '[]');
+    if (Array.isArray(cached) && cached.length > 0) {
+      cached.forEach(c => {
+        if (!staffData.some(s => s.email === c.email || (s.id && s.id === c.id))) {
+          staffData.push(c);
+        }
+      });
+    }
+  } catch (e) {}
+
+  state.staffList = staffData;
+  renderStaffTable();
+  updateStaffKPIs();
+
+  if (forceToast) {
+    showToast(`✅ Staff list refreshed (${staffData.length} sevaks loaded)`, 'success');
+  }
+}
+
+function renderStaffTable(listToRender) {
+  const tbody = document.getElementById('staff-table-body');
+  const emptyState = document.getElementById('staff-empty-state');
+  if (!tbody) return;
+
+  const list = listToRender || state.staffList || [];
+
+  if (list.length === 0) {
+    tbody.innerHTML = '';
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
+  }
+  if (emptyState) emptyState.classList.add('hidden');
+
+  const canEditRoles = isSuperAdmin();
+
+  const roleMeta = {
+    SUPER_ADMIN: { label: 'Super Admin', icon: '👑', badge: 'bg-amber-100 text-amber-800 border-amber-300' },
+    ADMIN: { label: 'Admin', icon: '🛡️', badge: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+    STAFF: { label: 'Staff', icon: '🛠️', badge: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+    USER: { label: 'User', icon: '👤', badge: 'bg-teal-100 text-teal-800 border-teal-300' },
+    VIEWER: { label: 'Viewer', icon: '👁️', badge: 'bg-sky-100 text-sky-800 border-sky-300' }
+  };
+
+  tbody.innerHTML = list.map((u, idx) => {
+    const serialNo = idx + 1;
+    const rKey = (u.role || 'STAFF').toUpperCase();
+    const meta = roleMeta[rKey] || roleMeta.STAFF;
+    const initial = (u.fullName || u.email || 'S').trim().charAt(0).toUpperCase();
+    const joinedStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active';
+
+    return `
+      <tr class="hover:bg-slate-50/80 transition">
+        <td class="py-3 px-3 text-center">
+          <span class="font-bold text-slate-400 font-mono">${serialNo}</span>
+        </td>
+        <td class="py-3 px-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+              ${initial}
+            </div>
+            <div>
+              <div class="font-bold text-slate-900 text-xs">${escapeHtml(u.fullName || 'Sevak')}</div>
+              <div class="text-[11px] text-slate-400 font-mono">${escapeHtml(u.email || '')}</div>
+            </div>
+          </div>
+        </td>
+        <td class="py-3 px-3 whitespace-nowrap">
+          <span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${meta.badge} shadow-xs">
+            <span>${meta.icon}</span>
+            <span>${meta.label}</span>
+          </span>
+        </td>
+        <td class="py-3 px-3 whitespace-nowrap text-xs font-medium text-slate-600">
+          📍 ${escapeHtml(u.division || 'Devotee Care')}
+        </td>
+        <td class="py-3 px-3 whitespace-nowrap">
+          <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Active</span>
+          </span>
+          <div class="text-[9.5px] text-slate-400 mt-0.5">${joinedStr}</div>
+        </td>
+        <td class="py-3 px-4 text-right whitespace-nowrap">
+          ${canEditRoles ? `
+            <div class="inline-flex items-center space-x-1.5">
+              <select onchange="updateStaffRole('${escapeHtml(u.id || u.email)}', this.value)" title="Change Role"
+                class="px-2 py-1 text-[11px] font-semibold border border-purple-200 rounded-lg bg-purple-50/40 text-purple-900 focus:ring-2 focus:ring-purple-400 cursor-pointer">
+                <option value="SUPER_ADMIN" ${rKey === 'SUPER_ADMIN' ? 'selected' : ''}>👑 Super Admin</option>
+                <option value="ADMIN" ${rKey === 'ADMIN' ? 'selected' : ''}>🛡️ Admin</option>
+                <option value="STAFF" ${rKey === 'STAFF' ? 'selected' : ''}>🛠️ Staff</option>
+                <option value="VIEWER" ${rKey === 'VIEWER' || rKey === 'USER' ? 'selected' : ''}>👁️ Viewer</option>
+              </select>
+            </div>
+          ` : `
+            <span class="text-[11px] text-slate-400 italic">Protected (Super Admin only)</span>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+function filterStaffTable() {
+  const query = (document.getElementById('staff-search-input')?.value || '').trim().toLowerCase();
+  if (!query) {
+    renderStaffTable();
+    return;
+  }
+  const filtered = (state.staffList || []).filter(u => {
+    return (u.fullName || '').toLowerCase().includes(query) ||
+           (u.email || '').toLowerCase().includes(query) ||
+           (u.role || '').toLowerCase().includes(query) ||
+           (u.division || '').toLowerCase().includes(query);
+  });
+  renderStaffTable(filtered);
+}
+
+async function updateStaffRole(userIdOrEmail, newRole) {
+  if (!isSuperAdmin()) {
+    showToast('⛔ Permission Denied: Only Super Admin can change staff roles.', 'error');
+    renderStaffTable();
+    return;
+  }
+
+  const staff = (state.staffList || []).find(s => s.id === userIdOrEmail || s.email === userIdOrEmail);
+  if (!staff) return;
+
+  const confirmed = await showAppConfirm({
+    title: 'Confirm Role Change',
+    message: `Are you sure you want to change the role of "${staff.fullName || staff.email}" to ${newRole}?`,
+    confirmText: 'Change Role',
+    cancelText: 'Cancel',
+    icon: '👑',
+    isDanger: false
+  });
+  if (!confirmed) {
+    renderStaffTable();
+    return;
+  }
+
+  const prevRole = staff.role;
+  staff.role = newRole;
+
+  // Persist locally
+  try {
+    localStorage.setItem('iskcon_staff_list_cache', JSON.stringify(state.staffList));
+  } catch (e) {}
+
+  // Update in Supabase
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      if (staff.id && staff.id.length > 10) {
+        await client.from('user_profiles').update({ role: newRole }).eq('id', staff.id);
+        await client.from('profiles').update({ role: newRole }).eq('id', staff.id);
+      } else if (staff.email) {
+        await client.from('user_profiles').update({ role: newRole }).eq('email', staff.email);
+        await client.from('profiles').update({ role: newRole }).eq('email', staff.email);
+      }
+    } catch (e) {
+      console.warn('Cloud role update notice:', e);
+    }
+  }
+
+  logActivity('edit', 'Role', `Super Admin updated role of "${staff.fullName || staff.email}" from ${prevRole} to ${newRole}`);
+  showToast(`✅ Role for "${staff.fullName || staff.email}" updated to ${newRole}!`, 'success');
+  renderStaffTable();
+  updateStaffKPIs();
+}
+
+function openAddStaffModal() {
+  const modal = document.getElementById('add-staff-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeAddStaffModal() {
+  const modal = document.getElementById('add-staff-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function handleCreateStaffSubmit(e) {
+  e.preventDefault();
+
+  const name = document.getElementById('new-staff-name').value.trim();
+  const email = document.getElementById('new-staff-email').value.trim().toLowerCase();
+  const password = document.getElementById('new-staff-password').value;
+  const role = document.getElementById('new-staff-role').value;
+  const division = document.getElementById('new-staff-division').value;
+  const submitBtn = document.getElementById('new-staff-submit-btn');
+
+  if (!email || !password || password.length < 6) {
+    showToast('Please enter a valid email and minimum 6-character password.', 'error');
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="inline-block animate-spin mr-1">⏳</span> Creating Account...';
+  }
+
+  const client = getSupabaseClient();
+  let createdId = `usr_${Date.now()}`;
+
+  if (client) {
+    try {
+      const { data, error } = await client.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: {
+            full_name: name,
+            role: role,
+            division: division
+          }
+        }
+      });
+
+      if (error) {
+        console.warn('Supabase auth signUp error:', error);
+        // Fallback: upsert directly to user_profiles table
+        await client.from('user_profiles').upsert({
+          email: email,
+          full_name: name,
+          role: role,
+          division: division
+        }, { onConflict: 'email' });
+      } else if (data && data.user) {
+        createdId = data.user.id;
+      }
+    } catch (err) {
+      console.warn('Staff creation exception:', err);
+    }
+  }
+
+  const newStaffObj = {
+    id: createdId,
+    email: email,
+    fullName: name,
+    role: role,
+    division: division,
+    createdAt: new Date().toISOString(),
+    status: 'Active'
+  };
+
+  if (!state.staffList) state.staffList = [];
+  state.staffList.unshift(newStaffObj);
+
+  try {
+    localStorage.setItem('iskcon_staff_list_cache', JSON.stringify(state.staffList));
+  } catch (e) {}
+
+  logActivity('add', 'Staff', `Created new staff account: ${name} (${email}) as ${role}`);
+  showToast(`👑 Staff account for "${name}" created successfully as ${role}!`, 'success');
+
+  closeAddStaffModal();
+  renderStaffTable();
+  updateStaffKPIs();
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i data-lucide="user-plus" class="w-3.5 h-3.5"></i><span>Create Staff Account</span>';
+    if (window.lucide) lucide.createIcons();
+  }
+}
+
+// Global exposure for staff functions
+window.loadStaffListFromCloud = loadStaffListFromCloud;
+window.renderStaffTable = renderStaffTable;
+window.filterStaffTable = filterStaffTable;
+window.updateStaffRole = updateStaffRole;
+window.openAddStaffModal = openAddStaffModal;
+window.closeAddStaffModal = closeAddStaffModal;
+window.handleCreateStaffSubmit = handleCreateStaffSubmit;
 
 function togglePasswordVisibility(inputId, btnEl) {
   const input = document.getElementById(inputId);
@@ -3923,7 +4315,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'activity', 'system'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'roles', 'activity', 'system'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -3939,6 +4331,11 @@ function switchTab(tabId) {
   // Deletion Requests tab — fetch and render pending requests
   if (tabId === 'requests') {
     fetchDeleteRequests();
+  }
+
+  // Staff & Roles tab — load and render staff list & permissions
+  if (tabId === 'roles') {
+    loadStaffListFromCloud();
   }
 
   // Activity Log tab — render full activity list & metrics
