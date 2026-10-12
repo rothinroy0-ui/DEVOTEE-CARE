@@ -3000,8 +3000,8 @@ function showAuthScreen(backToChoice = true) {
   }
 
   const panelFromUrl = getPanelFromUrl();
-  if (panelFromUrl) setPanelUrl(panelFromUrl); // keep deep links valid for the route guard
-  showSignInView(); // ONE sign-in window — any account, role decides the panel
+  if (panelFromUrl) setPanelUrl(panelFromUrl);
+  showSignInView();
   refreshLocalPreviewUI();
   updateAuthHeader(null);
   if (window.lucide) lucide.createIcons();
@@ -3038,12 +3038,11 @@ function updateAuthHeader(user) {
     const division = getUserDivision();
     const displayName = getUserDisplayName(user);
     const initial = displayName.charAt(0).toUpperCase();
-    const isAdminPanel = getActivePanel() === 'ADMIN';
 
     container.innerHTML = `
       <div class="flex items-center space-x-2">
         <!-- Minimalist User Profile Chip -->
-        <div class="flex items-center space-x-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg px-2.5 py-1 transition cursor-pointer" onclick="openProfileModalSafe()" title="Signed in as ${user.email} (${roleConfig.label} • ${isAdminPanel ? 'Admin Panel' : 'User Panel'})">
+        <div class="flex items-center space-x-2 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] rounded-lg px-2.5 py-1 transition cursor-pointer" onclick="openProfileModalSafe()" title="Signed in as ${user.email} (${roleConfig.label} • ${getActivePanel() === 'ADMIN' ? 'Admin Panel' : 'User Panel'})">
           <div class="w-6 h-6 rounded-md bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white font-semibold text-xs flex items-center justify-center shadow-xs shrink-0">
             ${initial}
           </div>
@@ -3106,11 +3105,11 @@ async function handleAuthSignIn(event) {
   const passwordInput = document.getElementById('auth-password');
   const submitBtn = document.getElementById('auth-submit-btn');
 
-  const email = emailInput ? emailInput.value.trim() : '';
+  const rawInput = emailInput ? emailInput.value.trim() : '';
   const password = passwordInput ? passwordInput.value : '';
 
-  if (!email || !password) {
-    showAuthAlert('Please enter both your email address and password.', 'error');
+  if (!rawInput || !password) {
+    showAuthAlert('Please enter both your Login ID / Email and password.', 'error');
     return;
   }
 
@@ -3130,13 +3129,65 @@ async function handleAuthSignIn(event) {
   }
 
   try {
+    let targetEmail = rawInput;
+
+    // If devotee provided a Login ID or username without '@', resolve to matching registered email
+    if (!rawInput.includes('@')) {
+      try {
+        // Attempt 1: Call database RPC function if available
+        const { data: rpcEmail, error: rpcErr } = await client.rpc('resolve_login_email', { p_login_id: rawInput });
+        if (!rpcErr && rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
+          targetEmail = rpcEmail.trim();
+        }
+      } catch (e) { /* ignore */ }
+
+      // Attempt 2: Search user_profiles table by email prefix or full_name
+      if (!targetEmail.includes('@')) {
+        try {
+          const { data: profile } = await client
+            .from('user_profiles')
+            .select('email')
+            .ilike('email', `${rawInput}@%`)
+            .limit(1)
+            .maybeSingle();
+          if (profile && profile.email) {
+            targetEmail = profile.email;
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // Attempt 3: Search profiles table
+      if (!targetEmail.includes('@')) {
+        try {
+          const { data: p2 } = await client
+            .from('profiles')
+            .select('email')
+            .ilike('email', `${rawInput}@%`)
+            .limit(1)
+            .maybeSingle();
+          if (p2 && p2.email) {
+            targetEmail = p2.email;
+          }
+        } catch (e) { /* ignore */ }
+      }
+
+      // Attempt 4: Fallback domain if entered username looks like an ID
+      if (!targetEmail.includes('@')) {
+        targetEmail = `${rawInput.toLowerCase()}@iskcon.org`;
+      }
+    }
+
     const { data, error } = await client.auth.signInWithPassword({
-      email: email,
+      email: targetEmail,
       password: password
     });
 
     if (error) {
-      showAuthAlert(formatAuthErrorMessage(error), 'error');
+      let errMsg = formatAuthErrorMessage(error);
+      if (!rawInput.includes('@')) {
+        errMsg += ' (Tip: You can also sign in directly using your registered email address).';
+      }
+      showAuthAlert(errMsg, 'error');
       return;
     }
 

@@ -441,42 +441,9 @@
           <p class="text-xs text-slate-400 mt-1 italic">"Our love for Krishna will be tested by how we love and serve one another."</p>
         </div>
 
-        <!-- 🟢 PUBLIC LANDING VIEW (hidden when login portal is active) -->
-        <div id="landing-view" class="hidden space-y-5">
-          <p class="text-center text-sm font-medium text-slate-300 -mt-1">Your devotee management portal</p>
-          <button type="button" onclick="openWelcomePage()"
-            class="group w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition duration-150 flex items-center justify-center space-x-2 text-base cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/70">
-            <span>Get Started</span>
-            <i data-lucide="arrow-right" class="w-5 h-5 transition-transform duration-150 group-hover:translate-x-1"></i>
-          </button>
-        <div id="local-preview-wrap" class="hidden mb-4">
-          <button type="button" onclick="enterPortalPreview()"
-            class="group w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl shadow-lg shadow-amber-600/25 transition duration-150 flex items-center justify-center space-x-2 text-xs cursor-pointer">
-            <i data-lucide="flask-conical" class="w-4 h-4"></i>
-            <span>Open Local Preview (not signed in)</span>
-          </button>
-          <p class="text-[10px] text-slate-500 text-center mt-1">Only works on localhost.</p>
-        </div>
-
-        <!-- 🟢 WELCOME VIEW (opened by Get Started — public, no data, no admin) -->
-        <div id="welcome-view" class="hidden space-y-4 text-center">
-          <div class="text-5xl leading-none">🙏</div>
-          <h2 class="text-2xl font-black text-white font-display">Hare Krishna!</h2>
-          <p class="text-sm text-slate-300 leading-relaxed">
-            Welcome to <span class="font-semibold text-amber-300">ISKCON Durgapur Devotee Care</span>.
-          </p>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            Our online devotee portal is being prepared with care. Sevak access will open soon, God willing.
-          </p>
-          <div class="rounded-xl border border-slate-700/70 bg-slate-950/50 p-3.5 text-[11px] text-slate-400 leading-relaxed">
-            For any seva-related assistance, please contact the temple office.
-          </div>
-          <button type="button" onclick="closeWelcomePage()"
-            class="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-xl text-sm transition cursor-pointer flex items-center justify-center space-x-2">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i>
-            <span>Back</span>
-          </button>
-        </div>
+        <!-- Public landing hooks (kept safely empty and closed for compatibility) -->
+        <div id="landing-view" class="hidden"></div>
+        <div id="welcome-view" class="hidden"></div>
 
         <!-- Notification / Error Box -->
         <div id="auth-alert" class="hidden mb-4 text-xs p-3.5 rounded-xl border flex items-start space-x-2.5 transition-all">
@@ -497,104 +464,122 @@
           </div>
         </div>
 
-        <!-- Sign In Form — ONE single sign-in window for every account.
-             No Admin/User door choice: any registered account may sign in and
-             the account's role decides which panel opens afterwards. -->
-        <div id="auth-form-view" class="">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs text-slate-400">Sign in with your Supabase account</span>
-            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-indigo-500/15 border-indigo-400/40 text-indigo-300">🔐 Secure Sign In</span>
-          </div>
-        <form id="signin-form" onsubmit="handleAuthSignIn(event)" class="space-y-4">
-          <!-- Email Field -->
-          <div>
-            <label for="auth-email" class="block text-xs font-semibold text-slate-300 mb-1.5">
-              Email Address
-            </label>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <i data-lucide="mail" class="w-4 h-4"></i>
-              </div>
-              <input 
-                type="email" 
-                id="auth-email" 
-                required 
-                autocomplete="email" 
-                placeholder="devotee@iskcon.org" 
-                class="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500 transition shadow-inner">
+        <!-- 🔐 DEVOTEE CARE LOGIN FORM VIEW -->
+        <div id="auth-form-view" class="space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+            <div class="flex items-center space-x-2">
+              <span class="text-amber-400 text-base">🙏</span>
+              <span class="text-xs font-bold text-slate-200">Devotee Sign In</span>
             </div>
-          </div>
-
-          <!-- Password Field with Show/Hide Toggle -->
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label for="auth-password" class="block text-xs font-semibold text-slate-300">
-                Password
-              </label>
-              <button 
-                type="button" 
-                onclick="openForgotPasswordModal()" 
-                class="text-xs font-medium text-amber-400 hover:text-amber-300 transition hover:underline">
-                Forgot Password?
-              </button>
-            </div>
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <i data-lucide="lock" class="w-4 h-4"></i>
-              </div>
-              <input 
-                type="password" 
-                id="auth-password" 
-                required 
-                autocomplete="current-password" 
-                placeholder="••••••••••••" 
-                class="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500 transition shadow-inner">
-              <button 
-                type="button" 
-                onclick="togglePasswordVisibility('auth-password', this)" 
-                class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition" 
-                title="Show/Hide Password"
-                aria-label="Toggle password visibility">
-                <i data-lucide="eye" class="w-4 h-4"></i>
-              </button>
-            </div>
-          </div>
-
-          <!-- Remember Me Checkbox -->
-          <div class="flex items-center justify-between pt-1">
-            <label class="flex items-center space-x-2 cursor-pointer select-none">
-              <input 
-                type="checkbox" 
-                id="auth-remember-me" 
-                checked 
-                class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 transition">
-              <span class="text-xs text-slate-300 font-medium">Keep me signed in</span>
-            </label>
-            <span class="text-[11px] text-slate-400 font-medium flex items-center space-x-1">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span>Supabase Auth</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-indigo-500/15 border-indigo-400/40 text-indigo-300">
+              🔐 Secure Login Portal
             </span>
           </div>
 
-          <!-- Submit Button -->
-          <div class="pt-2">
-            <button 
-              id="auth-submit-btn" 
-              type="submit" 
-              class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:from-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition duration-150 flex items-center justify-center space-x-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed">
-              <i data-lucide="log-in" class="w-4 h-4"></i>
-              <span>Sign In</span>
+          <form id="signin-form" onsubmit="handleAuthSignIn(event)" class="space-y-4">
+            <!-- Login ID / Email Field -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="auth-email" class="block text-xs font-semibold text-slate-300">
+                  Login ID / Email Address
+                </label>
+                <span class="text-[10px] text-amber-400/90 font-medium">User ID or Email</span>
+              </div>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <i data-lucide="user" class="w-4 h-4"></i>
+                </div>
+                <input 
+                  type="text" 
+                  id="auth-email" 
+                  required 
+                  autocomplete="username" 
+                  placeholder="Enter Login ID or devotee@iskcon.org" 
+                  class="w-full pl-10 pr-3.5 py-2.5 text-sm bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500 transition shadow-inner">
+              </div>
+              <p class="text-[10.5px] text-slate-400 mt-1 pl-1">
+                Enter your Login ID, devotee username, or registered email.
+              </p>
+            </div>
+
+            <!-- Password Field with Show/Hide Toggle -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="auth-password" class="block text-xs font-semibold text-slate-300">
+                  Password
+                </label>
+                <button 
+                  type="button" 
+                  onclick="openForgotPasswordModal()" 
+                  class="text-xs font-medium text-amber-400 hover:text-amber-300 transition hover:underline">
+                  Forgot Password?
+                </button>
+              </div>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <i data-lucide="lock" class="w-4 h-4"></i>
+                </div>
+                <input 
+                  type="password" 
+                  id="auth-password" 
+                  required 
+                  autocomplete="current-password" 
+                  placeholder="••••••••••••" 
+                  class="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500 transition shadow-inner">
+                <button 
+                  type="button" 
+                  onclick="togglePasswordVisibility('auth-password', this)" 
+                  class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200 transition" 
+                  title="Show/Hide Password"
+                  aria-label="Toggle password visibility">
+                  <i data-lucide="eye" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Remember Me Checkbox -->
+            <div class="flex items-center justify-between pt-1">
+              <label class="flex items-center space-x-2 cursor-pointer select-none">
+                <input 
+                  type="checkbox" 
+                  id="auth-remember-me" 
+                  checked 
+                  class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-slate-900 transition">
+                <span class="text-xs text-slate-300 font-medium">Keep me signed in</span>
+              </label>
+              <span class="text-[11px] text-slate-400 font-medium flex items-center space-x-1">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Supabase Protected</span>
+              </span>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-2">
+              <button 
+                id="auth-submit-btn" 
+                type="submit" 
+                class="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 active:from-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition duration-150 flex items-center justify-center space-x-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span>Sign In to Portal</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Role Access Info Badge -->
+          <div class="pt-1 text-center">
+            <span class="inline-flex items-center space-x-1 text-[11px] text-slate-400 bg-slate-950/60 px-3 py-1 rounded-full border border-slate-800">
+              <span class="text-amber-400">🌸</span>
+              <span>Role-Based Access: Super Admin • Admin • Staff • Viewer</span>
+            </span>
+          </div>
+
+          <!-- Local Developer Preview (only visible when opened via file:// or localhost) -->
+          <div id="local-preview-wrap" class="hidden pt-2 text-center">
+            <button type="button" onclick="enterPortalPreview()" class="text-[11px] text-amber-400/80 hover:text-amber-300 underline cursor-pointer transition">
+              ⚡ Local Developer Preview (Offline Bypass)
             </button>
           </div>
-        </form>
-
-        <!-- Local Developer Preview (only visible when opened via file:// or localhost) -->
-        <div id="local-preview-wrap" class="hidden pt-3 text-center">
-          <button type="button" onclick="enterPortalPreview()" class="text-[11px] text-amber-400/80 hover:text-amber-300 underline cursor-pointer transition">
-            ⚡ Local Developer Preview (Offline Bypass)
-          </button>
         </div>
-      </div>
 
         <!-- Footer Notice -->
         <div class="mt-6 pt-5 border-t border-slate-800/80 text-center space-y-1">
