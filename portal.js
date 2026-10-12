@@ -1139,6 +1139,10 @@ async function initSupabaseAndSync() {
     await fetchParcelsFromSupabase();
     await loadActivityLogFromCloud();
     await loadStaffListFromCloud();
+    if (isAdminOrSuper()) {
+      await fetchDeleteRequests(false);
+      subscribeToDeleteRequests();
+    }
     setupRealtimeSync();
 
   } catch (err) {
@@ -1780,6 +1784,15 @@ function isSuperAdmin() {
   return getActiveRoleKey() === 'SUPER_ADMIN';
 }
 
+function isAdmin() {
+  return getActiveRoleKey() === 'ADMIN';
+}
+
+function isAdminOrSuper() {
+  const k = getActiveRoleKey();
+  return k === 'SUPER_ADMIN' || k === 'ADMIN';
+}
+
 function isStaff() {
   return getActiveRoleKey() === 'STAFF';
 }
@@ -1980,8 +1993,21 @@ window.dismissWelcomeCelebration = () => {};
 // ----------------------------------------------------
 // 🛡️ ROLE-BASED DELETION REQUEST & APPROVAL SYSTEM
 // ----------------------------------------------------
+let deleteRequestsChannel = null;
+let deleteRequestsPollTimer = null;
+
 function openDeleteRequestModal(target) {
   if (!target || !target.id) return;
+
+  // 1. Prevent duplicate pending requests for the same record
+  const existingPending = (state.deleteRequests || []).find(
+    r => String(r.record_id) === String(target.id) && r.status === 'PENDING'
+  );
+  if (existingPending) {
+    showToast(`A deletion request for "${target.title || 'this record'}" is already pending Super Admin approval.`, 'warning');
+    return;
+  }
+
   const modal = document.getElementById('delete-request-modal');
   const targetIdInput = document.getElementById('del-req-target-id');
   const targetTypeInput = document.getElementById('del-req-target-type');
@@ -1989,10 +2015,54 @@ function openDeleteRequestModal(target) {
   const titleEl = document.getElementById('del-req-target-title');
   const reasonInput = document.getElementById('del-req-reason');
 
+  const targetType = target.type || 'DEVOTEE';
   if (targetIdInput) targetIdInput.value = target.id;
-  if (targetTypeInput) targetTypeInput.value = target.type || 'DEVOTEE';
-  if (badgeTypeEl) badgeTypeEl.textContent = `${target.type || 'DEVOTEE'} RECORD`;
+  if (targetTypeInput) targetTypeInput.value = targetType;
+  if (badgeTypeEl) badgeTypeEl.textContent = `${targetType} RECORD`;
   if (titleEl) titleEl.textContent = target.title || 'Selected Record';
+
+  // 2. Capture a safe snapshot of the record details to store in delete_requests
+  let snapshot = null;
+  if (targetType === 'DEVOTEE') {
+    const dev = (state.devotees || []).find(x => String(x.id) === String(target.id));
+    if (dev) {
+      snapshot = {
+        id: dev.id,
+        slNo: dev.slNo || null,
+        legalName: dev.legalName || null,
+        spiritualName: dev.spiritualName || null,
+        phone: dev.phone || dev.whatsapp || null,
+        email: dev.email || null,
+        dob: dev.dob || null,
+        marriageAnniversary: dev.marriageAnniversary || null,
+        city: dev.city || null,
+        state: dev.state || null,
+        currentAddress: dev.currentAddress || null,
+        department: dev.department || null,
+        sangha: dev.sangha || null
+      };
+    }
+  } else if (targetType === 'PARCEL') {
+    const prc = (state.parcels || []).find(x => String(x.id) === String(target.id));
+    if (prc) {
+      snapshot = {
+        id: prc.id,
+        devoteeId: prc.devoteeId || null,
+        trackingNumber: prc.trackingNumber || null,
+        legalName: prc.legalName || null,
+        spiritualName: prc.spiritualName || null,
+        phone: prc.phone || null,
+        deliveryMode: prc.deliveryMode || null,
+        courierPartner: prc.courierPartner || null,
+        status: prc.status || null
+      };
+    }
+  }
+
+  if (modal) {
+    modal.dataset.snapshot = JSON.stringify(snapshot || {});
+  }
+
   if (reasonInput) {
     reasonInput.value = '';
     setTimeout(() => reasonInput.focus(), 150);
@@ -2020,10 +2090,26 @@ async function handleDeleteRequestSubmit(event) {
     return;
   }
 
+  // Prevent duplicate submissions
+  const existingPending = (state.deleteRequests || []).find(
+    r => String(r.record_id) === String(targetId) && r.status === 'PENDING'
+  );
+  if (existingPending) {
+    showToast('A pending deletion request already exists for this record.', 'warning');
+    closeDeleteRequestModal();
+    return;
+  }
+
   const submitBtn = document.getElementById('del-req-submit-btn');
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = `<span>Submitting...</span>`;
+    submitBtn.innerHTML = `<span>Submitting to Super Admin...</span>`;
+  }
+
+  const modal = document.getElementById('delete-request-modal');
+  let snapshot = null;
+  if (modal && modal.dataset.snapshot) {
+    try { snapshot = JSON.parse(modal.dataset.snapshot); } catch (e) {}
   }
 
   const requesterName = getUserDisplayName(currentUser);
@@ -2034,6 +2120,7 @@ async function handleDeleteRequestSubmit(event) {
     record_id: String(targetId),
     record_type: targetType,
     record_title: targetTitle,
+    record_details: snapshot,
     reason: reason,
     requested_by_id: requesterId,
     requested_by_email: requesterEmail,
@@ -2052,13 +2139,23 @@ async function handleDeleteRequestSubmit(event) {
         .maybeSingle();
 
       if (error) {
-        console.warn('Supabase delete_requests insert info:', error.message);
+        console.error('Supabase delete_requests insert error:', error);
+        if (error.code === 'PGRST205' || (error.message && error.message.includes('Could not find'))) {
+          showToast('⚠️ Database table "delete_requests" not found in Supabase. Please run the SQL migration in the Supabase SQL Editor.', 'error');
+        } else if (error.message && error.message.includes('duplicate')) {
+          showToast('A pending deletion request already exists for this record.', 'warning');
+        } else {
+          showToast(`Error submitting request: ${error.message || 'Permission denied'}`, 'error');
+        }
+        return;
       } else if (data) {
         newRequest.id = data.id;
       }
     }
   } catch (err) {
-    console.warn('Delete request cloud sync exception:', err);
+    console.error('Delete request cloud sync exception:', err);
+    showToast('Network error submitting request to Supabase.', 'error');
+    return;
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
@@ -2079,6 +2176,13 @@ async function handleDeleteRequestSubmit(event) {
 }
 
 async function fetchDeleteRequests(showToastOnRefresh = false) {
+  // Only Admin & Super Admin can view the Delete Requests queue
+  if (!isAdminOrSuper()) {
+    state.deleteRequests = [];
+    updateRequestsNavBadge();
+    return;
+  }
+
   const client = getSupabaseClient();
   if (!client) {
     updateRequestsNavBadge();
@@ -2093,7 +2197,7 @@ async function fetchDeleteRequests(showToastOnRefresh = false) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.warn('Fetch delete_requests info:', error.message);
+      console.warn('Fetch delete_requests notice:', error.message);
     } else if (data) {
       state.deleteRequests = data;
     }
@@ -2105,7 +2209,56 @@ async function fetchDeleteRequests(showToastOnRefresh = false) {
   renderDeleteRequests();
 
   if (showToastOnRefresh && typeof showToast === 'function') {
-    showToast('Deletion requests refreshed.', 'info');
+    showToast('Delete requests refreshed.', 'info');
+  }
+}
+
+function subscribeToDeleteRequests() {
+  if (!isAdminOrSuper()) return;
+  const client = getSupabaseClient();
+  if (!client || !client.channel) return;
+
+  if (deleteRequestsChannel) {
+    try { client.removeChannel(deleteRequestsChannel); } catch (e) {}
+    deleteRequestsChannel = null;
+  }
+
+  try {
+    deleteRequestsChannel = client
+      .channel('public:delete_requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'delete_requests' }, payload => {
+        console.log('🔔 Realtime event on delete_requests:', payload.eventType);
+        fetchDeleteRequests(false);
+        if (payload.eventType === 'INSERT' && payload.new?.status === 'PENDING') {
+          showToast(`🔔 New delete request: "${payload.new.record_title}" requested by ${payload.new.requested_by_name || 'Staff'}`, 'info');
+        }
+      })
+      .subscribe((status) => {
+        console.log('📡 Realtime delete_requests status:', status);
+      });
+  } catch (err) {
+    console.warn('Could not establish delete_requests Realtime channel:', err);
+  }
+
+  // Fallback background polling every 30 seconds for Super Admin
+  if (!deleteRequestsPollTimer) {
+    deleteRequestsPollTimer = setInterval(() => {
+      if (isAdminOrSuper()) {
+        fetchDeleteRequests(false);
+      }
+    }, 30000);
+  }
+}
+
+function unsubscribeFromDeleteRequests() {
+  if (deleteRequestsChannel) {
+    const client = getSupabaseClient();
+    try { if (client) client.removeChannel(deleteRequestsChannel); } catch (e) {}
+    deleteRequestsChannel = null;
+  }
+  if (deleteRequestsPollTimer) {
+    clearInterval(deleteRequestsPollTimer);
+    deleteRequestsPollTimer = null;
   }
 }
 
@@ -2151,14 +2304,24 @@ function renderDeleteRequests() {
   const container = document.getElementById('delete-requests-container');
   if (!container) return;
 
+  // Strictly enforce admin view
+  if (!isAdminOrSuper()) {
+    container.innerHTML = `
+      <div class="p-10 text-center text-slate-500 space-y-2">
+        <div class="text-3xl">🛡️</div>
+        <p class="font-bold text-slate-800 text-sm">Admin Access Only</p>
+        <p class="text-xs text-slate-500">Only authorized Super Admin can access the Delete Requests review queue.</p>
+      </div>
+    `;
+    return;
+  }
+
   const hintEl = document.getElementById('requests-role-hint');
   if (hintEl) {
     if (isSuperAdmin()) {
-      hintEl.innerHTML = `<span class="text-amber-600 font-bold">🛡️ Super Admin Access:</span> You have full authority to approve or reject deletion requests.`;
-    } else if (isStaff()) {
-      hintEl.innerHTML = `<span class="text-teal-600 font-bold">👤 Staff View:</span> Viewing your deletion requests.`;
+      hintEl.innerHTML = `<span class="text-amber-600 font-bold">🛡️ Super Admin Access:</span> Full authority to Approve (Yes) or Reject (No) requests.`;
     } else {
-      hintEl.innerHTML = `Viewing deletion requests (Read Only).`;
+      hintEl.innerHTML = `<span class="text-slate-600 font-bold">🛡️ Admin View:</span> Awaiting Super Admin approval.`;
     }
   }
 
@@ -2176,7 +2339,7 @@ function renderDeleteRequests() {
         </div>
         <p class="font-bold text-slate-700 text-sm">No deletion requests found</p>
         <p class="text-xs text-slate-500 max-w-sm mx-auto">
-          ${filter === 'PENDING' ? 'No pending requests requiring approval. All records are secure.' : 'No records match the current filter.'}
+          ${filter === 'PENDING' ? 'No pending requests requiring approval. All records are safe and secure.' : 'No records match the current filter.'}
         </p>
       </div>
     `;
@@ -2194,7 +2357,7 @@ function renderDeleteRequests() {
     } else if (isApproved) {
       statusBadge = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span>✅ Approved & Deleted</span></span>`;
     } else {
-      statusBadge = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200"><span>❌ Rejected</span></span>`;
+      statusBadge = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200"><span>❌ Rejected (Kept)</span></span>`;
     }
 
     const typeBadge = r.record_type === 'PARCEL'
@@ -2203,21 +2366,51 @@ function renderDeleteRequests() {
 
     const formattedDate = r.created_at ? new Date(r.created_at).toLocaleString() : 'Recently';
 
-    // Super Admin action buttons (only for PENDING requests)
+    // 🛡️ ONLY Super Admin sees Approve (Yes) and Reject (No) buttons for PENDING requests
     let actionButtons = '';
     if (isSuperAdmin() && isPending) {
       actionButtons = `
         <div class="flex items-center space-x-2 pt-2 sm:pt-0 shrink-0">
-          <button type="button" onclick="approveDeleteRequest('${r.id}')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer">
+          <button type="button" data-action-approve="${r.id}" onclick="approveDeleteRequest('${r.id}')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer" title="Approve deletion and permanently remove record">
             <i data-lucide="check" class="w-3.5 h-3.5"></i>
-            <span>Approve & Delete</span>
+            <span>Approve (Yes)</span>
           </button>
-          <button type="button" onclick="rejectDeleteRequest('${r.id}')" class="px-3 py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer">
+          <button type="button" data-action-reject="${r.id}" onclick="rejectDeleteRequest('${r.id}')" class="px-3 py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer" title="Reject deletion and keep record unchanged">
             <i data-lucide="x" class="w-3.5 h-3.5"></i>
-            <span>Reject</span>
+            <span>Reject (No)</span>
           </button>
         </div>
       `;
+    } else if (isPending) {
+      actionButtons = `
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200">
+          ⏳ Awaiting Super Admin Review
+        </span>
+      `;
+    }
+
+    // Render snapshot details if available
+    let snapshotHtml = '';
+    const details = r.record_details;
+    if (details && typeof details === 'object' && Object.keys(details).length > 0) {
+      const pills = [];
+      if (details.phone) pills.push(`<b>Phone:</b> ${escapeHtml(details.phone)}`);
+      if (details.email) pills.push(`<b>Email:</b> ${escapeHtml(details.email)}`);
+      if (details.dob) pills.push(`<b>DOB:</b> ${escapeHtml(details.dob)}`);
+      if (details.marriageAnniversary) pills.push(`<b>Anniversary:</b> ${escapeHtml(details.marriageAnniversary)}`);
+      if (details.city) pills.push(`<b>City:</b> ${escapeHtml(details.city)}`);
+      if (details.trackingNumber) pills.push(`<b>Tracking:</b> ${escapeHtml(details.trackingNumber)}`);
+      if (details.courierPartner) pills.push(`<b>Courier:</b> ${escapeHtml(details.courierPartner)}`);
+      if (details.status) pills.push(`<b>Status:</b> ${escapeHtml(details.status)}`);
+
+      if (pills.length > 0) {
+        snapshotHtml = `
+          <div class="mt-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+            <span class="text-slate-400 font-bold uppercase tracking-wider text-[10px] w-full block">Record Snapshot:</span>
+            ${pills.map(p => `<span class="bg-white px-2 py-0.5 rounded border border-slate-200">${p}</span>`).join('')}
+          </div>
+        `;
+      }
     }
 
     return `
@@ -2237,8 +2430,9 @@ function renderDeleteRequests() {
             <span class="text-xs text-slate-400 font-mono font-normal">(ID: ${escapeHtml(r.record_id)})</span>
           </h4>
           <p class="text-xs text-slate-700 bg-amber-50/60 border border-amber-200/60 rounded-xl p-3 leading-relaxed">
-            <b class="text-amber-900">Reason:</b> "${escapeHtml(r.reason)}"
+            <b class="text-amber-900">Reason:</b> "${escapeHtml(r.reason || 'None provided')}"
           </p>
+          ${snapshotHtml}
         </div>
 
         <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
@@ -2249,6 +2443,7 @@ function renderDeleteRequests() {
           ${r.reviewed_at ? `
             <div class="text-slate-500">
               Reviewed by: <b class="text-slate-700">${escapeHtml(r.reviewed_by_name || 'Super Admin')}</b> on ${new Date(r.reviewed_at).toLocaleDateString()}
+              ${r.review_notes ? `<span class="italic text-slate-400">("${escapeHtml(r.review_notes)}")</span>` : ''}
             </div>
           ` : ''}
         </div>
@@ -2261,12 +2456,17 @@ function renderDeleteRequests() {
 
 async function approveDeleteRequest(requestId) {
   if (!isSuperAdmin()) {
-    showToast('Permission denied: Only Super Admin can approve deletion requests.', 'error');
+    showToast('⛔ Permission Denied: Only authenticated Super Admin can approve deletion requests.', 'error');
     return;
   }
 
   const req = (state.deleteRequests || []).find(r => r.id === requestId);
   if (!req) return;
+
+  if (req.status !== 'PENDING') {
+    showToast(`This request has already been ${req.status.toLowerCase()}.`, 'warning');
+    return;
+  }
 
   const confirmed = await showAppConfirm({
     title: 'Approve & Permanently Delete Record?',
@@ -2278,58 +2478,81 @@ async function approveDeleteRequest(requestId) {
   });
   if (!confirmed) return;
 
-  // 1. Execute actual deletion
+  const btn = document.querySelector(`[data-action-approve="${requestId}"]`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>Deleting...</span>`;
+  }
+
+  const client = getSupabaseClient();
+  let rpcSuccess = false;
+
+  // 1. Attempt secure server-side RPC procedure (atomic delete + status update in PostgreSQL)
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('approve_delete_request', { p_request_id: requestId });
+      if (!error && data?.success) {
+        rpcSuccess = true;
+      } else if (error) {
+        console.warn('RPC approve_delete_request fallback to direct delete:', error.message);
+      }
+    } catch (e) {
+      console.warn('RPC exception:', e);
+    }
+  }
+
+  // 2. Direct fallback if RPC procedure is not yet created in Supabase
+  if (!rpcSuccess) {
+    if (req.record_type === 'DEVOTEE') {
+      try {
+        if (client) await client.from('devotees').delete().eq('DEVOTEE ID', req.record_id);
+      } catch (e) {}
+    } else if (req.record_type === 'PARCEL') {
+      try {
+        if (client) await client.from('parcels').delete().eq('id', req.record_id);
+      } catch (e) {}
+    }
+
+    try {
+      if (client) {
+        await client.from('delete_requests').update({
+          status: 'APPROVED',
+          reviewed_by_id: currentUser?.id || null,
+          reviewed_by_name: getUserDisplayName(currentUser),
+          reviewed_by_email: currentUser?.email || 'admin@iskcon.org',
+          reviewed_at: new Date().toISOString()
+        }).eq('id', requestId);
+      }
+    } catch (e) {}
+  }
+
+  // 3. Remove from client local memory & storage
   if (req.record_type === 'DEVOTEE') {
     const devId = req.record_id;
     state.devotees = (state.devotees || []).filter(d => String(d.id) !== String(devId));
     state.parcels = (state.parcels || []).filter(p => String(p.devoteeId) !== String(devId));
+    if (state.selectedDevotees) state.selectedDevotees.delete(devId);
+    if (state.selectedCelebrations) state.selectedCelebrations.delete(devId);
     saveToStorage();
     updateDevoteeAutocompleteList();
     updateKPIs();
     renderDevoteesTable();
     renderBirthdaysGrid();
     renderParcelsTable();
-
-    try {
-      const client = getSupabaseClient();
-      if (client) {
-        await client.from('devotees').delete().eq('DEVOTEE ID', devId);
-      }
-    } catch (e) { console.warn('Devotee cloud delete exception:', e); }
   } else if (req.record_type === 'PARCEL') {
     const parcelId = req.record_id;
     state.parcels = (state.parcels || []).filter(p => String(p.id) !== String(parcelId));
+    if (state.selectedParcels) state.selectedParcels.delete(parcelId);
     saveToStorage();
     updateKPIs();
     renderParcelsTable();
-
-    try {
-      const client = getSupabaseClient();
-      if (client) {
-        await client.from('parcels').delete().eq('id', parcelId);
-      }
-    } catch (e) { console.warn('Parcel cloud delete exception:', e); }
   }
 
-  // 2. Update request status
   req.status = 'APPROVED';
   req.reviewed_by_id = currentUser?.id || null;
   req.reviewed_by_name = getUserDisplayName(currentUser);
   req.reviewed_by_email = currentUser?.email || 'admin@iskcon.org';
   req.reviewed_at = new Date().toISOString();
-
-  try {
-    const client = getSupabaseClient();
-    if (client) {
-      await client.from('delete_requests').update({
-        status: 'APPROVED',
-        reviewed_by_id: req.reviewed_by_id,
-        reviewed_by_name: req.reviewed_by_name,
-        reviewed_by_email: req.reviewed_by_email,
-        reviewed_at: req.reviewed_at
-      }).eq('id', requestId);
-    }
-  } catch (e) { console.warn('Update delete_requests exception:', e); }
 
   logActivity('delete', req.record_type, `Super Admin approved deletion of "${req.record_title}" (requested by ${req.requested_by_name}).`, req.record_id);
   showToast(`Request approved! "${req.record_title}" deleted permanently.`, 'success');
@@ -2339,12 +2562,17 @@ async function approveDeleteRequest(requestId) {
 
 async function rejectDeleteRequest(requestId) {
   if (!isSuperAdmin()) {
-    showToast('Permission denied: Only Super Admin can review deletion requests.', 'error');
+    showToast('⛔ Permission Denied: Only authenticated Super Admin can review deletion requests.', 'error');
     return;
   }
 
   const req = (state.deleteRequests || []).find(r => r.id === requestId);
   if (!req) return;
+
+  if (req.status !== 'PENDING') {
+    showToast(`This request has already been ${req.status.toLowerCase()}.`, 'warning');
+    return;
+  }
 
   const confirmed = await showAppConfirm({
     title: 'Reject Deletion Request?',
@@ -2356,24 +2584,48 @@ async function rejectDeleteRequest(requestId) {
   });
   if (!confirmed) return;
 
+  const btn = document.querySelector(`[data-action-reject="${requestId}"]`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>Rejecting...</span>`;
+  }
+
+  const client = getSupabaseClient();
+  let rpcSuccess = false;
+
+  // 1. Attempt server-side RPC procedure
+  if (client) {
+    try {
+      const { data, error } = await client.rpc('reject_delete_request', { p_request_id: requestId });
+      if (!error && data?.success) {
+        rpcSuccess = true;
+      } else if (error) {
+        console.warn('RPC reject_delete_request fallback to direct update:', error.message);
+      }
+    } catch (e) {}
+  }
+
+  // 2. Direct fallback
+  if (!rpcSuccess) {
+    try {
+      if (client) {
+        await client.from('delete_requests').update({
+          status: 'REJECTED',
+          reviewed_by_id: currentUser?.id || null,
+          reviewed_by_name: getUserDisplayName(currentUser),
+          reviewed_by_email: currentUser?.email || 'admin@iskcon.org',
+          reviewed_at: new Date().toISOString()
+        }).eq('id', requestId);
+      }
+    } catch (e) {}
+  }
+
+  // Original record remains COMPLETELY PRESERVED AND UNTOUCHED
   req.status = 'REJECTED';
   req.reviewed_by_id = currentUser?.id || null;
   req.reviewed_by_name = getUserDisplayName(currentUser);
   req.reviewed_by_email = currentUser?.email || 'admin@iskcon.org';
   req.reviewed_at = new Date().toISOString();
-
-  try {
-    const client = getSupabaseClient();
-    if (client) {
-      await client.from('delete_requests').update({
-        status: 'REJECTED',
-        reviewed_by_id: req.reviewed_by_id,
-        reviewed_by_name: req.reviewed_by_name,
-        reviewed_by_email: req.reviewed_by_email,
-        reviewed_at: req.reviewed_at
-      }).eq('id', requestId);
-    }
-  } catch (e) { console.warn('Update delete_requests exception:', e); }
 
   logActivity('reject_delete', req.record_type, `Super Admin rejected deletion request for "${req.record_title}".`, req.record_id);
   showToast(`Deletion request rejected. Record remains preserved.`, 'info');
@@ -2386,6 +2638,8 @@ window.openDeleteRequestModal = openDeleteRequestModal;
 window.closeDeleteRequestModal = closeDeleteRequestModal;
 window.handleDeleteRequestSubmit = handleDeleteRequestSubmit;
 window.fetchDeleteRequests = fetchDeleteRequests;
+window.subscribeToDeleteRequests = subscribeToDeleteRequests;
+window.unsubscribeFromDeleteRequests = unsubscribeFromDeleteRequests;
 window.filterDeleteRequests = filterDeleteRequests;
 window.approveDeleteRequest = approveDeleteRequest;
 window.rejectDeleteRequest = rejectDeleteRequest;
@@ -3413,6 +3667,14 @@ async function showPortalDashboard(user) {
   }
 
   updateAuthHeader(user);
+  if (user && user.email) enforceRoleUI();
+
+  // Load Delete Requests and subscribe to Realtime updates for Admin & Super Admin
+  if (isAdminOrSuper()) {
+    fetchDeleteRequests(false);
+    subscribeToDeleteRequests();
+  }
+
   if (window.lucide) lucide.createIcons();
 }
 
@@ -3625,6 +3887,7 @@ async function handleAuthSignOut() {
     }
   }
 
+  unsubscribeFromDeleteRequests();
   currentUser = null;
   currentUserProfile = null;
   currentUserRole = 'VIEWER';
@@ -6396,9 +6659,12 @@ async function deleteDevotee(id) {
   const name = d.spiritualName || d.legalName;
 
   // 🛡️ ROLE-BASED ACCESS CONTROL:
-  // If NOT Super Admin (e.g. Staff or User):
-  // They CANNOT delete directly — open Delete Request Modal for Super Admin approval!
+  // Non-Super Admins CANNOT delete directly — open Delete Request Modal for Super Admin approval!
   if (!isSuperAdmin()) {
+    if (isViewer()) {
+      showToast('⛔ Viewers cannot delete or request deletion of devotee records.', 'error');
+      return;
+    }
     openDeleteRequestModal({
       id: id,
       type: 'DEVOTEE',
@@ -8182,9 +8448,12 @@ async function deleteParcelRecord(parcelId, devoteeId) {
   const name = (dev && (dev.spiritualName || dev.legalName)) || (p && (p.spiritualName || p.legalName)) || 'this devotee';
 
   // 🛡️ ROLE-BASED ACCESS CONTROL:
-  // If NOT Super Admin (e.g. Staff or User):
-  // They CANNOT delete directly — open Delete Request Modal for Super Admin approval!
+  // Non-Super Admins CANNOT delete directly — open Delete Request Modal for Super Admin approval!
   if (!isSuperAdmin()) {
+    if (isViewer()) {
+      showToast('⛔ Viewers cannot delete or request deletion of parcel records.', 'error');
+      return;
+    }
     openDeleteRequestModal({
       id: parcelId,
       type: 'PARCEL',

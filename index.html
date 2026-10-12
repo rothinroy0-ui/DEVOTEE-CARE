@@ -753,8 +753,8 @@
               <span>Data &amp; Sync</span>
             </button>
             <button onclick="switchTab('requests')" class="nav-tab flex items-center space-x-2" data-tab="requests">
-              <i data-lucide="bell" class="w-4 h-4"></i>
-              <span>Requests</span>
+              <i data-lucide="shield-alert" class="w-4 h-4"></i>
+              <span>Delete Requests</span>
               <span id="nav-requests-badge" class="ml-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] px-1.5 py-0.2 rounded-full font-semibold hidden">0</span>
             </button>
             <button onclick="switchTab('roles')" class="nav-tab flex items-center space-x-2" data-tab="roles">
@@ -1771,9 +1771,9 @@
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold uppercase tracking-wider">
               <span>🛡️ Access Control & Audit</span>
             </div>
-            <h2 class="text-2xl font-black font-serif text-white tracking-tight">Deletion Permission Requests</h2>
+            <h2 class="text-2xl font-black font-serif text-white tracking-tight">Delete Requests</h2>
             <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Super Admin approval workflow for records requested for deletion by Staff. Unapproved records remain completely protected.
+              Dedicated Admin queue for reviewing record deletion requests submitted by Staff. Only authenticated Super Admin can approve and delete records.
             </p>
           </div>
           <div class="flex items-center space-x-2">
