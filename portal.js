@@ -1761,9 +1761,9 @@ const ROLE_PANELS = {
 const ROLE_TAB_ACCESS = {
   SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings', 'system'],
   ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings', 'system'],
-  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'system'],
-  USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels', 'activity', 'system'],
-  VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'activity', 'system']
+  STAFF: ['devotees', 'birthdays', 'anniversaries', 'parcels'],
+  USER: ['birthdays', 'anniversaries', 'parcels'],
+  VIEWER: ['devotees', 'birthdays', 'anniversaries', 'parcels']
 };
 
 // Action permissions per role ('*' = every action)
@@ -1800,7 +1800,37 @@ function getActivePanel() {
 }
 
 function allowedTabsForRole(roleKey) {
-  return ROLE_TAB_ACCESS[roleKey || getActiveRoleKey()] || ROLE_TAB_ACCESS.ADMIN;
+  const r = roleKey || getActiveRoleKey();
+  let tabs = [...(ROLE_TAB_ACCESS[r] || ROLE_TAB_ACCESS.VIEWER)];
+
+  // 🎯 WORK ASSIGNMENT ENFORCEMENT: Staff only sees modules they are assigned to ("they will do that only")
+  if (r === 'STAFF') {
+    let assigned = null;
+    if (currentUserProfile && currentUserProfile.assigned_work) {
+      if (Array.isArray(currentUserProfile.assigned_work) && currentUserProfile.assigned_work.length > 0) {
+        assigned = currentUserProfile.assigned_work;
+      } else if (typeof currentUserProfile.assigned_work === 'string') {
+        try {
+          const parsed = JSON.parse(currentUserProfile.assigned_work);
+          if (Array.isArray(parsed) && parsed.length > 0) assigned = parsed;
+        } catch (e) {}
+      }
+    }
+    // Also check cached staffList if currentUser matches
+    if (!assigned && currentUser && Array.isArray(state.staffList)) {
+      const match = state.staffList.find(s => (s.id && s.id === currentUser.id) || (s.email && s.email.toLowerCase() === (currentUser.email || '').toLowerCase()));
+      if (match && Array.isArray(match.assignedWork) && match.assignedWork.length > 0) {
+        assigned = match.assignedWork;
+      }
+    }
+
+    if (assigned && assigned.length > 0) {
+      tabs = tabs.filter(t => assigned.includes(t));
+      if (tabs.length === 0) tabs = ['birthdays'];
+    }
+  }
+
+  return tabs;
 }
 
 // Does the current role have this permission?
@@ -1827,7 +1857,7 @@ function enforceRoleUI() {
     if (t) btn.classList.toggle('hidden', !allowed.includes(t));
   });
 
-  const current = state.currentTab || 'dashboard';
+  const current = state.currentTab || (allowed.includes('dashboard') ? 'dashboard' : allowed[0]);
   if (!allowed.includes(current)) {
     switchTab(allowed.includes('dashboard') ? 'dashboard' : allowed[0]);
   }
@@ -1836,6 +1866,10 @@ function enforceRoleUI() {
   const isViewOnly = isViewer();
   const addDevoteeBtn = document.getElementById('btn-add-devotee');
   if (addDevoteeBtn) addDevoteeBtn.classList.toggle('hidden', isViewOnly);
+
+  // 🛡️ Staff role restrictions: hide Add Staff button for non-super-admins
+  const addStaffBtn = document.getElementById('btn-add-staff-modal');
+  if (addStaffBtn) addStaffBtn.classList.toggle('hidden', !isSuperAdmin());
 }
 
 async function fetchUserProfile(user) {
@@ -1846,7 +1880,7 @@ async function fetchUserProfile(user) {
     // 1. Query 'user_profiles' table (the Supabase user & role model)
     let { data, error } = await client
       .from('user_profiles')
-      .select('id, email, full_name, role, division')
+      .select('id, email, full_name, role, division, assigned_work')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -1854,7 +1888,7 @@ async function fetchUserProfile(user) {
     if (error && /does not exist|42P01|PGRST205|schema cache|Could not find the table/i.test(error.message || '')) {
       const pRes = await client
         .from('profiles')
-        .select('id, email, role, division')
+        .select('id, email, role, division, assigned_work')
         .eq('id', user.id)
         .maybeSingle();
       data = pRes.data;
@@ -1873,7 +1907,11 @@ async function fetchUserProfile(user) {
     profilesTableAvailable = true;
 
     if (data) {
+      if (typeof data.assigned_work === 'string' && data.assigned_work.startsWith('[')) {
+        try { data.assigned_work = JSON.parse(data.assigned_work); } catch (e) {}
+      }
       currentUserProfile = data;
+      currentUserRole = getUserRole(user);
       console.log('✅ Loaded user profile from Supabase:', currentUserProfile);
       return data;
     }
@@ -1888,8 +1926,11 @@ function getUserRole(user) {
   if (!user) return 'VIEWER';
   if (currentUserProfile && currentUserProfile.role) {
     const pRole = currentUserProfile.role.trim().toUpperCase().replace(/[\s-]/g, '_');
+    if (pRole === 'SUPER_ADMIN') return 'SUPER_ADMIN';
     if (pRole === 'ADMIN') return 'ADMIN';
+    if (pRole === 'STAFF') return 'STAFF';
     if (pRole === 'USER') return 'USER';
+    if (pRole === 'VIEWER') return 'VIEWER';
     if (USER_ROLES[pRole]) return pRole;
   }
   const rawRole = (
@@ -2666,15 +2707,24 @@ async function loadStaffListFromCloud(forceToast = false) {
       }
 
       if (data && data.length > 0) {
-        staffData = data.map(u => ({
-          id: u.id,
-          email: u.email || 'N/A',
-          fullName: u.full_name || (u.email ? u.email.split('@')[0] : 'Sevak'),
-          role: String(u.role || 'STAFF').toUpperCase(),
-          division: u.division || 'Devotee Care',
-          createdAt: u.created_at || new Date().toISOString(),
-          status: 'Active'
-        }));
+        staffData = data.map(u => {
+          let assignedWork = ['devotees', 'birthdays', 'anniversaries', 'parcels'];
+          if (Array.isArray(u.assigned_work) && u.assigned_work.length > 0) {
+            assignedWork = u.assigned_work;
+          } else if (typeof u.assigned_work === 'string' && u.assigned_work.startsWith('[')) {
+            try { assignedWork = JSON.parse(u.assigned_work); } catch (e) {}
+          }
+          return {
+            id: u.id,
+            email: u.email || 'N/A',
+            fullName: u.full_name || (u.email ? u.email.split('@')[0] : 'Sevak'),
+            role: String(u.role || 'STAFF').toUpperCase(),
+            division: u.division || 'Devotee Care',
+            assignedWork: assignedWork,
+            createdAt: u.created_at || new Date().toISOString(),
+            status: 'Active'
+          };
+        });
       }
     } catch (e) {
       console.warn('Error fetching staff list from Supabase:', e);
@@ -2694,6 +2744,7 @@ async function loadStaffListFromCloud(forceToast = false) {
         fullName: curName,
         role: curRole,
         division: 'All',
+        assignedWork: ['devotees', 'birthdays', 'anniversaries', 'parcels'],
         createdAt: '2026-01-01T00:00:00.000Z',
         status: 'Active'
       },
@@ -2703,6 +2754,7 @@ async function loadStaffListFromCloud(forceToast = false) {
         fullName: 'Devotee Care Sevak',
         role: 'STAFF',
         division: 'Congregation Care',
+        assignedWork: ['birthdays', 'parcels'],
         createdAt: '2026-02-15T00:00:00.000Z',
         status: 'Active'
       },
@@ -2712,6 +2764,7 @@ async function loadStaffListFromCloud(forceToast = false) {
         fullName: 'Congregation Visitor',
         role: 'VIEWER',
         division: 'General',
+        assignedWork: ['devotees', 'birthdays', 'anniversaries', 'parcels'],
         createdAt: '2026-03-01T00:00:00.000Z',
         status: 'Active'
       }
@@ -2769,6 +2822,27 @@ function renderStaffTable(listToRender) {
     const meta = roleMeta[rKey] || roleMeta.STAFF;
     const initial = (u.fullName || u.email || 'S').trim().charAt(0).toUpperCase();
     const joinedStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active';
+    const isTargetSuperAdmin = (rKey === 'SUPER_ADMIN');
+
+    // Assigned Work / Seva Badges
+    let workContent = '';
+    if (isTargetSuperAdmin) {
+      workContent = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[10.5px] font-bold bg-amber-50 text-amber-900 border border-amber-200 shadow-2xs select-none"><span>👑</span><span>Full Access (All Sevas)</span></span>`;
+    } else if (rKey === 'ADMIN') {
+      workContent = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-[10.5px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-2xs select-none"><span>🛡️</span><span>All Operations</span></span>`;
+    } else if (rKey === 'STAFF') {
+      const assigned = (Array.isArray(u.assignedWork) && u.assignedWork.length > 0)
+        ? u.assignedWork
+        : ['devotees', 'birthdays', 'anniversaries', 'parcels'];
+      const badges = [];
+      if (assigned.includes('devotees')) badges.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs" title="Devotee Directory">👥 Directory</span>`);
+      if (assigned.includes('birthdays')) badges.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs" title="Birthday Wishes">🎂 Birthday</span>`);
+      if (assigned.includes('anniversaries')) badges.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs" title="Anniversary Wishes">💍 Anniv</span>`);
+      if (assigned.includes('parcels')) badges.push(`<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-50 text-sky-700 border border-sky-200 shadow-2xs" title="Parcel Tracking">📦 Parcels</span>`);
+      workContent = `<div class="flex flex-wrap gap-1 max-w-[220px]">${badges.length > 0 ? badges.join('') : '<span class="text-[10px] text-slate-400 italic">No seva assigned</span>'}</div>`;
+    } else {
+      workContent = `<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"><span>👁️</span><span>Read-Only</span></span>`;
+    }
 
     return `
       <tr class="hover:bg-slate-50/80 transition">
@@ -2792,6 +2866,9 @@ function renderStaffTable(listToRender) {
             <span>${meta.label}</span>
           </span>
         </td>
+        <td class="py-3 px-3">
+          ${workContent}
+        </td>
         <td class="py-3 px-3 whitespace-nowrap text-xs font-medium text-slate-600">
           📍 ${escapeHtml(u.division || 'Devotee Care')}
         </td>
@@ -2803,19 +2880,30 @@ function renderStaffTable(listToRender) {
           <div class="text-[9.5px] text-slate-400 mt-0.5">${joinedStr}</div>
         </td>
         <td class="py-3 px-4 text-right whitespace-nowrap">
-          ${canEditRoles ? `
-            <div class="inline-flex items-center space-x-1.5">
+          ${isTargetSuperAdmin ? `
+            <!-- 🔒 SUPER ADMIN PERMANENT LOCK: No edit dropdown, no edit block! -->
+            <span class="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-300 shadow-xs select-none" title="Super Admin account is permanently locked against editing or demoting">
+              <span>🔒</span>
+              <span>Super Admin (Locked / Permanent)</span>
+            </span>
+          ` : (canEditRoles ? `
+            <div class="inline-flex items-center space-x-2">
               <select onchange="updateStaffRole('${escapeHtml(u.id || u.email)}', this.value)" title="Change Role"
                 class="px-2 py-1 text-[11px] font-semibold border border-purple-200 rounded-lg bg-purple-50/40 text-purple-900 focus:ring-2 focus:ring-purple-400 cursor-pointer">
-                <option value="SUPER_ADMIN" ${rKey === 'SUPER_ADMIN' ? 'selected' : ''}>👑 Super Admin</option>
                 <option value="ADMIN" ${rKey === 'ADMIN' ? 'selected' : ''}>🛡️ Admin</option>
                 <option value="STAFF" ${rKey === 'STAFF' ? 'selected' : ''}>🛠️ Staff</option>
                 <option value="VIEWER" ${rKey === 'VIEWER' || rKey === 'USER' ? 'selected' : ''}>👁️ Viewer</option>
               </select>
+              <button type="button" onclick="openAssignWorkModal('${escapeHtml(u.id || u.email)}')"
+                class="inline-flex items-center space-x-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition shadow-2xs cursor-pointer"
+                title="Assign Seva / Work Modules">
+                <span>🛠️</span>
+                <span>Assign Work</span>
+              </button>
             </div>
           ` : `
             <span class="text-[11px] text-slate-400 italic">Protected (Super Admin only)</span>
-          `}
+          `)}
         </td>
       </tr>
     `;
@@ -2848,6 +2936,19 @@ async function updateStaffRole(userIdOrEmail, newRole) {
 
   const staff = (state.staffList || []).find(s => s.id === userIdOrEmail || s.email === userIdOrEmail);
   if (!staff) return;
+
+  // 🔒 CRITICAL GUARD: Super Admin is permanently locked!
+  if (String(staff.role).toUpperCase() === 'SUPER_ADMIN') {
+    showToast('🔒 Protection Guard: Super Admin account is permanently locked and cannot be edited or demoted.', 'error');
+    renderStaffTable();
+    return;
+  }
+
+  if (newRole === 'SUPER_ADMIN') {
+    showToast('🔒 Super Admin is permanent and unique. Role cannot be elevated to Super Admin.', 'error');
+    renderStaffTable();
+    return;
+  }
 
   const confirmed = await showAppConfirm({
     title: 'Confirm Role Change',
@@ -2892,6 +2993,130 @@ async function updateStaffRole(userIdOrEmail, newRole) {
   updateStaffKPIs();
 }
 
+function openAssignWorkModal(userIdOrEmail) {
+  if (!isSuperAdmin()) {
+    showToast('⛔ Permission Denied: Only Super Admin can assign seva modules.', 'error');
+    return;
+  }
+  const staff = (state.staffList || []).find(s => s.id === userIdOrEmail || s.email === userIdOrEmail);
+  if (!staff) {
+    showToast('Staff record not found.', 'error');
+    return;
+  }
+  if (String(staff.role).toUpperCase() === 'SUPER_ADMIN') {
+    showToast('🔒 Super Admin is permanently assigned full access to all modules.', 'info');
+    return;
+  }
+
+  const targetIdInput = document.getElementById('assign-work-target-id');
+  const nameEl = document.getElementById('assign-work-staff-name');
+  const emailEl = document.getElementById('assign-work-staff-email');
+  const avatarEl = document.getElementById('assign-work-avatar');
+  const roleEl = document.getElementById('assign-work-staff-role');
+  const subTitleEl = document.getElementById('assign-work-modal-subtitle');
+
+  if (targetIdInput) targetIdInput.value = staff.id || staff.email;
+  if (nameEl) nameEl.innerText = staff.fullName || 'Sevak';
+  if (emailEl) emailEl.innerText = staff.email || 'N/A';
+  if (avatarEl) avatarEl.innerText = (staff.fullName || staff.email || 'S').trim().charAt(0).toUpperCase();
+  if (roleEl) roleEl.innerText = (staff.role || 'STAFF');
+  if (subTitleEl) subTitleEl.innerText = `Configure module permissions for ${staff.fullName || staff.email}`;
+
+  const currentWork = (Array.isArray(staff.assignedWork) && staff.assignedWork.length > 0)
+    ? staff.assignedWork
+    : ['devotees', 'birthdays', 'anniversaries', 'parcels'];
+
+  document.querySelectorAll('input[name="assignedWorkModule"]').forEach(cb => {
+    cb.checked = currentWork.includes(cb.value);
+  });
+
+  const modal = document.getElementById('assign-work-modal');
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeAssignWorkModal() {
+  const modal = document.getElementById('assign-work-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function toggleAllWorkCheckboxes(checked) {
+  document.querySelectorAll('input[name="assignedWorkModule"]').forEach(cb => {
+    cb.checked = !!checked;
+  });
+}
+
+async function handleSaveWorkAssignment(e) {
+  if (e && e.preventDefault) e.preventDefault();
+  if (!isSuperAdmin()) {
+    showToast('⛔ Permission Denied: Only Super Admin can assign work modules.', 'error');
+    return;
+  }
+
+  const targetId = document.getElementById('assign-work-target-id')?.value;
+  if (!targetId) return;
+
+  const staff = (state.staffList || []).find(s => s.id === targetId || s.email === targetId);
+  if (!staff) {
+    showToast('Staff member not found.', 'error');
+    return;
+  }
+
+  const selected = [];
+  document.querySelectorAll('input[name="assignedWorkModule"]:checked').forEach(cb => {
+    selected.push(cb.value);
+  });
+
+  if (selected.length === 0) {
+    showToast('⚠️ Please select at least one module for this staff member.', 'error');
+    return;
+  }
+
+  staff.assignedWork = selected;
+
+  // Persist locally
+  try {
+    localStorage.setItem('iskcon_staff_list_cache', JSON.stringify(state.staffList));
+  } catch (err) {}
+
+  // Update cloud
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      if (staff.id && staff.id.length > 10) {
+        await client.from('user_profiles').update({ assigned_work: selected }).eq('id', staff.id);
+        await client.from('profiles').update({ assigned_work: selected }).eq('id', staff.id);
+      } else if (staff.email) {
+        await client.from('user_profiles').update({ assigned_work: selected }).eq('email', staff.email);
+        await client.from('profiles').update({ assigned_work: selected }).eq('email', staff.email);
+      }
+    } catch (cloudErr) {
+      console.warn('Could not update assigned_work on Supabase:', cloudErr);
+    }
+  }
+
+  // If the updated user is currently logged in, update currentUserProfile immediately
+  if (currentUser && (currentUser.id === staff.id || currentUser.email === staff.email)) {
+    if (currentUserProfile) {
+      currentUserProfile.assigned_work = selected;
+    }
+    enforceRoleUI();
+  }
+
+  const moduleNames = {
+    devotees: 'Devotee Directory',
+    birthdays: 'Birthday Wishes',
+    anniversaries: 'Anniversary Wishes',
+    parcels: 'Parcel Tracking'
+  };
+  const readableList = selected.map(m => moduleNames[m] || m).join(', ');
+
+  logActivity('edit', 'Work Assignment', `Super Admin assigned seva modules [${readableList}] to "${staff.fullName || staff.email}"`);
+  showToast(`✅ Seva assigned to ${staff.fullName || staff.email}: ${readableList}`, 'success');
+  closeAssignWorkModal();
+  renderStaffTable();
+}
+
 function openAddStaffModal() {
   const modal = document.getElementById('add-staff-modal');
   if (modal) modal.classList.remove('hidden');
@@ -2924,6 +3149,7 @@ async function handleCreateStaffSubmit(e) {
 
   const client = getSupabaseClient();
   let createdId = `usr_${Date.now()}`;
+  const defaultWork = ['devotees', 'birthdays', 'anniversaries', 'parcels'];
 
   if (client) {
     try {
@@ -2946,7 +3172,8 @@ async function handleCreateStaffSubmit(e) {
           email: email,
           full_name: name,
           role: role,
-          division: division
+          division: division,
+          assigned_work: defaultWork
         }, { onConflict: 'email' });
       } else if (data && data.user) {
         createdId = data.user.id;
@@ -2962,6 +3189,7 @@ async function handleCreateStaffSubmit(e) {
     fullName: name,
     role: role,
     division: division,
+    assignedWork: defaultWork,
     createdAt: new Date().toISOString(),
     status: 'Active'
   };
@@ -2992,6 +3220,10 @@ window.loadStaffListFromCloud = loadStaffListFromCloud;
 window.renderStaffTable = renderStaffTable;
 window.filterStaffTable = filterStaffTable;
 window.updateStaffRole = updateStaffRole;
+window.openAssignWorkModal = openAssignWorkModal;
+window.closeAssignWorkModal = closeAssignWorkModal;
+window.toggleAllWorkCheckboxes = toggleAllWorkCheckboxes;
+window.handleSaveWorkAssignment = handleSaveWorkAssignment;
 window.openAddStaffModal = openAddStaffModal;
 window.closeAddStaffModal = closeAddStaffModal;
 window.handleCreateStaffSubmit = handleCreateStaffSubmit;
@@ -4307,8 +4539,13 @@ function exportActivityLogCsv() {
 function switchTab(tabId) {
   // Role gate (Phase 1) — a role may only open tabs belonging to its panel
   if (!allowedTabsForRole().includes(tabId)) {
-    const roleLabel = (USER_ROLES[getActiveRoleKey()] || USER_ROLES.ADMIN).label;
-    showToast(`⛔ ${roleLabel} cannot open the "${tabId}" tab`, 'error');
+    const roleKey = getActiveRoleKey();
+    const roleLabel = (USER_ROLES[roleKey] || USER_ROLES.ADMIN).label;
+    if (roleKey === 'STAFF') {
+      showToast(`⛔ Access Restricted: You are not assigned to the "${tabId}" module. Please contact Super Admin.`, 'error');
+    } else {
+      showToast(`⛔ ${roleLabel} cannot open the "${tabId}" tab`, 'error');
+    }
     return;
   }
 
