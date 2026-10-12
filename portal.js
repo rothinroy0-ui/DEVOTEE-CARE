@@ -1871,13 +1871,282 @@ function getUserDivision() {
 
 function getUserDisplayName(user) {
   if (!user) return 'Devotee';
-  if (user.user_metadata?.full_name) return user.user_metadata.full_name;
-  if (user.user_metadata?.name) return user.user_metadata.name;
+  if (currentUserProfile && currentUserProfile.full_name && currentUserProfile.full_name.trim()) {
+    return currentUserProfile.full_name.trim();
+  }
+  if (user.user_metadata?.full_name && user.user_metadata.full_name.trim()) {
+    return user.user_metadata.full_name.trim();
+  }
+  if (user.user_metadata?.name && user.user_metadata.name.trim()) {
+    return user.user_metadata.name.trim();
+  }
   if (user.email) {
-    const prefix = user.email.split('@')[0];
-    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    const raw = user.email.split('@')[0].replace(/[._-]/g, ' ');
+    return raw.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   }
   return 'Devotee';
+}
+
+function getPersonalizedDevoteeTitle(user, profile) {
+  let name = '';
+  if (profile && profile.full_name && profile.full_name.trim()) {
+    name = profile.full_name.trim();
+  } else if (user && user.user_metadata && user.user_metadata.full_name && user.user_metadata.full_name.trim()) {
+    name = user.user_metadata.full_name.trim();
+  } else if (user && user.user_metadata && user.user_metadata.name && user.user_metadata.name.trim()) {
+    name = user.user_metadata.name.trim();
+  } else if (user && user.email) {
+    const raw = user.email.split('@')[0].replace(/[._-]/g, ' ');
+    name = raw.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  } else {
+    name = 'Devotee';
+  }
+
+  // Ensure devotional title (Prabhu / Mataji) is included without duplicating
+  const lower = name.toLowerCase();
+  if (!lower.includes('prabhu') && !lower.includes('mataji') && !lower.includes('maharaj') && !lower.includes('swami')) {
+    const isMataji = user?.user_metadata?.gender === 'female' || user?.user_metadata?.honorific === 'Mataji';
+    name = `${name} ${isMataji ? 'Mataji' : 'Prabhu'}`;
+  }
+  return name;
+}
+
+// ----------------------------------------------------
+// 🌸 SACRED WELCOME CELEBRATION ANIMATION & PETAL SHOWER
+// ----------------------------------------------------
+let welcomeCelebrationTimeout = null;
+let welcomePetalsAnimId = null;
+
+function triggerWelcomeCelebration(user, profile) {
+  const overlay = document.getElementById('welcome-celebration-overlay');
+  const card = document.getElementById('welcome-celebration-card');
+  const titleEl = document.getElementById('welcome-celebration-title');
+  const roleEl = document.getElementById('welcome-celebration-role');
+  const emailEl = document.getElementById('welcome-celebration-email');
+  const progressBar = document.getElementById('welcome-progress-bar');
+  if (!overlay || !card) return;
+
+  // Clear any existing timer or animation
+  if (welcomeCelebrationTimeout) {
+    clearTimeout(welcomeCelebrationTimeout);
+    welcomeCelebrationTimeout = null;
+  }
+  stopWelcomePetalsCanvas();
+
+  // 1. Resolve user's exact personalized title
+  const personalizedName = getPersonalizedDevoteeTitle(user, profile);
+  if (titleEl) {
+    titleEl.textContent = `Welcome, ${personalizedName}!`;
+  }
+
+  // 2. Resolve Role Label & Badge styling
+  const roleKey = (profile?.role || currentUserRole || 'USER').toUpperCase();
+  const roleConfig = USER_ROLES[roleKey] || USER_ROLES.USER;
+  if (roleEl) {
+    roleEl.textContent = roleConfig.label;
+    const isSuperOrAdmin = roleKey === 'SUPER_ADMIN' || roleKey === 'ADMIN';
+    roleEl.className = isSuperOrAdmin
+      ? 'text-xs font-bold px-3 py-1 rounded-lg border bg-amber-500/20 border-amber-400/40 text-amber-300'
+      : 'text-xs font-bold px-3 py-1 rounded-lg border bg-teal-500/20 border-teal-400/40 text-teal-300';
+  }
+
+  // 3. Email
+  if (emailEl) {
+    emailEl.textContent = user?.email || 'Authorized Devotee';
+  }
+
+  // 4. Reset progress bar animation
+  if (progressBar) {
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+    void progressBar.offsetWidth; // Force reflow
+    progressBar.style.transition = 'width 4500ms linear';
+  }
+
+  // 5. Reveal overlay and animate card into view
+  overlay.classList.remove('hidden');
+  overlay.classList.remove('opacity-0');
+  card.classList.remove('scale-95', 'opacity-0');
+  card.classList.add('scale-100', 'opacity-100');
+
+  if (progressBar) {
+    progressBar.style.width = '100%';
+  }
+
+  if (window.lucide) lucide.createIcons();
+
+  // 6. Start the falling flower petal canvas animation
+  startWelcomePetalsCanvas();
+
+  // 7. Auto-dismiss smoothly after 4.5 seconds
+  welcomeCelebrationTimeout = setTimeout(() => {
+    dismissWelcomeCelebration();
+  }, 4500);
+}
+
+function dismissWelcomeCelebration() {
+  if (welcomeCelebrationTimeout) {
+    clearTimeout(welcomeCelebrationTimeout);
+    welcomeCelebrationTimeout = null;
+  }
+
+  const overlay = document.getElementById('welcome-celebration-overlay');
+  const card = document.getElementById('welcome-celebration-card');
+  if (!overlay || !card) return;
+
+  // Animate card scale out & overlay fade out
+  card.classList.remove('scale-100', 'opacity-100');
+  card.classList.add('scale-95', 'opacity-0');
+  overlay.classList.add('opacity-0');
+
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    overlay.classList.remove('opacity-0');
+    stopWelcomePetalsCanvas();
+  }, 500);
+}
+
+// Global exposure for console test / UI triggers
+window.triggerWelcomeCelebration = triggerWelcomeCelebration;
+window.dismissWelcomeCelebration = dismissWelcomeCelebration;
+
+// ----------------------------------------------------
+// 🌼 REALISTIC MARIGOLD & LOTUS PETAL SHOWER CANVAS
+// ----------------------------------------------------
+function startWelcomePetalsCanvas() {
+  const canvas = document.getElementById('welcome-petals-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  // Resize canvas to cover window exactly
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let width = (canvas.width = window.innerWidth * dpr);
+  let height = (canvas.height = window.innerHeight * dpr);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+
+  // Palette: Marigold golds, saffron oranges, tender lotus pinks & star sparkles
+  const petalPalettes = [
+    { base: '#F59E0B', tip: '#D97706', accent: '#FEF3C7', type: 'marigold' }, // Golden Amber Marigold
+    { base: '#FBBF24', tip: '#F59E0B', accent: '#FFFBEB', type: 'marigold' }, // Bright Yellow Marigold
+    { base: '#EA580C', tip: '#C2410C', accent: '#FFEDD5', type: 'marigold' }, // Deep Saffron Marigold
+    { base: '#F472B6', tip: '#DB2777', accent: '#FDF2F8', type: 'lotus' },    // Sacred Pink Lotus
+    { base: '#FB7185', tip: '#E11D48', accent: '#FFF1F2', type: 'lotus' },    // Rose-Lotus Blossom
+    { base: '#FDE047', tip: '#EAB308', accent: '#FFFFFF', type: 'sparkle' }   // Auspicious Golden Sparkle
+  ];
+
+  const isMobile = window.innerWidth < 768;
+  const petalCount = isMobile ? 45 : 75;
+  const petals = [];
+
+  for (let i = 0; i < petalCount; i++) {
+    const pal = petalPalettes[Math.floor(Math.random() * petalPalettes.length)];
+    petals.push({
+      x: Math.random() * width,
+      y: Math.random() * height * -1,
+      vy: (1.2 + Math.random() * 2.8) * dpr,
+      vx: (Math.random() - 0.5) * 1.2 * dpr,
+      size: (10 + Math.random() * 16) * dpr,
+      rotation: Math.random() * Math.PI * 2,
+      vRot: (Math.random() - 0.5) * 0.04,
+      pitch: Math.random() * Math.PI * 2,
+      vPitch: (Math.random() * 0.05) + 0.02,
+      sway: Math.random() * Math.PI * 2,
+      swaySpeed: 0.02 + Math.random() * 0.03,
+      swayAmp: (1.2 + Math.random() * 2.5) * dpr,
+      palette: pal
+    });
+  }
+
+  function drawPetal(p) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rotation);
+
+    // 3D tumbling effect via vertical pitch scale
+    const scaleY = Math.cos(p.pitch);
+    ctx.scale(1, scaleY);
+
+    if (p.palette.type === 'sparkle') {
+      const s = p.size * 0.45;
+      ctx.fillStyle = p.palette.base;
+      ctx.shadowColor = '#FDE047';
+      ctx.shadowBlur = 8 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.quadraticCurveTo(0, 0, s, 0);
+      ctx.quadraticCurveTo(0, 0, 0, s);
+      ctx.quadraticCurveTo(0, 0, -s, 0);
+      ctx.quadraticCurveTo(0, 0, 0, -s);
+      ctx.fill();
+    } else {
+      const grad = ctx.createLinearGradient(0, -p.size, 0, p.size);
+      grad.addColorStop(0, p.palette.tip);
+      grad.addColorStop(0.5, p.palette.base);
+      grad.addColorStop(1, p.palette.accent);
+
+      ctx.fillStyle = grad;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+      ctx.shadowBlur = 4 * dpr;
+      ctx.shadowOffsetY = 2 * dpr;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -p.size);
+      ctx.bezierCurveTo(p.size * 0.65, -p.size * 0.4, p.size * 0.55, p.size * 0.7, 0, p.size);
+      ctx.bezierCurveTo(-p.size * 0.55, p.size * 0.7, -p.size * 0.65, -p.size * 0.4, 0, -p.size);
+      ctx.fill();
+
+      // Delicate organic center vein
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(0, -p.size * 0.7);
+      ctx.lineTo(0, p.size * 0.5);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, width, height);
+
+    for (let i = 0; i < petals.length; i++) {
+      const p = petals[i];
+      p.y += p.vy;
+      p.sway += p.swaySpeed;
+      p.x += Math.sin(p.sway) * p.swayAmp + p.vx;
+      p.rotation += p.vRot;
+      p.pitch += p.vPitch;
+
+      // Wrap around screen boundaries
+      if (p.y > height + 40 * dpr) {
+        p.y = -30 * dpr;
+        p.x = Math.random() * width;
+      }
+      if (p.x < -40 * dpr) p.x = width + 20 * dpr;
+      if (p.x > width + 40 * dpr) p.x = -20 * dpr;
+
+      drawPetal(p);
+    }
+
+    welcomePetalsAnimId = requestAnimationFrame(animate);
+  }
+
+  animate();
+}
+
+function stopWelcomePetalsCanvas() {
+  if (welcomePetalsAnimId) {
+    cancelAnimationFrame(welcomePetalsAnimId);
+    welcomePetalsAnimId = null;
+  }
+  const canvas = document.getElementById('welcome-petals-canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
 }
 
 function togglePasswordVisibility(inputId, btnEl) {
@@ -2067,6 +2336,10 @@ function enterPortalPreview() {
   renderPreviewChip();
   enforceRoleUI();
   switchTab('dashboard');
+
+  // 🌸 Preview the celebration animation in local mode
+  triggerWelcomeCelebration({ email: 'devotee@iskcon.org' }, { full_name: 'Rathin', role: 'SUPER_ADMIN' });
+
   if (typeof showToast === 'function') {
     showToast('Local preview mode — you are NOT signed in. Create an admin account to use the real secure workflow.', 'warning');
   }
@@ -2447,6 +2720,10 @@ async function handleAuthSignIn(event) {
       if (typeof showToast === 'function') {
         showToast(`Hare Krishna, ${name}! Welcome back.`, 'success');
       }
+
+      // 🌸 Beautiful birthday-style Devotional Welcome Celebration & Flower Shower
+      triggerWelcomeCelebration(currentUser, currentUserProfile);
+
       // Sync fresh live devotee data from Supabase
       await initSupabaseAndSync();
     }
