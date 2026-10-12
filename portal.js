@@ -1759,8 +1759,8 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings', 'system'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings', 'system'],
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings'],
   STAFF: ['devotees', 'birthdays', 'anniversaries', 'parcels'],
   USER: ['birthdays', 'anniversaries', 'parcels'],
   VIEWER: ['devotees', 'birthdays', 'anniversaries', 'parcels']
@@ -4291,7 +4291,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'roles', 'activity', 'system'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'roles', 'activity'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -4367,8 +4367,6 @@ function switchTab(tabId) {
   } else if (tabId === 'removed') {
     renderRemovedCelebrationSection();
   } else if (tabId === 'activity') {
-    renderActivityLog();
-  } else if (tabId === 'system') {
     renderActivityLog();
   }
 

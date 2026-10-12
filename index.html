@@ -127,7 +127,6 @@
     #main-nav-tabs .nav-tab[data-tab="requests"]      { --accent:#f43f5e; --accent-soft:rgba(244,63,94,.16); }
     #main-nav-tabs .nav-tab[data-tab="roles"]         { --accent:#c084fc; --accent-soft:rgba(192,132,252,.16); }
     #main-nav-tabs .nav-tab[data-tab="activity"]      { --accent:#f59e0b; --accent-soft:rgba(245,158,11,.16); }
-    #main-nav-tabs .nav-tab[data-tab="system"]        { --accent:#e879f9; --accent-soft:rgba(232,121,249,.16); }
 
     #main-nav-tabs .nav-tab svg { color: var(--accent); width: 18px; height: 18px; flex: 0 0 auto; transition: color .18s ease; }
 
@@ -767,10 +766,6 @@
               <i data-lucide="history" class="w-4 h-4"></i>
               <span>Activity Log</span>
               <span id="nav-activity-badge" class="ml-1 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] px-1.5 py-0.2 rounded-full font-semibold">0</span>
-            </button>
-            <button onclick="switchTab('system')" class="nav-tab flex items-center space-x-2" data-tab="system">
-              <i data-lucide="shield-check" class="w-4 h-4"></i>
-              <span>System</span>
             </button>
           </div>
         </div>
@@ -1762,142 +1757,6 @@
           </div>
         </div>
 
-      </div>
-
-    </section>
-
-    <!-- 7. SYSTEM ARCHITECTURE VIEW -->
-    <section id="view-system" class="hidden space-y-6">
-
-      <!-- Hero header -->
-      <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-6">
-        <div class="flex items-start space-x-4">
-          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 text-white flex items-center justify-center shadow-md shrink-0">
-            <i data-lucide="shield-check" class="w-6 h-6"></i>
-          </div>
-          <div class="min-w-0">
-            <h2 class="text-xl font-bold text-slate-800 font-serif">How the System Works</h2>
-            <p class="text-sm text-slate-500 mt-1">Secure, role-based access for the ISKCON Durgapur Devotee Care portal — from a staff sign-in all the way to the live admin dashboard.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4-step architecture flow -->
-      <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-        <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2 mb-4">
-          <i data-lucide="git-branch" class="w-4 h-4 text-amber-600"></i>
-          <span>Architecture Flow</span>
-        </h3>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4">
-
-          <!-- Step 1 — Admin & Staff -->
-          <div class="relative bg-white rounded-xl border border-amber-200 p-4 shadow-sm">
-            <div class="flex items-center justify-between mb-3">
-              <div class="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center">
-                <i data-lucide="user-check" class="w-5 h-5"></i>
-              </div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Step 1</span>
-            </div>
-            <h4 class="font-bold text-slate-800 text-sm">Admin &amp; Staff</h4>
-            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Sign in with individual accounts</p>
-            <span class="hidden md:flex absolute top-1/2 -right-[18px] -translate-y-1/2 w-6 h-6 rounded-full bg-white border border-amber-200 shadow-sm items-center justify-center z-10">
-              <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-amber-500"></i>
-            </span>
-          </div>
-
-          <!-- Step 2 — Supabase Authentication & RLS -->
-          <div class="relative bg-white rounded-xl border border-emerald-200 p-4 shadow-sm">
-            <div class="flex items-center justify-between mb-3">
-              <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                <i data-lucide="key-round" class="w-5 h-5"></i>
-              </div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Step 2</span>
-            </div>
-            <h4 class="font-bold text-slate-800 text-sm">Supabase Authentication &amp; RLS</h4>
-            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Verify identity and check permissions</p>
-            <span class="hidden md:flex absolute top-1/2 -right-[18px] -translate-y-1/2 w-6 h-6 rounded-full bg-white border border-emerald-200 shadow-sm items-center justify-center z-10">
-              <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-emerald-500"></i>
-            </span>
-          </div>
-
-          <!-- Step 3 — Supabase PostgreSQL Database -->
-          <div class="relative bg-white rounded-xl border border-sky-200 p-4 shadow-sm">
-            <div class="flex items-center justify-between mb-3">
-              <div class="w-10 h-10 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
-                <i data-lucide="database" class="w-5 h-5"></i>
-              </div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">Step 3</span>
-            </div>
-            <h4 class="font-bold text-slate-800 text-sm">Supabase PostgreSQL Database</h4>
-            <p class="text-xs text-slate-500 mt-1 leading-relaxed">Devotee records, department data, and audit history</p>
-            <span class="hidden md:flex absolute top-1/2 -right-[18px] -translate-y-1/2 w-6 h-6 rounded-full bg-white border border-sky-200 shadow-sm items-center justify-center z-10">
-              <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-sky-500"></i>
-            </span>
-          </div>
-
-          <!-- Step 4 — Live Admin Dashboard -->
-          <div class="relative bg-white rounded-xl border border-violet-200 p-4 shadow-sm">
-            <div class="flex items-center justify-between mb-3">
-              <div class="w-10 h-10 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center">
-                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
-              </div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">Step 4</span>
-            </div>
-            <h4 class="font-bold text-slate-800 text-sm">Live Admin Dashboard</h4>
-            <p class="text-xs text-slate-500 mt-1 leading-relaxed">View records, recent changes, reports, and alerts</p>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Protected by design -->
-      <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-        <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2 mb-4">
-          <i data-lucide="lock" class="w-4 h-4 text-amber-600"></i>
-          <span>Protected by Design</span>
-        </h3>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div class="flex items-start space-x-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600 shrink-0 mt-0.5"></i>
-            <div>
-              <div class="text-xs font-bold text-slate-800">Row Level Security</div>
-              <div class="text-[11px] text-slate-500 mt-0.5">The database itself enforces who can read or write — not just the screen.</div>
-            </div>
-          </div>
-          <div class="flex items-start space-x-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <i data-lucide="history" class="w-5 h-5 text-sky-600 shrink-0 mt-0.5"></i>
-            <div>
-              <div class="text-xs font-bold text-slate-800">Audit History</div>
-              <div class="text-[11px] text-slate-500 mt-0.5">Every record change is traced with who, what, and when.</div>
-            </div>
-          </div>
-          <div class="flex items-start space-x-3 p-3 rounded-lg bg-slate-50 border border-slate-200">
-            <i data-lucide="user-check" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
-            <div>
-              <div class="text-xs font-bold text-slate-800">Individual Accounts</div>
-              <div class="text-[11px] text-slate-500 mt-0.5">Each admin and staff member signs in with their own identity.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Audit History Link Card -->
-      <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div class="space-y-1">
-            <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
-              <i data-lucide="history" class="w-4 h-4 text-amber-600"></i>
-              <span>Live Audit Trail &amp; Activity Log</span>
-            </h3>
-            <p class="text-xs text-slate-500">
-              All devotee modifications, parcel actions, calls, and sevak activities are now housed in the dedicated <strong>Activity Log</strong> tab.
-            </p>
-          </div>
-          <button type="button" onclick="switchTab('activity')" class="py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center space-x-1.5 shrink-0 cursor-pointer">
-            <i data-lucide="arrow-right" class="w-4 h-4"></i>
-            <span>Open Activity Log Tab</span>
-          </button>
-        </div>
       </div>
 
     </section>
