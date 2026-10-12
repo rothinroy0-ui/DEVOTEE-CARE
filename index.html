@@ -124,6 +124,7 @@
     #main-nav-tabs .nav-tab[data-tab="parcels"]       { --accent:#38bdf8; --accent-soft:rgba(56,189,248,.16); }
     #main-nav-tabs .nav-tab[data-tab="removed"]       { --accent:#fb923c; --accent-soft:rgba(251,146,60,.16); }
     #main-nav-tabs .nav-tab[data-tab="settings"]      { --accent:#c4b5fd; --accent-soft:rgba(196,181,253,.16); }
+    #main-nav-tabs .nav-tab[data-tab="requests"]      { --accent:#f43f5e; --accent-soft:rgba(244,63,94,.16); }
     #main-nav-tabs .nav-tab[data-tab="system"]        { --accent:#e879f9; --accent-soft:rgba(232,121,249,.16); }
 
     #main-nav-tabs .nav-tab svg { color: var(--accent); width: 18px; height: 18px; flex: 0 0 auto; transition: color .18s ease; }
@@ -448,7 +449,13 @@
             <span>Get Started</span>
             <i data-lucide="arrow-right" class="w-5 h-5 transition-transform duration-150 group-hover:translate-x-1"></i>
           </button>
-          <p class="text-center text-[11px] text-slate-500">A service initiative of ISKCON Durgapur</p>
+        <div id="local-preview-wrap" class="hidden mb-4">
+          <button type="button" onclick="enterPortalPreview()"
+            class="group w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded-xl shadow-lg shadow-amber-600/25 transition duration-150 flex items-center justify-center space-x-2 text-xs cursor-pointer">
+            <i data-lucide="flask-conical" class="w-4 h-4"></i>
+            <span>Open Local Preview (not signed in)</span>
+          </button>
+          <p class="text-[10px] text-slate-500 text-center mt-1">Only works on localhost.</p>
         </div>
 
         <!-- 🟢 WELCOME VIEW (opened by Get Started — public, no data, no admin) -->
@@ -490,43 +497,13 @@
           </div>
         </div>
 
-        <!-- Login Door Choice — separate 🛡️ Admin / 🪷 User login pages -->
-        <div id="auth-door-choice" class="hidden space-y-4">
-          <div class="text-center">
-            <p class="text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Choose your login</p>
-            <p class="text-[11px] text-slate-500 mt-1">Two separate doors — pick the one that matches your service role.</p>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <button type="button" onclick="chooseAuthDoor('ADMIN')" class="group flex flex-col items-center space-y-2 rounded-2xl border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 hover:border-indigo-400 px-3 py-5 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-400">
-              <span class="text-4xl leading-none">🛡️</span>
-              <span class="text-sm font-black text-white">Admin Login</span>
-              <span class="text-[10px] text-indigo-200/80 text-center leading-snug">Directory · Settings<br>Parcels · Removal Records</span>
-              <span class="text-[9px] font-bold uppercase tracking-wider text-indigo-300/70 group-hover:text-indigo-100">Super Admin · Admin · Staff</span>
-            </button>
-            <button type="button" onclick="chooseAuthDoor('USER')" class="group flex flex-col items-center space-y-2 rounded-2xl border border-teal-500/40 bg-teal-950/40 hover:bg-teal-900/60 hover:border-teal-400 px-3 py-5 transition cursor-pointer focus:outline-none focus:ring-2 focus:ring-teal-400">
-              <span class="text-4xl leading-none">🪷</span>
-              <span class="text-sm font-black text-white">User Login</span>
-              <span class="text-[10px] text-teal-200/80 text-center leading-snug">Dashboard · Birthday<br>Anniversary · Parcels</span>
-              <span class="text-[9px] font-bold uppercase tracking-wider text-teal-300/70 group-hover:text-teal-100">User · Viewer</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Sign In Form — opens after a login door is chosen -->
-        <div id="auth-form-view">
-          <!-- Role Door Switcher Tabs -->
-          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-4">
-            <button type="button" id="door-tab-admin" onclick="chooseAuthDoor('ADMIN')" class="py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 bg-indigo-600 text-white shadow-sm cursor-pointer">
-              <span>🛡️ Admin Portal</span>
-            </button>
-            <button type="button" id="door-tab-user" onclick="chooseAuthDoor('USER')" class="py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white cursor-pointer">
-              <span>🪷 Sevak Portal</span>
-            </button>
-          </div>
-
+        <!-- Sign In Form — ONE single sign-in window for every account.
+             No Admin/User door choice: any registered account may sign in and
+             the account's role decides which panel opens afterwards. -->
+        <div id="auth-form-view" class="">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-xs text-slate-400">Sign in with Supabase account</span>
-            <span id="auth-door-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-indigo-500/15 border-indigo-400/40 text-indigo-300">🛡️ Admin Portal</span>
+            <span class="text-xs text-slate-400">Sign in with your Supabase account</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-indigo-500/15 border-indigo-400/40 text-indigo-300">🔐 Secure Sign In</span>
           </div>
         <form id="signin-form" onsubmit="handleAuthSignIn(event)" class="space-y-4">
           <!-- Email Field -->
@@ -638,15 +615,17 @@
   <!-- Forgot Password Modal -->
   <div id="forgot-password-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
     <div class="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-sm w-full p-6 text-slate-100 shadow-2xl relative">
-      <button type="button" onclick="closeForgotPasswordModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white transition">
-        <i data-lucide="x" class="w-5 h-5"></i>
-      </button>
-      <div class="flex items-center space-x-2.5 mb-2.5">
-        <div class="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-600">
-          <img src="iskcon-durgapur-logo.jpg" alt="ISKCON Logo" class="w-full h-full object-contain rounded">
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-600">
+              <img src="iskcon-durgapur-logo.jpg" alt="ISKCON Logo" class="w-full h-full object-contain rounded">
+            </div>
+            <h3 class="font-bold text-base font-serif">Reset Password</h3>
+          </div>
+          <button type="button" onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-white transition p-1 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
-        <h3 class="font-bold text-base font-serif">Reset Password</h3>
-      </div>
       <p class="text-xs text-slate-400 mb-4 leading-relaxed">
         Enter your registered email address and we'll send you a secure password reset link.
       </p>
@@ -667,12 +646,17 @@
   <!-- Set New Password Modal (Password Recovery flow) -->
   <div id="reset-password-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
     <div class="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-sm w-full p-6 text-slate-100 shadow-2xl relative">
-      <div class="flex items-center space-x-2.5 mb-2.5">
-        <div class="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-600">
-          <img src="iskcon-durgapur-logo.jpg" alt="ISKCON Logo" class="w-full h-full object-contain rounded">
+        <div class="flex items-center justify-between mb-2.5">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 shadow-sm border border-slate-600">
+              <img src="iskcon-durgapur-logo.jpg" alt="ISKCON Logo" class="w-full h-full object-contain rounded">
+            </div>
+            <h3 class="font-bold text-base font-serif">Set New Password</h3>
+          </div>
+          <button type="button" onclick="closeResetPasswordModal()" class="text-slate-400 hover:text-white transition p-1 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
-        <h3 class="font-bold text-base font-serif">Set New Password</h3>
-      </div>
       <p class="text-xs text-slate-400 mb-4 leading-relaxed">
         Please choose a strong new password for your account.
       </p>
@@ -852,6 +836,11 @@
             <button onclick="switchTab('settings')" class="nav-tab flex items-center space-x-2" data-tab="settings">
               <i data-lucide="database" class="w-4 h-4"></i>
               <span>Data &amp; Sync</span>
+            </button>
+            <button onclick="switchTab('requests')" class="nav-tab flex items-center space-x-2" data-tab="requests">
+              <i data-lucide="bell" class="w-4 h-4"></i>
+              <span>Requests</span>
+              <span id="nav-requests-badge" class="ml-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[10px] px-1.5 py-0.2 rounded-full font-semibold hidden">0</span>
             </button>
             <button onclick="switchTab('system')" class="nav-tab flex items-center space-x-2" data-tab="system">
               <i data-lucide="shield-check" class="w-4 h-4"></i>
@@ -2005,9 +1994,140 @@
 
     </section>
 
+    <!-- 8. DELETION PERMISSION REQUESTS VIEW (Super Admin Review & Staff Requests) -->
+    <section id="view-requests" class="hidden space-y-6">
+      
+      <!-- Header Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-rose-950 to-slate-900 rounded-2xl p-6 text-white border border-rose-900/50 shadow-xl relative overflow-hidden">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="space-y-1.5">
+            <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold uppercase tracking-wider">
+              <span>🛡️ Access Control & Audit</span>
+            </div>
+            <h2 class="text-2xl font-black font-serif text-white tracking-tight">Deletion Permission Requests</h2>
+            <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Super Admin approval workflow for records requested for deletion by Staff. Unapproved records remain completely protected.
+            </p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button type="button" onclick="fetchDeleteRequests(true)" class="py-2 px-3.5 bg-slate-800/80 hover:bg-slate-700 text-white font-semibold text-xs rounded-xl border border-slate-700 transition flex items-center space-x-1.5 cursor-pointer">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Refresh Requests</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div class="bg-white rounded-xl border border-slate-200/80 p-4 shadow-xs">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Requests</div>
+          <div id="kpi-req-total" class="text-2xl font-black text-slate-800 mt-1">0</div>
+        </div>
+        <div class="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-amber-600">Pending Review</div>
+          <div id="kpi-req-pending" class="text-2xl font-black text-amber-600 mt-1">0</div>
+        </div>
+        <div class="bg-white rounded-xl border border-emerald-200/80 p-4 shadow-xs">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Approved & Deleted</div>
+          <div id="kpi-req-approved" class="text-2xl font-black text-emerald-600 mt-1">0</div>
+        </div>
+        <div class="bg-white rounded-xl border border-rose-200/80 p-4 shadow-xs">
+          <div class="text-[11px] font-bold uppercase tracking-wider text-rose-600">Rejected</div>
+          <div id="kpi-req-rejected" class="text-2xl font-black text-rose-600 mt-1">0</div>
+        </div>
+      </div>
+
+      <!-- Requests Table Card -->
+      <div class="bg-white rounded-xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <!-- Filter Bar -->
+        <div class="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50">
+          <div class="flex items-center space-x-1 bg-slate-200/70 p-1 rounded-xl text-xs font-semibold">
+            <button type="button" onclick="filterDeleteRequests('ALL', this)" class="req-filter-btn active px-3 py-1.5 rounded-lg bg-white text-slate-800 shadow-xs cursor-pointer">All</button>
+            <button type="button" onclick="filterDeleteRequests('PENDING', this)" class="req-filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Pending</button>
+            <button type="button" onclick="filterDeleteRequests('APPROVED', this)" class="req-filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Approved</button>
+            <button type="button" onclick="filterDeleteRequests('REJECTED', this)" class="req-filter-btn px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 cursor-pointer">Rejected</button>
+          </div>
+          <span id="requests-role-hint" class="text-xs text-slate-500 font-medium"></span>
+        </div>
+
+        <!-- Requests List Container -->
+        <div id="delete-requests-container" class="divide-y divide-slate-100">
+          <!-- Rendered dynamically via renderDeleteRequests() -->
+        </div>
+      </div>
+
+    </section>
+
   </main>
 
   <!-- MODALS -->
+
+  <!-- 📝 DELETE PERMISSION REQUEST MODAL (FOR STAFF) -->
+  <div id="delete-request-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+      
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-rose-900 via-rose-800 to-slate-900 text-white p-5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">📝</div>
+          <div>
+            <h3 class="font-bold text-base font-serif">Request Record Deletion</h3>
+            <p class="text-xs text-rose-200">Super Admin Approval Required</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeDeleteRequestModal()" class="text-rose-200 hover:text-white p-1 rounded-lg cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <form onsubmit="handleDeleteRequestSubmit(event)" class="p-6 space-y-4">
+        <!-- Explanatory Notice -->
+        <div class="rounded-xl border border-amber-200 bg-amber-50/80 p-3.5 text-xs text-amber-900 flex items-start space-x-2.5">
+          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+          <div class="leading-relaxed">
+            <b>Staff Permission Guard:</b> Only the <b>Super Admin</b> can permanently delete records. Your request will be queued for review. Please state the clear reason below.
+          </div>
+        </div>
+
+        <!-- Hidden ID & Type fields -->
+        <input type="hidden" id="del-req-target-id" value="">
+        <input type="hidden" id="del-req-target-type" value="DEVOTEE">
+
+        <!-- Target Info Box -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 block" id="del-req-badge-type">DEVOTEE RECORD</span>
+          <div class="font-bold text-sm text-slate-800" id="del-req-target-title">Devotee Name</div>
+        </div>
+
+        <!-- Reason Textarea -->
+        <div>
+          <label for="del-req-reason" class="block text-xs font-bold text-slate-700 mb-1.5">
+            Reason for Deletion <span class="text-rose-500">*</span>
+          </label>
+          <textarea 
+            id="del-req-reason" 
+            required 
+            rows="3" 
+            placeholder="e.g. Duplicate entry of Sl No 34; or devotee relocated; or wrong entry entered..."
+            class="w-full text-xs sm:text-sm p-3 bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/80 focus:border-rose-500 shadow-inner resize-none"></textarea>
+          <p class="text-[11px] text-slate-400 mt-1">Please provide clear justification for the Super Admin.</p>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="pt-2 flex items-center justify-end space-x-2.5">
+          <button type="button" onclick="closeDeleteRequestModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition cursor-pointer">
+            Cancel
+          </button>
+          <button type="submit" id="del-req-submit-btn" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/30 transition flex items-center space-x-1.5 cursor-pointer">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Send Deletion Request</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- 1. DEVOTEE CREATE / EDIT MODAL -->
   <div id="devotee-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">

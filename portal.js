@@ -1733,9 +1733,9 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings', 'system'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'settings', 'system'],
-  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'system'],
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'settings', 'system'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'settings', 'system'],
+  STAFF: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'system'],
   USER: ['dashboard', 'birthdays', 'anniversaries', 'parcels', 'system'],
   VIEWER: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'system']
 };
@@ -1743,11 +1743,24 @@ const ROLE_TAB_ACCESS = {
 // Action permissions per role ('*' = every action)
 const ROLE_PERMISSIONS = {
   SUPER_ADMIN: ['*'],
-  ADMIN: ['edit_devotees', 'delete_devotees', 'manage_celebrations', 'create_parcels', 'delete_parcels', 'manage_settings', 'export_data', 'cloud_sync'],
-  STAFF: ['edit_devotees', 'manage_celebrations', 'create_parcels', 'delete_parcels', 'export_data', 'cloud_sync'],
+  ADMIN: ['edit_devotees', 'manage_celebrations', 'create_parcels', 'manage_requests', 'manage_settings', 'export_data', 'cloud_sync'],
+  STAFF: ['edit_devotees', 'manage_celebrations', 'create_parcels', 'request_delete', 'export_data', 'cloud_sync'],
   USER: ['create_parcels'],   // may create parcels & send wishes — main database stays read-only
   VIEWER: []                  // read-only
 };
+
+// Helper role checks
+function isSuperAdmin() {
+  return getActiveRoleKey() === 'SUPER_ADMIN';
+}
+
+function isStaff() {
+  return getActiveRoleKey() === 'STAFF';
+}
+
+function isViewer() {
+  return getActiveRoleKey() === 'VIEWER';
+}
 
 // Resolve the signed-in role key (fail-closed to VIEWER when unknown)
 function getActiveRoleKey() {
@@ -1792,6 +1805,11 @@ function enforceRoleUI() {
   if (!allowed.includes(current)) {
     switchTab(allowed.includes('dashboard') ? 'dashboard' : allowed[0]);
   }
+
+  // 🛡️ Viewer role restrictions: hide Add Devotee button & mutation controls
+  const isViewOnly = isViewer();
+  const addDevoteeBtn = document.getElementById('btn-add-devotee');
+  if (addDevoteeBtn) addDevoteeBtn.classList.toggle('hidden', isViewOnly);
 }
 
 async function fetchUserProfile(user) {
@@ -2149,6 +2167,419 @@ function stopWelcomePetalsCanvas() {
   }
 }
 
+// ----------------------------------------------------
+// 🛡️ ROLE-BASED DELETION REQUEST & APPROVAL SYSTEM
+// ----------------------------------------------------
+function openDeleteRequestModal(target) {
+  if (!target || !target.id) return;
+  const modal = document.getElementById('delete-request-modal');
+  const targetIdInput = document.getElementById('del-req-target-id');
+  const targetTypeInput = document.getElementById('del-req-target-type');
+  const badgeTypeEl = document.getElementById('del-req-badge-type');
+  const titleEl = document.getElementById('del-req-target-title');
+  const reasonInput = document.getElementById('del-req-reason');
+
+  if (targetIdInput) targetIdInput.value = target.id;
+  if (targetTypeInput) targetTypeInput.value = target.type || 'DEVOTEE';
+  if (badgeTypeEl) badgeTypeEl.textContent = `${target.type || 'DEVOTEE'} RECORD`;
+  if (titleEl) titleEl.textContent = target.title || 'Selected Record';
+  if (reasonInput) {
+    reasonInput.value = '';
+    setTimeout(() => reasonInput.focus(), 150);
+  }
+
+  if (modal) modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeDeleteRequestModal() {
+  const modal = document.getElementById('delete-request-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function handleDeleteRequestSubmit(event) {
+  event.preventDefault();
+  const targetId = document.getElementById('del-req-target-id')?.value;
+  const targetType = document.getElementById('del-req-target-type')?.value || 'DEVOTEE';
+  const targetTitle = document.getElementById('del-req-target-title')?.textContent || 'Record';
+  const reasonInput = document.getElementById('del-req-reason');
+  const reason = reasonInput ? reasonInput.value.trim() : '';
+
+  if (!reason || reason.length < 5) {
+    showToast('Please provide a clear reason (minimum 5 characters) for the Super Admin.', 'warning');
+    return;
+  }
+
+  const submitBtn = document.getElementById('del-req-submit-btn');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span>Submitting...</span>`;
+  }
+
+  const requesterName = getUserDisplayName(currentUser);
+  const requesterEmail = currentUser?.email || 'staff@iskcon.org';
+  const requesterId = currentUser?.id || null;
+
+  const newRequest = {
+    record_id: String(targetId),
+    record_type: targetType,
+    record_title: targetTitle,
+    reason: reason,
+    requested_by_id: requesterId,
+    requested_by_email: requesterEmail,
+    requested_by_name: requesterName,
+    status: 'PENDING',
+    created_at: new Date().toISOString()
+  };
+
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      const { data, error } = await client
+        .from('delete_requests')
+        .insert([newRequest])
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.warn('Supabase delete_requests insert info:', error.message);
+      } else if (data) {
+        newRequest.id = data.id;
+      }
+    }
+  } catch (err) {
+    console.warn('Delete request cloud sync exception:', err);
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = `<i data-lucide="send" class="w-3.5 h-3.5"></i><span>Send Deletion Request</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  }
+
+  // Prepend to local state
+  if (!state.deleteRequests) state.deleteRequests = [];
+  state.deleteRequests.unshift(newRequest);
+
+  closeDeleteRequestModal();
+  logActivity('request_delete', targetType, `Requested deletion of ${targetTitle}: "${reason}"`, targetId);
+  showToast('Hare Krishna! Deletion request submitted for Super Admin review.', 'success');
+  updateRequestsNavBadge();
+  renderDeleteRequests();
+}
+
+async function fetchDeleteRequests(showToastOnRefresh = false) {
+  const client = getSupabaseClient();
+  if (!client) {
+    updateRequestsNavBadge();
+    renderDeleteRequests();
+    return;
+  }
+
+  try {
+    const { data, error } = await client
+      .from('delete_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Fetch delete_requests info:', error.message);
+    } else if (data) {
+      state.deleteRequests = data;
+    }
+  } catch (e) {
+    console.warn('Fetch delete_requests exception:', e);
+  }
+
+  updateRequestsNavBadge();
+  renderDeleteRequests();
+
+  if (showToastOnRefresh && typeof showToast === 'function') {
+    showToast('Deletion requests refreshed.', 'info');
+  }
+}
+
+function updateRequestsNavBadge() {
+  const reqs = state.deleteRequests || [];
+  const pendingCount = reqs.filter(r => r.status === 'PENDING').length;
+  const approvedCount = reqs.filter(r => r.status === 'APPROVED').length;
+  const rejectedCount = reqs.filter(r => r.status === 'REJECTED').length;
+
+  // Nav badge
+  const navBadge = document.getElementById('nav-requests-badge');
+  if (navBadge) {
+    navBadge.textContent = String(pendingCount);
+    navBadge.classList.toggle('hidden', pendingCount === 0);
+  }
+
+  // KPI cards
+  const kpiTotal = document.getElementById('kpi-req-total');
+  const kpiPending = document.getElementById('kpi-req-pending');
+  const kpiApproved = document.getElementById('kpi-req-approved');
+  const kpiRejected = document.getElementById('kpi-req-rejected');
+
+  if (kpiTotal) kpiTotal.textContent = String(reqs.length);
+  if (kpiPending) kpiPending.textContent = String(pendingCount);
+  if (kpiApproved) kpiApproved.textContent = String(approvedCount);
+  if (kpiRejected) kpiRejected.textContent = String(rejectedCount);
+}
+
+function filterDeleteRequests(status, btnEl) {
+  state.deleteRequestsFilter = status || 'ALL';
+  document.querySelectorAll('.req-filter-btn').forEach(b => {
+    b.classList.remove('active', 'bg-white', 'text-slate-800', 'shadow-xs');
+    b.classList.add('text-slate-600');
+  });
+  if (btnEl) {
+    btnEl.classList.add('active', 'bg-white', 'text-slate-800', 'shadow-xs');
+    btnEl.classList.remove('text-slate-600');
+  }
+  renderDeleteRequests();
+}
+
+function renderDeleteRequests() {
+  const container = document.getElementById('delete-requests-container');
+  if (!container) return;
+
+  const hintEl = document.getElementById('requests-role-hint');
+  if (hintEl) {
+    if (isSuperAdmin()) {
+      hintEl.innerHTML = `<span class="text-amber-600 font-bold">🛡️ Super Admin Access:</span> You have full authority to approve or reject deletion requests.`;
+    } else if (isStaff()) {
+      hintEl.innerHTML = `<span class="text-teal-600 font-bold">👤 Staff View:</span> Viewing your deletion requests.`;
+    } else {
+      hintEl.innerHTML = `Viewing deletion requests (Read Only).`;
+    }
+  }
+
+  let reqs = state.deleteRequests || [];
+  const filter = state.deleteRequestsFilter || 'ALL';
+  if (filter !== 'ALL') {
+    reqs = reqs.filter(r => r.status === filter);
+  }
+
+  if (reqs.length === 0) {
+    container.innerHTML = `
+      <div class="p-12 text-center text-slate-400 space-y-3">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-slate-100 flex items-center justify-center text-2xl text-slate-400">
+          🛡️
+        </div>
+        <p class="font-bold text-slate-700 text-sm">No deletion requests found</p>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto">
+          ${filter === 'PENDING' ? 'No pending requests requiring approval. All records are secure.' : 'No records match the current filter.'}
+        </p>
+      </div>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  container.innerHTML = reqs.map(r => {
+    const isPending = r.status === 'PENDING';
+    const isApproved = r.status === 'APPROVED';
+
+    let statusBadge = '';
+    if (isPending) {
+      statusBadge = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span><span>Pending Review</span></span>`;
+    } else if (isApproved) {
+      statusBadge = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span>✅ Approved & Deleted</span></span>`;
+    } else {
+      statusBadge = `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200"><span>❌ Rejected</span></span>`;
+    }
+
+    const typeBadge = r.record_type === 'PARCEL'
+      ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">📦 Parcel Consignment</span>`
+      : `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">🪷 Devotee Record</span>`;
+
+    const formattedDate = r.created_at ? new Date(r.created_at).toLocaleString() : 'Recently';
+
+    // Super Admin action buttons (only for PENDING requests)
+    let actionButtons = '';
+    if (isSuperAdmin() && isPending) {
+      actionButtons = `
+        <div class="flex items-center space-x-2 pt-2 sm:pt-0 shrink-0">
+          <button type="button" onclick="approveDeleteRequest('${r.id}')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Approve & Delete</span>
+          </button>
+          <button type="button" onclick="rejectDeleteRequest('${r.id}')" class="px-3 py-2 bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-xl text-xs transition flex items-center space-x-1.5 shadow-sm cursor-pointer">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            <span>Reject</span>
+          </button>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="p-4 sm:p-5 hover:bg-slate-50/80 transition space-y-3">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center space-x-2.5">
+            ${statusBadge}
+            ${typeBadge}
+            <span class="text-[11px] text-slate-400 font-medium">${formattedDate}</span>
+          </div>
+          ${actionButtons}
+        </div>
+
+        <div class="space-y-1">
+          <h4 class="font-bold text-slate-900 text-sm sm:text-base flex items-center space-x-2">
+            <span>${escapeHtml(r.record_title)}</span>
+            <span class="text-xs text-slate-400 font-mono font-normal">(ID: ${escapeHtml(r.record_id)})</span>
+          </h4>
+          <p class="text-xs text-slate-700 bg-amber-50/60 border border-amber-200/60 rounded-xl p-3 leading-relaxed">
+            <b class="text-amber-900">Reason:</b> "${escapeHtml(r.reason)}"
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+          <div>
+            Requested by: <b class="text-slate-700">${escapeHtml(r.requested_by_name || 'Staff')}</b> 
+            <span class="text-slate-400">(${escapeHtml(r.requested_by_email || '')})</span>
+          </div>
+          ${r.reviewed_at ? `
+            <div class="text-slate-500">
+              Reviewed by: <b class="text-slate-700">${escapeHtml(r.reviewed_by_name || 'Super Admin')}</b> on ${new Date(r.reviewed_at).toLocaleDateString()}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  if (window.lucide) lucide.createIcons();
+}
+
+async function approveDeleteRequest(requestId) {
+  if (!isSuperAdmin()) {
+    showToast('Permission denied: Only Super Admin can approve deletion requests.', 'error');
+    return;
+  }
+
+  const req = (state.deleteRequests || []).find(r => r.id === requestId);
+  if (!req) return;
+
+  const confirmed = await showAppConfirm({
+    title: 'Approve & Permanently Delete Record?',
+    message: `Are you sure you want to approve deletion for "${req.record_title}"? This will permanently delete the record from the database.`,
+    confirmText: 'Approve & Delete',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗑️'
+  });
+  if (!confirmed) return;
+
+  // 1. Execute actual deletion
+  if (req.record_type === 'DEVOTEE') {
+    const devId = req.record_id;
+    state.devotees = (state.devotees || []).filter(d => String(d.id) !== String(devId));
+    state.parcels = (state.parcels || []).filter(p => String(p.devoteeId) !== String(devId));
+    saveToStorage();
+    updateDevoteeAutocompleteList();
+    updateKPIs();
+    renderDevoteesTable();
+    renderBirthdaysGrid();
+    renderParcelsTable();
+
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        await client.from('devotees').delete().eq('DEVOTEE ID', devId);
+      }
+    } catch (e) { console.warn('Devotee cloud delete exception:', e); }
+  } else if (req.record_type === 'PARCEL') {
+    const parcelId = req.record_id;
+    state.parcels = (state.parcels || []).filter(p => String(p.id) !== String(parcelId));
+    saveToStorage();
+    updateKPIs();
+    renderParcelsTable();
+
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        await client.from('parcels').delete().eq('id', parcelId);
+      }
+    } catch (e) { console.warn('Parcel cloud delete exception:', e); }
+  }
+
+  // 2. Update request status
+  req.status = 'APPROVED';
+  req.reviewed_by_id = currentUser?.id || null;
+  req.reviewed_by_name = getUserDisplayName(currentUser);
+  req.reviewed_by_email = currentUser?.email || 'admin@iskcon.org';
+  req.reviewed_at = new Date().toISOString();
+
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      await client.from('delete_requests').update({
+        status: 'APPROVED',
+        reviewed_by_id: req.reviewed_by_id,
+        reviewed_by_name: req.reviewed_by_name,
+        reviewed_by_email: req.reviewed_by_email,
+        reviewed_at: req.reviewed_at
+      }).eq('id', requestId);
+    }
+  } catch (e) { console.warn('Update delete_requests exception:', e); }
+
+  logActivity('delete', req.record_type, `Super Admin approved deletion of "${req.record_title}" (requested by ${req.requested_by_name}).`, req.record_id);
+  showToast(`Request approved! "${req.record_title}" deleted permanently.`, 'success');
+  updateRequestsNavBadge();
+  renderDeleteRequests();
+}
+
+async function rejectDeleteRequest(requestId) {
+  if (!isSuperAdmin()) {
+    showToast('Permission denied: Only Super Admin can review deletion requests.', 'error');
+    return;
+  }
+
+  const req = (state.deleteRequests || []).find(r => r.id === requestId);
+  if (!req) return;
+
+  const confirmed = await showAppConfirm({
+    title: 'Reject Deletion Request?',
+    message: `Reject deletion of "${req.record_title}"? The record will remain completely safe and preserved in the database.`,
+    confirmText: 'Reject Request',
+    cancelText: 'Cancel',
+    isDanger: false,
+    icon: '🛡️'
+  });
+  if (!confirmed) return;
+
+  req.status = 'REJECTED';
+  req.reviewed_by_id = currentUser?.id || null;
+  req.reviewed_by_name = getUserDisplayName(currentUser);
+  req.reviewed_by_email = currentUser?.email || 'admin@iskcon.org';
+  req.reviewed_at = new Date().toISOString();
+
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      await client.from('delete_requests').update({
+        status: 'REJECTED',
+        reviewed_by_id: req.reviewed_by_id,
+        reviewed_by_name: req.reviewed_by_name,
+        reviewed_by_email: req.reviewed_by_email,
+        reviewed_at: req.reviewed_at
+      }).eq('id', requestId);
+    }
+  } catch (e) { console.warn('Update delete_requests exception:', e); }
+
+  logActivity('reject_delete', req.record_type, `Super Admin rejected deletion request for "${req.record_title}".`, req.record_id);
+  showToast(`Deletion request rejected. Record remains preserved.`, 'info');
+  updateRequestsNavBadge();
+  renderDeleteRequests();
+}
+
+// Global exposure
+window.openDeleteRequestModal = openDeleteRequestModal;
+window.closeDeleteRequestModal = closeDeleteRequestModal;
+window.handleDeleteRequestSubmit = handleDeleteRequestSubmit;
+window.fetchDeleteRequests = fetchDeleteRequests;
+window.filterDeleteRequests = filterDeleteRequests;
+window.approveDeleteRequest = approveDeleteRequest;
+window.rejectDeleteRequest = rejectDeleteRequest;
+
 function togglePasswordVisibility(inputId, btnEl) {
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -2211,16 +2642,62 @@ function clearAuthAlert() {
 }
 
 // ----------------------------------------------------
-// LOGIN PAGE — separate 🛡️ Admin / 🪷 User doors
+// LOGIN PAGE — ONE single sign-in window
 // ----------------------------------------------------
-// Which door is open: 'ADMIN' | 'USER' | null (door-choice screen)
+// Any registered Supabase account may sign in here; the account's role decides
+// which panel opens afterwards. This field is kept for deep links / route guard
+// only — it is always null now.
 let authDoor = null;
 
-// Roles allowed through each door
-const DOOR_ROLES = {
-  ADMIN: ['SUPER_ADMIN', 'ADMIN', 'STAFF'],
-  USER: ['USER', 'VIEWER']
-};
+// True while the visitor arrived through a password-reset ("recovery") link.
+// Used so a recovery session opens the "Set New Password" window instead of
+// dropping the visitor straight into the dashboard.
+let pendingPasswordRecovery = false;
+
+// ⚠️ Snapshot the auth markers in the URL the moment portal.js loads.
+// The Supabase client can consume (and strip) the `#access_token=…&type=recovery`
+// hash as soon as it initialises — reading the URL only later, at
+// DOMContentLoaded, is exactly what used to make the emailed reset link fall
+// back to the plain login screen instead of opening the "Set New Password" form.
+const INITIAL_AUTH_URL = (() => {
+  try {
+    return { hash: window.location.hash || '', search: window.location.search || '' };
+  } catch (e) {
+    return { hash: '', search: '' };
+  }
+})();
+
+// Parse recovery/token/error markers out of a #hash and/or ?query pair.
+function findAuthUrlMarkers(hash, search) {
+  const query = (search || '').replace(/^\?/, '');
+  const raw = `${hash || ''}${query ? '&' + query : ''}`;
+  const get = (name) => {
+    const m = raw.match(new RegExp('[#&]' + name + '=([^&#]*)', 'i'));
+    return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+  };
+  return {
+    errorCode: get('error_code') || get('error'),
+    errorDescription: get('error_description'),
+    isRecovery:
+      /type=recovery/i.test(raw) ||   // implicit flow: #access_token=…&type=recovery
+      /access_token=/i.test(raw) ||   // token pair without an explicit type
+      /[#&?]code=/.test(`&${raw}`)    // PKCE flow: ?code=…
+  };
+}
+
+// Remove tokens / errors from the address bar while keeping ?panel= intact.
+function clearAuthUrlMarkers() {
+  try {
+    if (!window.history || !window.history.replaceState) return;
+    const url = new URL(window.location.href);
+    url.hash = '';
+    ['access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type',
+     'type', 'code', 'error', 'error_code', 'error_description'].forEach(k => url.searchParams.delete(k));
+    window.history.replaceState(null, '', url.toString());
+    INITIAL_AUTH_URL.hash = '';
+    INITIAL_AUTH_URL.search = url.search;
+  } catch (e) { /* ignore malformed URLs */ }
+}
 
 // ----------------------------------------------------
 // 🔐 PUBLIC MODES — kept as an emergency switch
@@ -2455,24 +2932,28 @@ function goToPanel(panel) {
         await initSupabaseAndSync();
       } catch (e) { console.warn('Panel entry:', e); }
     })();
-  } else if (panel) {
-    chooseAuthDoor(panel);
   } else {
-    showAuthDoorChoice();
+    showSignInView();
+    if (panel) setPanelUrl(panel);
   }
 }
 
-// Default view of the login page — the two-door choice screen
+// Default view of the login page — the single sign-in form.
 function showAuthDoorChoice() {
+  showSignInView();
+}
+
+// Show the ONE sign-in window (no Admin/User doors).
+function showSignInView() {
   authDoor = null;
   hideAccessDenied();
-  setPanelUrl(null);
   hidePublicLandingViews();
   const choice = document.getElementById('auth-door-choice');
   const formView = document.getElementById('auth-form-view');
-  if (choice) choice.classList.remove('hidden');
-  if (formView) formView.classList.add('hidden');
+  if (choice) choice.classList.add('hidden');
+  if (formView) formView.classList.remove('hidden');
   clearAuthAlert();
+  if (window.lucide) lucide.createIcons();
 }
 
 // Hide the public landing / welcome views when the real login UI is shown
@@ -2484,55 +2965,18 @@ function hidePublicLandingViews() {
   if (welcome) welcome.classList.add('hidden');
 }
 
-// Open one login door from the choice screen
+// Legacy name kept for existing onclick handlers / deep links — opens the
+// single sign-in window and preserves the ?panel= deep link for the route guard.
 function chooseAuthDoor(door) {
-  authDoor = (door === 'USER') ? 'USER' : 'ADMIN';
+  const panel = (door === 'USER' || door === 'ADMIN') ? door : null;
   hideAccessDenied();
-  setPanelUrl(authDoor);
-  clearAuthAlert();
-  hidePublicLandingViews();
-  const choice = document.getElementById('auth-door-choice');
-  const formView = document.getElementById('auth-form-view');
-  const badge = document.getElementById('auth-door-badge');
-  const tabAdmin = document.getElementById('door-tab-admin');
-  const tabUser = document.getElementById('door-tab-user');
-
-  if (choice) choice.classList.add('hidden');
-  if (formView) formView.classList.remove('hidden');
-
-  const isAdminDoor = authDoor === 'ADMIN';
-  if (tabAdmin && tabUser) {
-    if (isAdminDoor) {
-      tabAdmin.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 bg-indigo-600 text-white shadow-sm';
-      tabUser.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white';
-    } else {
-      tabAdmin.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white';
-      tabUser.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 bg-teal-600 text-white shadow-sm';
-    }
-  }
-
-  if (badge) {
-    badge.innerText = isAdminDoor ? '🛡️ Admin Portal' : '🪷 Sevak Portal';
-    badge.className = `text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg border ${isAdminDoor ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-300' : 'bg-teal-500/15 border-teal-400/40 text-teal-300'}`;
-  }
-  if (window.lucide) lucide.createIcons();
+  if (panel) setPanelUrl(panel);
+  showSignInView();
 }
 
-// After sign-in: the account's role must match the chosen door.
-// Returns true when allowed; on mismatch shows a red alert (the caller
-// then signs the account straight back out).
+// After sign-in: always allowed — one window, any account, the role decides the panel.
 function verifyAuthDoor() {
-  if (!authDoor) return true; // no door chosen (session restore) — the role panel decides
-  const roleKey = getActiveRoleKey();
-  if ((DOOR_ROLES[authDoor] || []).includes(roleKey)) return true;
-  const roleLabel = (USER_ROLES[roleKey] || USER_ROLES.ADMIN).label;
-  const setupHint = currentUserProfile ? '' : ' (Roles not set up yet — run supabase-user-auth-setup.sql first.)';
-  if (authDoor === 'ADMIN') {
-    showAuthAlert(`⛔ Admin Login is for Admin & Staff accounts — this account is ${roleLabel}, i.e. 🪷 User Panel${setupHint}. Please use User Login.`, 'error');
-  } else {
-    showAuthAlert(`⛔ User Login is for Sevak accounts — this account is ${roleLabel}, i.e. 🛡️ Admin Panel${setupHint}. Please use Admin Login.`, 'error');
-  }
-  return false;
+  return true;
 }
 
 function showAuthScreen(backToChoice = true) {
@@ -2556,7 +3000,8 @@ function showAuthScreen(backToChoice = true) {
   }
 
   const panelFromUrl = getPanelFromUrl();
-  chooseAuthDoor(panelFromUrl || 'ADMIN');
+  if (panelFromUrl) setPanelUrl(panelFromUrl); // keep deep links valid for the route guard
+  showSignInView(); // ONE sign-in window — any account, role decides the panel
   refreshLocalPreviewUI();
   updateAuthHeader(null);
   if (window.lucide) lucide.createIcons();
@@ -2700,19 +3145,6 @@ async function handleAuthSignIn(event) {
       // Profile must be loaded before the Admin/User door check
       await showPortalDashboard(currentUser);
 
-      // Separate Admin/User logins — the role must match the chosen door
-      if (!verifyAuthDoor()) {
-        const authClient = getSupabaseClient();
-        if (authClient) {
-          try { await authClient.auth.signOut(); } catch (e) { console.warn('Door-mismatch sign out:', e); }
-        }
-        currentUser = null;
-        currentUserProfile = null;
-        currentUserRole = 'VIEWER';
-        showAuthScreen(false); // stay on this door's form so the error stays visible
-        return;
-      }
-
       // Keep the URL in sync with the signed-in panel (deep-linkable Admin/User URLs)
       setPanelUrl(authDoor || getActivePanel());
 
@@ -2803,10 +3235,37 @@ async function handleForgotPasswordSubmit(event) {
   }
 
   try {
+    // Reset links require a real web origin — a file:// page can never be
+    // opened back from the email, so warn instead of pretending it worked.
+    if (!/^https?:$/.test(window.location.protocol)) {
+      if (alertEl) {
+        alertEl.innerText = 'Password reset links only work on the deployed site (https://…). Please open the portal from Vercel and try again.';
+        alertEl.className = 'mb-3 text-xs p-3 rounded-xl border bg-rose-950/60 border-rose-800 text-rose-200';
+        alertEl.classList.remove('hidden');
+      }
+      return;
+    }
+
     const redirectUrl = window.location.origin + window.location.pathname;
     const { error } = await client.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl
     });
+
+    if (error) {
+      const msg = (error.message || '').toLowerCase();
+      let text = error.message || 'Unable to send the reset email. Please try again later.';
+      if (msg.includes('rate limit') || msg.includes('request this after')) {
+        text = 'Too many reset requests — please wait a minute before requesting another link.';
+      } else if (msg.includes('redirect') || msg.includes('url')) {
+        text = 'Reset link setup problem: add this exact site URL to Supabase → Authentication → URL Configuration → Redirect URLs.';
+      }
+      if (alertEl) {
+        alertEl.innerText = text;
+        alertEl.className = 'mb-3 text-xs p-3 rounded-xl border bg-rose-950/60 border-rose-800 text-rose-200';
+        alertEl.classList.remove('hidden');
+      }
+      return;
+    }
 
     if (alertEl) {
       // Security best practice: Do not disclose whether email exists
@@ -2834,14 +3293,37 @@ async function handleForgotPasswordSubmit(event) {
 // PASSWORD RECOVERY / UPDATE WORKFLOW
 // ----------------------------------------------------
 function openResetPasswordModal() {
+  pendingPasswordRecovery = true;
+  const forgot = document.getElementById('forgot-password-modal');
+  if (forgot) forgot.classList.add('hidden');
   const modal = document.getElementById('reset-password-modal');
   if (modal) modal.classList.remove('hidden');
+  const alertEl = document.getElementById('reset-alert');
+  if (alertEl) alertEl.classList.add('hidden');
   if (window.lucide) lucide.createIcons();
 }
 
 function closeResetPasswordModal() {
   const modal = document.getElementById('reset-password-modal');
   if (modal) modal.classList.add('hidden');
+  const alertEl = document.getElementById('reset-alert');
+  if (alertEl) alertEl.classList.add('hidden');
+
+  // Closing the reset window with a live session should still let the visitor
+  // into the portal (they can run Forgot Password again at any time).
+  if (pendingPasswordRecovery) {
+    pendingPasswordRecovery = false;
+    clearAuthUrlMarkers();
+    if (currentUser) {
+      (async () => {
+        try {
+          await showPortalDashboard(currentUser);
+          setPanelUrl(getActivePanel());
+          await initSupabaseAndSync();
+        } catch (e) { console.warn('Post-recovery portal entry:', e); }
+      })();
+    }
+  }
 }
 
 async function handleUpdatePasswordSubmit(event) {
@@ -2882,15 +3364,15 @@ async function handleUpdatePasswordSubmit(event) {
       return;
     }
 
+    pendingPasswordRecovery = false;
     closeResetPasswordModal();
+    clearAuthUrlMarkers();
     currentUser = data.user;
-    showPortalDashboard(currentUser);
+    await showPortalDashboard(currentUser);
+    setPanelUrl(getActivePanel());
+    await initSupabaseAndSync();
     if (typeof showToast === 'function') {
       showToast('Password updated successfully! Welcome to the portal.', 'success');
-    }
-    // Clean URL hash
-    if (window.history && window.history.replaceState) {
-      window.history.replaceState(null, '', window.location.pathname);
     }
   } catch (err) {
     if (alertEl) {
@@ -2918,16 +3400,32 @@ function setupAuthListener() {
     console.log('🔔 Supabase Auth event:', event);
 
     if (event === 'PASSWORD_RECOVERY') {
+      pendingPasswordRecovery = true;
       openResetPasswordModal();
+      clearAuthUrlMarkers();
       return;
+    }
+
+    if (pendingPasswordRecovery) {
+      // Don't auto-enter the dashboard while the user is still choosing a new password
+      if (event === 'SIGNED_IN' && session?.user) {
+        currentUser = session.user;
+        return;
+      }
     }
 
     if (event === 'SIGNED_IN' && session?.user) {
       currentUser = session.user;
-      showPortalDashboard(currentUser);
+      pendingPasswordRecovery = false;
+      clearAuthUrlMarkers();
+      await showPortalDashboard(currentUser);
       await initSupabaseAndSync();
     } else if (event === 'SIGNED_OUT') {
       currentUser = null;
+      currentUserProfile = null;
+      currentUserRole = 'VIEWER';
+      pendingPasswordRecovery = false;
+      clearAuthUrlMarkers();
       showAuthScreen();
     } else if (event === 'TOKEN_REFRESHED' && session?.user) {
       currentUser = session.user;
@@ -2964,12 +3462,26 @@ async function initAuthSystem() {
   // 1. Setup real-time listener for auth events
   setupAuthListener();
 
-  // 2. Check for password recovery hash in URL
-  const hash = window.location.hash || '';
-  if (hash.includes('type=recovery') || hash.includes('access_token')) {
-    console.log('🔑 Password recovery link detected in URL hash.');
+  // 2. Check for password recovery / auth tokens in URL (recover quickly;
+  //    Supabase may also emit PASSWORD_RECOVERY). For the common case with
+  //    #access_token=...&type=recovery, open the reset modal before getSession()
+  //    can interfere with the PKCE/recovery flow.
+  const markers = findAuthUrlMarkers(INITIAL_AUTH_URL.hash, INITIAL_AUTH_URL.search);
+  const hasRecovery = markers.isRecovery || /type=recovery/i.test(INITIAL_AUTH_URL.hash + INITIAL_AUTH_URL.search);
+  if (hasRecovery || markers.errorCode) {
+    if (markers.errorCode) {
+      console.warn('🔑 Auth error in URL:', markers.errorCode, markers.errorDescription || '');
+      const msg = markers.errorDescription || markers.errorCode || 'Authentication link is invalid or has expired.';
+      showAuthScreen();
+      showAuthAlert('⛔ ' + msg, 'error');
+      clearAuthUrlMarkers();
+      return;
+    }
+    console.log('🔑 Password recovery link detected in URL.');
+    pendingPasswordRecovery = true;
     openResetPasswordModal();
-    return;
+    // Don't return here if a session is already present; let the listener
+    // and getSession handle it. But we still want to show the reset form.
   }
 
   // 3. Inspect existing authenticated session
@@ -2984,6 +3496,11 @@ async function initAuthSystem() {
     if (data?.session?.user) {
       currentUser = data.session.user;
       console.log('✅ Active session confirmed for:', currentUser.email);
+
+      // While a password-recovery link is open, keep the user on that flow.
+      if (pendingPasswordRecovery) {
+        return;
+      }
 
       // Load the role FIRST so the URL route guard can decide before the portal opens
       try {
@@ -3251,7 +3768,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'system'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'system'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -3263,6 +3780,11 @@ function switchTab(tabId) {
       }
     }
   });
+
+  // Deletion Requests tab — fetch and render pending requests
+  if (tabId === 'requests') {
+    fetchDeleteRequests();
+  }
 
   // Dynamic heading for split Birthday / Anniversary tabs
   const bdayTitleEl = document.getElementById('bday-dash-title');
@@ -5336,14 +5858,26 @@ function saveParcelTracking(parcelId) {
 }
 
 async function deleteDevotee(id) {
-  if (!requirePermission('delete_devotees', 'delete devotee records')) return;
   const d = state.devotees.find(x => x.id === id);
   if (!d) return;
   const name = d.spiritualName || d.legalName;
+
+  // 🛡️ ROLE-BASED ACCESS CONTROL:
+  // If NOT Super Admin (e.g. Staff or User):
+  // They CANNOT delete directly — open Delete Request Modal for Super Admin approval!
+  if (!isSuperAdmin()) {
+    openDeleteRequestModal({
+      id: id,
+      type: 'DEVOTEE',
+      title: `${name} (Sl No: ${d.slNo || d.id})`
+    });
+    return;
+  }
+
   const confirmed = await showAppConfirm({
-    title: 'Delete Devotee Record',
-    message: `Are you sure you want to remove ${name} from the devotee database? This cannot be undone.`,
-    confirmText: 'Delete',
+    title: 'Delete Devotee Record (Super Admin)',
+    message: `Are you sure you want to permanently remove ${name} from the devotee database? This cannot be undone.`,
+    confirmText: 'Delete Permanently',
     cancelText: 'Cancel',
     isDanger: true,
     icon: '🗑️'
@@ -5374,6 +5908,10 @@ async function deleteDevotee(id) {
 }
 
 function deleteAllBirthdayAnniversaryRecords() {
+  if (!isSuperAdmin()) {
+    showToast('⛔ Bulk deletion is restricted to Super Admin only.', 'error');
+    return;
+  }
   // Collect every devotee that appears in the Birthday & Anniversary table
   const idsInTable = new Set();
   state.devotees.forEach(d => {
@@ -7040,7 +7578,10 @@ function clearParcelSelection() {
 }
 
 async function bulkDeleteParcels() {
-  if (!requirePermission('delete_parcels', 'delete parcels in bulk')) return;
+  if (!isSuperAdmin()) {
+    showToast('⛔ Bulk deletion is restricted to Super Admin only. Please submit individual deletion requests.', 'error');
+    return;
+  }
   if (!state.selectedParcels || state.selectedParcels.size === 0) {
     showToast('Please select at least one parcel record to delete', 'error');
     return;
@@ -7096,15 +7637,26 @@ async function bulkDeleteParcels() {
 
 
 async function deleteParcelRecord(parcelId, devoteeId) {
-  if (!requirePermission('delete_parcels', 'delete parcel records')) return;
   const p = (state.parcels || []).find(x => x.id === parcelId);
   const dev = state.devotees.find(x => x.id === devoteeId);
   const name = (dev && (dev.spiritualName || dev.legalName)) || (p && (p.spiritualName || p.legalName)) || 'this devotee';
 
+  // 🛡️ ROLE-BASED ACCESS CONTROL:
+  // If NOT Super Admin (e.g. Staff or User):
+  // They CANNOT delete directly — open Delete Request Modal for Super Admin approval!
+  if (!isSuperAdmin()) {
+    openDeleteRequestModal({
+      id: parcelId,
+      type: 'PARCEL',
+      title: `Consignment for ${name} (Tracking: ${p?.trackingNumber || parcelId})`
+    });
+    return;
+  }
+
   const confirmed = await showAppConfirm({
-    title: 'Delete Consignment',
-    message: `Are you sure you want to delete this parcel consignment for ${name}? This cannot be undone.`,
-    confirmText: 'Delete',
+    title: 'Delete Consignment (Super Admin)',
+    message: `Are you sure you want to permanently delete this parcel consignment for ${name}? This cannot be undone.`,
+    confirmText: 'Delete Permanently',
     cancelText: 'Cancel',
     isDanger: true,
     icon: '🗑️'
