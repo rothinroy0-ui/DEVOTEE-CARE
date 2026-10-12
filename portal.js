@@ -2124,6 +2124,7 @@ async function handleDeleteRequestSubmit(event) {
   const requesterName = getUserDisplayName(currentUser);
   const requesterEmail = currentUser?.email || 'staff@iskcon.org';
   const requesterId = currentUser?.id || null;
+  const reqUuid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : null;
 
   const newRequest = {
     record_id: String(targetId),
@@ -2137,15 +2138,15 @@ async function handleDeleteRequestSubmit(event) {
     status: 'PENDING',
     created_at: new Date().toISOString()
   };
+  if (reqUuid) newRequest.id = reqUuid;
 
   try {
     const client = getSupabaseClient();
     if (client) {
-      const { data, error } = await client
+      // Direct insert without .select() so PostgreSQL does not trigger RETURNING RLS check on non-admin accounts
+      const { error } = await client
         .from('delete_requests')
-        .insert([newRequest])
-        .select()
-        .maybeSingle();
+        .insert([newRequest]);
 
       if (error) {
         console.error('Supabase delete_requests insert error:', error);
@@ -2157,8 +2158,6 @@ async function handleDeleteRequestSubmit(event) {
           showToast(`Error submitting request: ${error.message || 'Permission denied'}`, 'error');
         }
         return;
-      } else if (data) {
-        newRequest.id = data.id;
       }
     }
   } catch (err) {
