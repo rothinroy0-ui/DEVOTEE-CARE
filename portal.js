@@ -1799,24 +1799,33 @@ async function fetchUserProfile(user) {
   const client = getSupabaseClient();
   if (!client) return null;
   try {
-    const { data, error } = await client
-      .from('profiles')
-      .select('id, email, role, division')
+    // 1. Query 'user_profiles' table (the Supabase user & role model)
+    let { data, error } = await client
+      .from('user_profiles')
+      .select('id, email, full_name, role, division')
       .eq('id', user.id)
       .maybeSingle();
 
+    // 2. Fallback to 'profiles' if user_profiles does not exist
+    if (error && /does not exist|42P01|PGRST205|schema cache|Could not find the table/i.test(error.message || '')) {
+      const pRes = await client
+        .from('profiles')
+        .select('id, email, role, division')
+        .eq('id', user.id)
+        .maybeSingle();
+      data = pRes.data;
+      error = pRes.error;
+    }
+
     if (error) {
-      // Distinguish "table not created yet" from any other failure
       const detail = `${error.message || ''} ${error.code || ''} ${error.details || ''}`;
       if (/does not exist|42P01|PGRST205|schema cache|Could not find the table/i.test(detail)) {
-        profilesTableAvailable = false; // setup SQL not run → keep ADMIN fallback
+        profilesTableAvailable = false; // setup SQL not run yet
       }
-      console.warn('Profiles table lookup info:', error.message || error);
+      console.warn('User profile lookup info:', error.message || error);
       return null;
     }
 
-    // Query succeeded → the table exists. From now on a MISSING row must
-    // fail closed (least privilege = USER), never silently become ADMIN.
     profilesTableAvailable = true;
 
     if (data) {
@@ -1966,10 +1975,7 @@ const DOOR_ROLES = {
 //   4. Live Admin Dashboard reads the cloud data in real time
 //
 // Both public bypasses are OFF so the login gate + role system are active.
-// To temporarily re-open the site while Supabase is being set up, flip
-// PUBLIC_OPEN_ACCESS back to true (public preview) — and remember to set it
-// to false again before the site goes live.
-const PUBLIC_OPEN_ACCESS = true;
+const PUBLIC_OPEN_ACCESS = false;
 const PUBLIC_LANDING_MODE = false; // only used when OPEN ACCESS is off
 
 // 🟢 Open the whole portal to everyone — active portal mode with full access.
@@ -2000,7 +2006,8 @@ function enterPublicPortal() {
 function isLocalHost() {
   try {
     const h = window.location.hostname;
-    return h === 'localhost' || h === '127.0.0.1' || h === '' || h === '::1';
+    const proto = window.location.protocol;
+    return h === 'localhost' || h === '127.0.0.1' || h === '' || h === '::1' || proto === 'file:';
   } catch (e) { return false; }
 }
 
@@ -2214,11 +2221,25 @@ function chooseAuthDoor(door) {
   const choice = document.getElementById('auth-door-choice');
   const formView = document.getElementById('auth-form-view');
   const badge = document.getElementById('auth-door-badge');
+  const tabAdmin = document.getElementById('door-tab-admin');
+  const tabUser = document.getElementById('door-tab-user');
+
   if (choice) choice.classList.add('hidden');
   if (formView) formView.classList.remove('hidden');
+
   const isAdminDoor = authDoor === 'ADMIN';
+  if (tabAdmin && tabUser) {
+    if (isAdminDoor) {
+      tabAdmin.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 bg-indigo-600 text-white shadow-sm';
+      tabUser.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white';
+    } else {
+      tabAdmin.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white';
+      tabUser.className = 'py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 bg-teal-600 text-white shadow-sm';
+    }
+  }
+
   if (badge) {
-    badge.innerText = isAdminDoor ? '🛡️ Admin Login' : '🪷 User Login';
+    badge.innerText = isAdminDoor ? '🛡️ Admin Portal' : '🪷 Sevak Portal';
     badge.className = `text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg border ${isAdminDoor ? 'bg-indigo-500/15 border-indigo-400/40 text-indigo-300' : 'bg-teal-500/15 border-teal-400/40 text-teal-300'}`;
   }
   if (window.lucide) lucide.createIcons();
@@ -2232,7 +2253,7 @@ function verifyAuthDoor() {
   const roleKey = getActiveRoleKey();
   if ((DOOR_ROLES[authDoor] || []).includes(roleKey)) return true;
   const roleLabel = (USER_ROLES[roleKey] || USER_ROLES.ADMIN).label;
-  const setupHint = currentUserProfile ? '' : ' (Roles not set up yet — run supabase-auth-setup.sql first.)';
+  const setupHint = currentUserProfile ? '' : ' (Roles not set up yet — run supabase-user-auth-setup.sql first.)';
   if (authDoor === 'ADMIN') {
     showAuthAlert(`⛔ Admin Login is for Admin & Staff accounts — this account is ${roleLabel}, i.e. 🪷 User Panel${setupHint}. Please use User Login.`, 'error');
   } else {
@@ -2261,14 +2282,8 @@ function showAuthScreen(backToChoice = true) {
     return;
   }
 
-  // Return to the Admin/User door choice unless the caller keeps a door open
-  // (kept open after a door-mismatch error so the message stays visible).
-  // If the URL carries a ?panel= deep link, open that door directly.
-  if (backToChoice) {
-    const panelFromUrl = getPanelFromUrl();
-    if (panelFromUrl) chooseAuthDoor(panelFromUrl);
-    else showAuthDoorChoice();
-  }
+  const panelFromUrl = getPanelFromUrl();
+  chooseAuthDoor(panelFromUrl || 'ADMIN');
   refreshLocalPreviewUI();
   updateAuthHeader(null);
   if (window.lucide) lucide.createIcons();

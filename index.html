@@ -440,8 +440,8 @@
           <p class="text-xs text-slate-400 mt-1 italic">"Our love for Krishna will be tested by how we love and serve one another."</p>
         </div>
 
-        <!-- 🟢 PUBLIC LANDING VIEW (temporary — replaces the login / sign-up UI) -->
-        <div id="landing-view" class="space-y-5">
+        <!-- 🟢 PUBLIC LANDING VIEW (hidden when login portal is active) -->
+        <div id="landing-view" class="hidden space-y-5">
           <p class="text-center text-sm font-medium text-slate-300 -mt-1">Your devotee management portal</p>
           <button type="button" onclick="openWelcomePage()"
             class="group w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold rounded-xl shadow-lg shadow-emerald-600/30 transition duration-150 flex items-center justify-center space-x-2 text-base cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-400/70">
@@ -513,13 +513,20 @@
         </div>
 
         <!-- Sign In Form — opens after a login door is chosen -->
-        <div id="auth-form-view" class="hidden">
-          <div class="flex items-center justify-between mb-4">
-            <button type="button" onclick="showAuthDoorChoice()" class="text-xs font-semibold text-slate-400 hover:text-white transition flex items-center space-x-1.5 cursor-pointer" title="Back to the Admin / User login choice">
-              <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
-              <span>Other login</span>
+        <div id="auth-form-view">
+          <!-- Role Door Switcher Tabs -->
+          <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-4">
+            <button type="button" id="door-tab-admin" onclick="chooseAuthDoor('ADMIN')" class="py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 bg-indigo-600 text-white shadow-sm cursor-pointer">
+              <span>🛡️ Admin Portal</span>
             </button>
-            <span id="auth-door-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg border bg-indigo-500/15 border-indigo-400/40 text-indigo-300">🛡️ Admin Login</span>
+            <button type="button" id="door-tab-user" onclick="chooseAuthDoor('USER')" class="py-2 px-3 text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 text-slate-400 hover:text-white cursor-pointer">
+              <span>🪷 Sevak Portal</span>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs text-slate-400">Sign in with Supabase account</span>
+            <span id="auth-door-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-indigo-500/15 border-indigo-400/40 text-indigo-300">🛡️ Admin Portal</span>
           </div>
         <form id="signin-form" onsubmit="handleAuthSignIn(event)" class="space-y-4">
           <!-- Email Field -->
@@ -603,7 +610,14 @@
             </button>
           </div>
         </form>
+
+        <!-- Local Developer Preview (only visible when opened via file:// or localhost) -->
+        <div id="local-preview-wrap" class="hidden pt-3 text-center">
+          <button type="button" onclick="enterPortalPreview()" class="text-[11px] text-amber-400/80 hover:text-amber-300 underline cursor-pointer transition">
+            ⚡ Local Developer Preview (Offline Bypass)
+          </button>
         </div>
+      </div>
 
         <!-- Footer Notice -->
         <div class="mt-6 pt-5 border-t border-slate-800/80 text-center space-y-1">
