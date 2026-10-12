@@ -123,7 +123,6 @@
     #main-nav-tabs .nav-tab[data-tab="anniversaries"] { --accent:#34d399; --accent-soft:rgba(52,211,153,.16); }
     #main-nav-tabs .nav-tab[data-tab="parcels"]       { --accent:#38bdf8; --accent-soft:rgba(56,189,248,.16); }
     #main-nav-tabs .nav-tab[data-tab="removed"]       { --accent:#fb923c; --accent-soft:rgba(251,146,60,.16); }
-    #main-nav-tabs .nav-tab[data-tab="settings"]      { --accent:#c4b5fd; --accent-soft:rgba(196,181,253,.16); }
     #main-nav-tabs .nav-tab[data-tab="requests"]      { --accent:#f43f5e; --accent-soft:rgba(244,63,94,.16); }
     #main-nav-tabs .nav-tab[data-tab="roles"]         { --accent:#c084fc; --accent-soft:rgba(192,132,252,.16); }
     #main-nav-tabs .nav-tab[data-tab="activity"]      { --accent:#f59e0b; --accent-soft:rgba(245,158,11,.16); }
@@ -747,10 +746,6 @@
               <i data-lucide="archive" class="w-4 h-4"></i>
               <span>Removal Records</span>
               <span id="nav-removed-badge" class="ml-1 bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] px-1.5 py-0.2 rounded-full font-semibold">0</span>
-            </button>
-            <button onclick="switchTab('settings')" class="nav-tab flex items-center space-x-2" data-tab="settings">
-              <i data-lucide="database" class="w-4 h-4"></i>
-              <span>Data &amp; Sync</span>
             </button>
             <button onclick="switchTab('requests')" class="nav-tab flex items-center space-x-2" data-tab="requests">
               <i data-lucide="shield-alert" class="w-4 h-4"></i>
@@ -2000,11 +1995,11 @@
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold uppercase tracking-wider">
               <span>🧾 Complete Audit Trail</span>
             </div>
-            <h2 class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
+            <h2 id="activity-view-title" class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
               <span>All Portal Activity Log</span>
               <span class="text-amber-400 text-lg">🪷</span>
             </h2>
-            <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+            <p id="activity-view-subtitle" class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Real-time audit history tracking all devotee additions, edits, removals, parcels, calls, deletion requests, and devotee logins across all sevak accounts.
             </p>
           </div>
@@ -2017,7 +2012,7 @@
               <i data-lucide="download" class="w-3.5 h-3.5"></i>
               <span>Export CSV</span>
             </button>
-            <button type="button" onclick="clearActivityLog()" class="py-2 px-3.5 bg-rose-900/40 hover:bg-rose-800/60 text-rose-200 font-semibold text-xs rounded-xl border border-rose-800/60 transition flex items-center space-x-1.5 cursor-pointer shadow-sm active:scale-95">
+            <button id="btn-clear-activity-log" type="button" onclick="clearActivityLog()" class="py-2 px-3.5 bg-rose-900/40 hover:bg-rose-800/60 text-rose-200 font-semibold text-xs rounded-xl border border-rose-800/60 transition flex items-center space-x-1.5 cursor-pointer shadow-sm active:scale-95">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               <span>Clear History</span>
             </button>
@@ -2074,42 +2069,104 @@
         
         <!-- Filter and Search Header -->
         <div class="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/60">
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            <div class="relative flex-1 max-w-md">
-              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <i data-lucide="search" class="w-4 h-4"></i>
+          <div class="flex flex-col gap-3">
+            
+            <!-- Row 1: Search and Count -->
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div class="relative flex-1">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <i data-lucide="search" class="w-4 h-4"></i>
+                </div>
+                <input 
+                  id="activity-search" 
+                  type="text" 
+                  oninput="renderActivityLog()" 
+                  placeholder="Search by staff name, user ID, record ID, or action..." 
+                  class="w-full pl-10 pr-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-xs">
               </div>
-              <input 
-                id="activity-search" 
-                type="text" 
-                oninput="renderActivityLog()" 
-                placeholder="Search activity by name, action, or devotee..." 
-                class="w-full pl-10 pr-3.5 py-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition shadow-xs">
+
+              <div class="flex items-center space-x-2 shrink-0">
+                <span class="text-xs font-semibold text-slate-500 bg-white border border-slate-200/80 px-3.5 py-2.5 rounded-xl shadow-xs flex items-center space-x-1.5">
+                  <span>Entries:</span>
+                  <span id="activity-count" class="font-bold text-indigo-600">0</span>
+                </span>
+                <button type="button" onclick="resetActivityFilters()" title="Reset All Filters" class="p-2.5 bg-white hover:bg-slate-100 border border-slate-200/80 text-slate-600 rounded-xl transition shadow-xs cursor-pointer flex items-center justify-center">
+                  <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+              </div>
             </div>
 
-            <div class="flex items-center space-x-2">
-              <div class="relative min-w-[170px]">
+            <!-- Row 2: Four-Way Granular Filters (Staff, Module, Action, Date) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 pt-1">
+              
+              <!-- Staff Filter (Visible/active for Super Admin) -->
+              <div id="activity-staff-filter-wrap" class="relative">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Sevak / Staff</label>
+                <select 
+                  id="activity-staff-filter" 
+                  onchange="renderActivityLog()" 
+                  class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
+                  <option value="ALL">👤 All Staff Accounts</option>
+                </select>
+              </div>
+
+              <!-- Module Filter -->
+              <div class="relative">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Module</label>
+                <select 
+                  id="activity-module-filter" 
+                  onchange="renderActivityLog()" 
+                  class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
+                  <option value="ALL">📦 All Modules</option>
+                  <option value="devotees">🪷 Devotee Directory</option>
+                  <option value="parcels">🚚 Parcels &amp; Tracking</option>
+                  <option value="delete_requests">📝 Deletion Requests</option>
+                  <option value="roles">👥 Staff &amp; Roles</option>
+                  <option value="auth">🔐 Authentication &amp; Login</option>
+                  <option value="database">☁️ Database Operations</option>
+                </select>
+              </div>
+
+              <!-- Action Filter -->
+              <div class="relative">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Action Type</label>
                 <select 
                   id="activity-filter" 
                   onchange="renderActivityLog()" 
-                  class="w-full py-2.5 px-3 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">📁 All Activities</option>
-                  <option value="create">🟢 Created</option>
-                  <option value="edit">🔵 Updated</option>
-                  <option value="remove">🟡 Removed</option>
+                  class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
+                  <option value="ALL">📁 All Actions</option>
+                  <option value="create">🟢 Created / Added</option>
+                  <option value="edit">🔵 Updated / Edited</option>
+                  <option value="remove">🟡 Removed (Wishes)</option>
                   <option value="restore">🔄 Restored</option>
                   <option value="delete">🔴 Deleted</option>
-                  <option value="parcel">📦 Parcels</option>
-                  <option value="request_delete">📝 Deletion Requests</option>
+                  <option value="parcel">📦 Parcel Status</option>
+                  <option value="request_delete">📝 Deletion Requested</option>
+                  <option value="approve_delete">✅ Approved Deletion</option>
+                  <option value="reject_delete">⛔ Rejected Deletion</option>
                   <option value="sync">☁️ Cloud Synced</option>
                   <option value="login">🔐 Devotee Logins</option>
+                  <option value="denied">🚫 Access Denied</option>
                 </select>
               </div>
-              <span class="text-xs font-semibold text-slate-500 bg-white border border-slate-200/80 px-3 py-2 rounded-xl shadow-xs shrink-0 flex items-center space-x-1">
-                <span>Count:</span>
-                <span id="activity-count" class="font-bold text-slate-800">0</span>
-              </span>
+
+              <!-- Date Range Filter -->
+              <div class="relative">
+                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Date Range</label>
+                <select 
+                  id="activity-date-filter" 
+                  onchange="renderActivityLog()" 
+                  class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
+                  <option value="ALL">📅 All Dates</option>
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                </select>
+              </div>
+
             </div>
+
           </div>
         </div>
 
@@ -2124,7 +2181,7 @@
             <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Live Audit Trail Connected</span>
           </div>
-          <span>Showing latest portal events</span>
+          <span>Showing verified portal events with RLS enforcement</span>
         </div>
       </div>
 
@@ -2133,6 +2190,85 @@
   </main>
 
   <!-- MODALS -->
+
+  <!-- 🔍 AUDIT DETAILS & CHANGE DIFF MODAL -->
+  <div id="activity-diff-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 flex items-center justify-between shrink-0">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0">🔍</div>
+          <div>
+            <h3 class="font-bold text-base text-white tracking-wide flex items-center space-x-2">
+              <span>Audit Event &amp; Change Inspector</span>
+              <span id="diff-modal-result-badge"></span>
+            </h3>
+            <p id="diff-modal-subtitle" class="text-xs text-slate-300 mt-0.5">Verified change record</p>
+          </div>
+        </div>
+        <button type="button" onclick="closeActivityDiffModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg transition cursor-pointer">✕</button>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+        
+        <!-- Metadata Overview Card -->
+        <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Actor / Sevak</span>
+            <span id="diff-meta-actor" class="font-semibold text-slate-800 block truncate">—</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Role</span>
+            <span id="diff-meta-role" class="font-semibold text-slate-800 block">—</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Module</span>
+            <span id="diff-meta-module" class="font-semibold text-slate-800 block uppercase">—</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Action</span>
+            <span id="diff-meta-action" class="font-semibold text-slate-800 block">—</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Record ID</span>
+            <span id="diff-meta-record-id" class="font-mono text-slate-800 block truncate font-semibold">—</span>
+          </div>
+          <div>
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Timestamp</span>
+            <span id="diff-meta-time" class="font-semibold text-slate-700 block">—</span>
+          </div>
+          <div class="col-span-2 sm:col-span-3">
+            <span class="text-[10px] uppercase font-bold text-slate-400 block">Authenticated User ID (UUID)</span>
+            <span id="diff-meta-user-id" class="font-mono text-[11px] text-slate-600 block bg-white px-2 py-1 rounded border border-slate-200 mt-0.5 truncate">None (Client / Guest)</span>
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div>
+          <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Event Summary</span>
+          <p id="diff-meta-summary" class="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-slate-800 font-medium leading-relaxed">—</p>
+        </div>
+
+        <!-- Diff / Values Comparison Section -->
+        <div id="diff-comparison-container" class="space-y-3">
+          <!-- Populated dynamically with side-by-side or value table -->
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+        <span class="text-[11px] text-slate-400 flex items-center space-x-1">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+          <span>Immutable audit record</span>
+        </span>
+        <button type="button" onclick="closeActivityDiffModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs transition cursor-pointer shadow-sm">
+          Close Inspector
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- 📝 DELETE PERMISSION REQUEST MODAL (FOR STAFF) -->
   <div id="delete-request-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">

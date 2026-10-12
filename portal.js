@@ -1763,9 +1763,9 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity', 'settings'],
-  STAFF: ['devotees', 'birthdays', 'anniversaries', 'parcels'],
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity'],
+  STAFF: ['devotees', 'birthdays', 'anniversaries', 'parcels', 'activity'],
   USER: ['birthdays', 'anniversaries', 'parcels'],
   VIEWER: ['devotees', 'birthdays', 'anniversaries', 'parcels']
 };
@@ -1858,6 +1858,15 @@ function requirePermission(perm, actionLabel) {
   if (can(perm)) return true;
   const label = (USER_ROLES[getActiveRoleKey()] || USER_ROLES.ADMIN).label;
   showToast(`⛔ Permission denied — ${label} cannot ${actionLabel || 'run this action'}. Ask an Admin.`, 'error');
+  if (typeof recordAuditEvent === 'function') {
+    recordAuditEvent({
+      action: 'denied',
+      module: 'security',
+      recordId: perm,
+      summary: `Access Denied: ${label} attempted to ${actionLabel || perm}.`,
+      result: 'DENIED'
+    });
+  }
   return false;
 }
 
@@ -2554,7 +2563,15 @@ async function approveDeleteRequest(requestId) {
   req.reviewed_by_email = currentUser?.email || 'admin@iskcon.org';
   req.reviewed_at = new Date().toISOString();
 
-  logActivity('delete', req.record_type, `Super Admin approved deletion of "${req.record_title}" (requested by ${req.requested_by_name}).`, req.record_id);
+  recordAuditEvent({
+    action: 'approve_delete',
+    module: (req.record_type || 'DEVOTEE').toLowerCase(),
+    recordId: req.record_id,
+    summary: `Super Admin approved deletion of "${req.record_title}" (requested by ${req.requested_by_name || 'Staff'}).`,
+    result: 'SUCCESS',
+    oldValues: req.record_details || null,
+    details: { requestId: req.id, reason: req.reason, requestedBy: req.requested_by_email }
+  });
   showToast(`Request approved! "${req.record_title}" deleted permanently.`, 'success');
   updateRequestsNavBadge();
   renderDeleteRequests();
@@ -2627,7 +2644,14 @@ async function rejectDeleteRequest(requestId) {
   req.reviewed_by_email = currentUser?.email || 'admin@iskcon.org';
   req.reviewed_at = new Date().toISOString();
 
-  logActivity('reject_delete', req.record_type, `Super Admin rejected deletion request for "${req.record_title}".`, req.record_id);
+  recordAuditEvent({
+    action: 'reject_delete',
+    module: (req.record_type || 'DEVOTEE').toLowerCase(),
+    recordId: req.record_id,
+    summary: `Super Admin rejected deletion request for "${req.record_title}". Record preserved.`,
+    result: 'SUCCESS',
+    details: { requestId: req.id, reason: req.reason, requestedBy: req.requested_by_email }
+  });
   showToast(`Deletion request rejected. Record remains preserved.`, 'info');
   updateRequestsNavBadge();
   renderDeleteRequests();
@@ -4243,10 +4267,9 @@ async function initAuthSystem() {
 // TAB NAVIGATION
 // ----------------------------------------------------
 // ======================================================================
-// 🧾 ACTIVITY LOG / AUDIT HISTORY
-// Every data-changing action is recorded with who / what / when.
-// Stored locally right now (newest first) and ready to sync to the
-// Supabase `activity_log` table when the cloud is provisioned.
+// 🧾 COMPLETE SECURE AUDIT LOGGING & AUDIT TRAIL ENGINE
+// Automatically captures who / what / when / result / old vs new diffs.
+// Server-backed with Supabase RLS and tamper-proof triggers.
 // ======================================================================
 const ACTIVITY_LOG_MAX = 500;
 
@@ -4259,118 +4282,289 @@ const ACTIVITY_ACTIONS = {
   import:         { label: 'Imported',         icon: 'upload',        color: 'violet' },
   clear:          { label: 'Cleared',          icon: 'alert-octagon', color: 'rose' },
   sync:           { label: 'Synced',           icon: 'cloud',         color: 'sky' },
-  parcel:         { label: 'Parcel Updated',   icon: 'truck',         color: 'indigo' },
+  parcel:         { label: 'Parcel Logistics', icon: 'truck',         color: 'indigo' },
   login:          { label: 'Devotee Login',    icon: 'log-in',        color: 'teal' },
   request_delete: { label: 'Delete Requested', icon: 'help-circle',   color: 'amber' },
-  reject_delete:  { label: 'Delete Rejected',  icon: 'x-circle',      color: 'slate' }
+  approve_delete: { label: 'Delete Approved',  icon: 'check-circle-2',color: 'emerald' },
+  reject_delete:  { label: 'Delete Rejected',  icon: 'x-circle',      color: 'slate' },
+  denied:         { label: 'Access Denied',    icon: 'shield-alert',  color: 'rose' }
 };
+
+// Deeply scrub passwords, tokens, API keys, and sensitive auth secrets
+function sanitizeAuditPayload(data) {
+  if (!data || typeof data !== 'object') return data;
+  const sensitiveKeys = new Set([
+    'password', 'pass', 'token', 'access_token', 'refresh_token',
+    'secret', 'apiKey', 'api_key', 'service_role', 'auth', 'private_key'
+  ]);
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeAuditPayload(item));
+  }
+  const clean = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (sensitiveKeys.has(k) || sensitiveKeys.has(k.toLowerCase())) {
+      clean[k] = '[REDACTED]';
+    } else if (v && typeof v === 'object') {
+      clean[k] = sanitizeAuditPayload(v);
+    } else {
+      clean[k] = v;
+    }
+  }
+  return clean;
+}
 
 function persistActivityLog() {
   try {
     localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(state.activityLog || []));
-  } catch (e) { /* ignore quota errors */ }
-  // Best-effort cloud write: append the newest entry if logged in and table exists
-  syncLatestActivityToCloud();
+  } catch (e) { /* ignore quota */ }
 }
 
-async function syncLatestActivityToCloud() {
+// Record a comprehensive audit event (server-side RPC with safe fallback)
+async function recordAuditEvent({
+  action = 'edit',
+  module = 'general',
+  recordId = null,
+  summary = '',
+  result = 'SUCCESS',
+  oldValues = null,
+  newValues = null,
+  details = null
+} = {}) {
+  const normAction = (action || 'edit').toLowerCase();
+  const normModule = (module || 'general').toLowerCase();
+  const normResult = ['SUCCESS', 'DENIED', 'FAILED'].includes((result || '').toUpperCase())
+    ? result.toUpperCase()
+    : 'SUCCESS';
+
+  const uid = currentUser?.id || (currentUserProfile && currentUserProfile.id) || null;
+  const actorName = (currentUserProfile && currentUserProfile.full_name) ||
+                    (currentUser && currentUser.email ? currentUser.email.split('@')[0] : 'Sevak');
+  const actorEmail = (currentUser && currentUser.email) || (currentUserProfile && currentUserProfile.email) || '';
+  const actorRole = getActiveRoleKey();
+
+  const cleanOld = sanitizeAuditPayload(oldValues);
+  const cleanNew = sanitizeAuditPayload(newValues);
+  const cleanDetails = sanitizeAuditPayload(details);
+
+  const localEntry = {
+    id: 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    ts: Date.now(),
+    userId: uid,
+    staffName: actorName,
+    staffEmail: actorEmail,
+    action: normAction,
+    module: normModule,
+    recordId: recordId ? String(recordId) : null,
+    summary: summary || `${normAction.toUpperCase()} on ${normModule}`,
+    result: normResult,
+    oldValues: cleanOld,
+    newValues: cleanNew,
+    changeDetails: cleanDetails,
+    actor: actorEmail ? `${actorName} (${actorEmail})` : actorName,
+    actorRole: actorRole
+  };
+
+  // Immediate local state update for fast UX
+  if (!Array.isArray(state.activityLog)) state.activityLog = [];
+  state.activityLog.unshift(localEntry);
+  if (state.activityLog.length > ACTIVITY_LOG_MAX) state.activityLog.length = ACTIVITY_LOG_MAX;
+  persistActivityLog();
+
+  if (typeof updateActivityNavBadge === 'function') updateActivityNavBadge();
+  if (typeof renderRecentChanges === 'function') renderRecentChanges();
+  if (typeof renderActivityLog === 'function') renderActivityLog();
+
+  // Async server-side persistence
   const client = getSupabaseClient();
-  if (!client) return;
-  const log = state.activityLog;
-  if (!Array.isArray(log) || log.length === 0) return;
-  const last = log[0];
-  // Avoid spamming: only write if not already synced to cloud (best-effort)
-  try {
-    const payload = {
-      id: last.id,
-      action: last.action,
-      entity: last.entity,
-      summary: last.summary,
-      target_id: last.targetId,
-      actor: last.actor,
-      actor_role: last.actorRole
-    };
-    const { error } = await client.from('activity_log').upsert(payload, { onConflict: 'id' });
-    if (error) {
-      if (/does not exist|relation .* does not exist|PGRST205/i.test(error.message || '')) {
-        console.warn('☁️ activity_log table missing — run supabase-setup.sql to enable cloud audit history.');
+  if (client) {
+    try {
+      // 1. Try secure stored procedure record_audit_event (server resolves user and verifies role)
+      const { data: rpcLogId, error: rpcErr } = await client.rpc('record_audit_event', {
+        p_action: normAction,
+        p_module: normModule,
+        p_record_id: recordId ? String(recordId) : null,
+        p_summary: summary || '',
+        p_result: normResult,
+        p_old_values: cleanOld,
+        p_new_values: cleanNew,
+        p_change_details: cleanDetails
+      });
+
+      if (!rpcErr && rpcLogId) {
+        localEntry.id = String(rpcLogId);
+        persistActivityLog();
+        return;
       }
+
+      // 2. Fallback to direct insert if RPC is not yet created
+      const payload = {
+        user_id: uid,
+        staff_name: actorName,
+        staff_email: actorEmail,
+        action: normAction,
+        module: normModule,
+        record_id: recordId ? String(recordId) : null,
+        summary: summary || '',
+        result: normResult,
+        old_values: cleanOld,
+        new_values: cleanNew,
+        change_details: cleanDetails,
+        actor_role: actorRole
+      };
+      const { error: insErr } = await client.from('activity_log').insert(payload);
+      if (insErr) {
+        if (/does not exist|PGRST205/i.test(insErr.message || '')) {
+          console.warn('☁️ activity_log table missing — run supabase-activity-audit-centralization.sql');
+        }
+      }
+    } catch (e) {
+      console.warn('recordAuditEvent server write failed:', e);
     }
-  } catch (e) {
-    // ignore
   }
 }
 
-async function loadActivityLogFromCloud() {
+// Backward-compatible wrapper for existing call-sites
+function logActivity(action, entity, summary, targetId) {
+  try {
+    recordAuditEvent({
+      action: action || 'edit',
+      module: (entity || 'general').toLowerCase(),
+      recordId: targetId || null,
+      summary: summary || '',
+      result: 'SUCCESS'
+    });
+  } catch (e) { console.warn('logActivity failed:', e); }
+}
+
+async function loadActivityLogFromCloud(forceToast = false) {
   const client = getSupabaseClient();
   if (!client) return;
+
   try {
+    // Supabase RLS enforces that:
+    // - Super Admin sees all rows across all staff
+    // - Staff members see only rows where user_id = auth.uid()
     const { data, error } = await client
       .from('activity_log')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(300);
+
     if (error) {
       if (/does not exist|relation .* does not exist|PGRST205/i.test(error.message || '')) {
-        console.warn('☁️ activity_log table missing — run supabase-setup.sql to enable cloud audit history.');
+        console.warn('☁️ activity_log table missing — run supabase-activity-audit-centralization.sql');
       }
       return;
     }
-    if (Array.isArray(data) && data.length) {
+
+    if (Array.isArray(data)) {
       const merged = new Map();
       (state.activityLog || []).forEach(e => merged.set(e.id, e));
       data.forEach(r => {
-        merged.set(r.id, {
-          id: r.id,
+        merged.set(String(r.id), {
+          id: String(r.id),
           ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
-          action: r.action,
-          entity: r.entity,
-          summary: r.summary,
-          targetId: r.target_id,
-          actor: r.actor,
-          actorRole: r.actor_role
+          userId: r.user_id || null,
+          staffName: r.staff_name || '',
+          staffEmail: r.staff_email || '',
+          action: r.action || 'edit',
+          module: r.module || r.entity || 'general',
+          recordId: r.record_id || r.target_id || null,
+          summary: r.summary || '',
+          result: r.result || 'SUCCESS',
+          oldValues: r.old_values || null,
+          newValues: r.new_values || null,
+          changeDetails: r.change_details || null,
+          actor: r.staff_name ? (r.staff_email ? `${r.staff_name} (${r.staff_email})` : r.staff_name) : (r.actor || 'Sevak'),
+          actorRole: r.actor_role || ''
         });
       });
-      const arr = Array.from(merged.values()).sort((a,b) => (b.ts||0) - (a.ts||0)).slice(0, ACTIVITY_LOG_MAX);
+
+      const arr = Array.from(merged.values())
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+        .slice(0, ACTIVITY_LOG_MAX);
+
       state.activityLog = arr;
-      try { localStorage.setItem(STORAGE_KEYS.ACTIVITY, JSON.stringify(arr)); } catch (e) {}
+      persistActivityLog();
+
+      if (typeof populateActivityStaffFilter === 'function') populateActivityStaffFilter();
       if (typeof updateActivityNavBadge === 'function') updateActivityNavBadge();
       if (typeof renderRecentChanges === 'function') renderRecentChanges();
       if (typeof renderActivityLog === 'function') renderActivityLog();
+
+      if (forceToast) {
+        showToast(`Audit log refreshed (${arr.length} entries loaded).`, 'success');
+      }
     }
-  } catch (e) {}
-}
-
-// Human label for whoever performed the action (email + role, or "Public")
-function getActivityActor() {
-  const roleLabel = ((USER_ROLES[getActiveRoleKey()] || {}).label) || getActiveRoleKey();
-  if (typeof PUBLIC_OPEN_ACCESS !== 'undefined' && PUBLIC_OPEN_ACCESS) {
-    return `Public access · ${roleLabel}`;
+  } catch (e) {
+    console.warn('loadActivityLogFromCloud error:', e);
   }
-  const email = (currentUser && currentUser.email) || (currentUserProfile && currentUserProfile.email) || '';
-  return email ? `${email} · ${roleLabel}` : roleLabel;
 }
 
-// Record one audit entry. Safe to call from anywhere (never throws).
-function logActivity(action, entity, summary, targetId) {
-  try {
-    if (!Array.isArray(state.activityLog)) state.activityLog = [];
-    state.activityLog.unshift({
-      id: 'act_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      ts: Date.now(),
-      action: action || 'edit',
-      entity: entity || 'System',
-      summary: summary || '',
-      targetId: targetId || null,
-      actor: getActivityActor(),
-      actorRole: getActiveRoleKey()
+// Populate the Staff member dropdown filter dynamically
+function populateActivityStaffFilter() {
+  const sel = document.getElementById('activity-staff-filter');
+  const wrap = document.getElementById('activity-staff-filter-wrap');
+  if (!sel) return;
+
+  const isSuper = isSuperAdmin();
+
+  // If not super admin, staff member can only see their own logs
+  if (!isSuper) {
+    if (wrap) wrap.classList.add('opacity-60', 'pointer-events-none');
+    sel.innerHTML = `<option value="SELF">👤 My Activity (${escapeHtml(currentUserProfile?.full_name || currentUser?.email || 'You')})</option>`;
+    return;
+  }
+
+  if (wrap) wrap.classList.remove('opacity-60', 'pointer-events-none');
+
+  const curVal = sel.value || 'ALL';
+  const staffMap = new Map();
+
+  // 1. From state.staffList
+  if (Array.isArray(state.staffList)) {
+    state.staffList.forEach(s => {
+      const key = s.id || s.email;
+      if (key) {
+        staffMap.set(key, {
+          id: s.id,
+          name: s.fullName || s.email,
+          email: s.email,
+          role: s.role || 'STAFF'
+        });
+      }
     });
-    if (state.activityLog.length > ACTIVITY_LOG_MAX) state.activityLog.length = ACTIVITY_LOG_MAX;
-    persistActivityLog();
-    if (typeof updateActivityNavBadge === 'function') updateActivityNavBadge();
-    if (typeof renderRecentChanges === 'function') renderRecentChanges();
-    if (typeof renderActivityLog === 'function') renderActivityLog();
-  } catch (e) { console.warn('logActivity failed:', e); }
+  }
+
+  // 2. From distinct activity logs
+  (state.activityLog || []).forEach(e => {
+    if (e.userId && !staffMap.has(e.userId)) {
+      staffMap.set(e.userId, {
+        id: e.userId,
+        name: e.staffName || e.staffEmail || 'Sevak',
+        email: e.staffEmail,
+        role: e.actorRole || 'STAFF'
+      });
+    } else if (e.staffEmail && !staffMap.has(e.staffEmail)) {
+      staffMap.set(e.staffEmail, {
+        id: e.userId || e.staffEmail,
+        name: e.staffName || e.staffEmail,
+        email: e.staffEmail,
+        role: e.actorRole || 'STAFF'
+      });
+    }
+  });
+
+  let optionsHtml = '<option value="ALL">👤 All Staff Accounts</option>';
+  staffMap.forEach(s => {
+    const roleTag = s.role ? ` · [${s.role}]` : '';
+    optionsHtml += `<option value="${escapeHtml(s.id || s.email)}">${escapeHtml(s.name)}${roleTag}</option>`;
+  });
+
+  sel.innerHTML = optionsHtml;
+  if (Array.from(sel.options).some(o => o.value === curVal)) {
+    sel.value = curVal;
+  }
 }
 
 function formatActivityWhen(ts) {
@@ -4392,6 +4586,86 @@ function updateActivityNavBadge() {
   }
 }
 
+function getFilteredActivityLog() {
+  const isSuper = isSuperAdmin();
+  const staffFilter = (document.getElementById('activity-staff-filter') || {}).value || 'ALL';
+  const moduleFilter = (document.getElementById('activity-module-filter') || {}).value || 'ALL';
+  const actionFilter = (document.getElementById('activity-filter') || {}).value || 'ALL';
+  const dateFilter = (document.getElementById('activity-date-filter') || {}).value || 'ALL';
+  const q = ((document.getElementById('activity-search') || {}).value || '').trim().toLowerCase();
+
+  const now = Date.now();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTodayTs = startOfToday.getTime();
+
+  const startOfYesterday = new Date(startOfTodayTs - 24 * 60 * 60 * 1000);
+  const startOfYesterdayTs = startOfYesterday.getTime();
+
+  return (state.activityLog || []).filter(e => {
+    // 1. Staff isolation: non-super-admins strictly see only their own actions
+    if (!isSuper) {
+      const myId = currentUser?.id;
+      const myEmail = (currentUser?.email || '').toLowerCase();
+      const match = (myId && e.userId === myId) ||
+                    (myEmail && (e.staffEmail || '').toLowerCase() === myEmail);
+      if (!match) return false;
+    } else if (staffFilter !== 'ALL') {
+      const matchStaff = (e.userId && e.userId === staffFilter) ||
+                         (e.staffEmail && e.staffEmail.toLowerCase() === staffFilter.toLowerCase()) ||
+                         (e.id === staffFilter);
+      if (!matchStaff) return false;
+    }
+
+    // 2. Module Filter
+    if (moduleFilter !== 'ALL') {
+      const m = (e.module || '').toLowerCase();
+      if (!m.includes(moduleFilter.toLowerCase())) return false;
+    }
+
+    // 3. Action Filter
+    if (actionFilter !== 'ALL') {
+      const a = (e.action || '').toLowerCase();
+      if (actionFilter === 'parcel') {
+        const isParcel = (e.module || '').includes('parcel') || a === 'parcel';
+        if (!isParcel) return false;
+      } else if (a !== actionFilter.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 4. Date Range Filter
+    const eTs = e.ts || 0;
+    if (dateFilter === 'today') {
+      if (eTs < startOfTodayTs) return false;
+    } else if (dateFilter === 'yesterday') {
+      if (eTs < startOfYesterdayTs || eTs >= startOfTodayTs) return false;
+    } else if (dateFilter === '7days') {
+      if (eTs < now - 7 * 24 * 60 * 60 * 1000) return false;
+    } else if (dateFilter === '30days') {
+      if (eTs < now - 30 * 24 * 60 * 60 * 1000) return false;
+    }
+
+    // 5. Text Search Query
+    if (q) {
+      const searchTarget = `
+        ${e.summary || ''} 
+        ${e.staffName || ''} 
+        ${e.staffEmail || ''} 
+        ${e.actor || ''} 
+        ${e.userId || ''} 
+        ${e.recordId || ''} 
+        ${e.module || ''} 
+        ${e.action || ''} 
+        ${e.result || ''}
+      `.toLowerCase();
+      if (!searchTarget.includes(q)) return false;
+    }
+
+    return true;
+  });
+}
+
 function activityItemHtml(entry) {
   const meta = ACTIVITY_ACTIONS[entry.action] || { label: entry.action || 'Activity', icon: 'activity', color: 'slate' };
   const colorMap = {
@@ -4406,6 +4680,28 @@ function activityItemHtml(entry) {
   };
   const badgeClass = colorMap[meta.color] || colorMap.slate;
 
+  // Result Badge
+  let resultBadge = '';
+  if (entry.result === 'DENIED') {
+    resultBadge = '<span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200 uppercase">⛔ Denied</span>';
+  } else if (entry.result === 'FAILED') {
+    resultBadge = '<span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 uppercase">⚠️ Failed</span>';
+  } else {
+    resultBadge = '<span class="text-[9.5px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">✓ Success</span>';
+  }
+
+  // Has change diff data
+  const hasDiff = !!(entry.oldValues || entry.newValues || entry.changeDetails);
+  const diffBtn = hasDiff
+    ? `<button type="button" onclick="openActivityDiffModal('${escapeHtml(entry.id)}')" class="py-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-semibold text-[10.5px] rounded-lg transition flex items-center space-x-1 cursor-pointer shadow-xs active:scale-95 shrink-0">
+         <i data-lucide="diff" class="w-3 h-3"></i>
+         <span>Inspect Diff</span>
+       </button>`
+    : '';
+
+  // Formatted User ID (UUID)
+  const shortUid = entry.userId ? `${entry.userId.slice(0, 8)}…` : 'Guest';
+
   return `
     <div class="flex items-start space-x-3.5 p-3.5 hover:bg-slate-50/70 transition-colors border-b border-slate-100 last:border-0 rounded-xl">
       <div class="w-9 h-9 rounded-xl ${badgeClass} border flex items-center justify-center shrink-0 shadow-xs mt-0.5">
@@ -4413,40 +4709,32 @@ function activityItemHtml(entry) {
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center justify-between gap-1 mb-1">
-          <div class="flex items-center space-x-2">
+          <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-xs font-bold text-slate-800">${escapeHtml(meta.label)}</span>
-            ${entry.entity ? `<span class="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md uppercase">${escapeHtml(entry.entity)}</span>` : ''}
+            ${entry.module ? `<span class="text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md uppercase">${escapeHtml(entry.module)}</span>` : ''}
+            ${resultBadge}
+            ${entry.recordId ? `<span class="text-[10px] font-mono text-indigo-600 bg-indigo-50/70 border border-indigo-200/50 px-1.5 py-0.5 rounded font-semibold" title="Record ID: ${escapeHtml(entry.recordId)}">#${escapeHtml(entry.recordId.slice(0, 14))}</span>` : ''}
           </div>
-          <span class="text-[11px] font-medium text-slate-400 shrink-0 flex items-center space-x-1" title="${new Date(entry.ts).toLocaleString()}">
-            <i data-lucide="clock" class="w-3 h-3"></i>
-            <span>${formatActivityWhen(entry.ts)}</span>
-          </span>
+          <div class="flex items-center space-x-2">
+            ${diffBtn}
+            <span class="text-[11px] font-medium text-slate-400 shrink-0 flex items-center space-x-1" title="${new Date(entry.ts).toLocaleString()}">
+              <i data-lucide="clock" class="w-3 h-3"></i>
+              <span>${formatActivityWhen(entry.ts)}</span>
+            </span>
+          </div>
         </div>
         <p class="text-xs text-slate-700 leading-relaxed font-normal">${escapeHtml(entry.summary || '')}</p>
-        <div class="text-[11px] text-slate-400 mt-1 flex items-center space-x-1.5">
-          <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
-          <span class="font-medium text-slate-500">${escapeHtml(entry.actor || 'System')}</span>
+        <div class="text-[11px] text-slate-400 mt-1.5 flex flex-wrap items-center gap-2">
+          <span class="flex items-center space-x-1 text-slate-600 font-medium">
+            <i data-lucide="user" class="w-3 h-3 text-slate-400"></i>
+            <span>${escapeHtml(entry.staffName || entry.actor || 'Sevak')}</span>
+            ${entry.staffEmail ? `<span class="text-slate-400 text-[10px]">(${escapeHtml(entry.staffEmail)})</span>` : ''}
+          </span>
           ${entry.actorRole ? `<span class="text-[9px] uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-bold border border-slate-200">${escapeHtml(entry.actorRole)}</span>` : ''}
+          ${entry.userId ? `<span class="text-[9.5px] font-mono text-slate-400 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-200/60" title="Auth User ID: ${escapeHtml(entry.userId)}">UID: ${escapeHtml(shortUid)}</span>` : ''}
         </div>
       </div>
     </div>`;
-}
-
-function getFilteredActivityLog() {
-  const action = (document.getElementById('activity-filter') || {}).value || 'ALL';
-  const q = ((document.getElementById('activity-search') || {}).value || '').trim().toLowerCase();
-  return (state.activityLog || []).filter(e => {
-    if (action !== 'ALL') {
-      if (action === 'parcel') {
-        const isParcel = (e.entity || '').toLowerCase().includes('parcel') || e.action === 'parcel';
-        if (!isParcel) return false;
-      } else if (e.action !== action) {
-        return false;
-      }
-    }
-    if (q && !`${e.summary || ''} ${e.actor || ''} ${e.entity || ''} ${e.action || ''}`.toLowerCase().includes(q)) return false;
-    return true;
-  });
 }
 
 function renderActivityLog() {
@@ -4454,41 +4742,209 @@ function renderActivityLog() {
   const host = document.getElementById('activity-log-list');
   if (!host) return;
 
+  const isSuper = isSuperAdmin();
+
+  // Dynamic Header Title & Subtitle based on Role
+  const titleEl = document.getElementById('activity-view-title');
+  const subEl = document.getElementById('activity-view-subtitle');
+  const clearBtn = document.getElementById('btn-clear-activity-log');
+
+  if (titleEl) {
+    titleEl.innerHTML = isSuper
+      ? `<span>All Portal Activity Log</span><span class="text-amber-400 text-lg">🪷</span>`
+      : `<span>My Activity History</span><span class="text-amber-400 text-lg">🪷</span>`;
+  }
+  if (subEl) {
+    subEl.innerText = isSuper
+      ? `Centralized real-time audit history tracking all devotee additions, edits, removals, parcels, calls, deletion requests, and devotee logins across all sevak accounts.`
+      : `Your personal seva operation history. Only your authenticated actions are displayed here, secured by Supabase Row Level Security.`;
+  }
+  if (clearBtn) {
+    clearBtn.classList.toggle('hidden', !isSuper);
+  }
+
+  // Populate Staff dropdown if needed
+  populateActivityStaffFilter();
+
   const countEl = document.getElementById('activity-count');
   const totalKpi = document.getElementById('activity-kpi-total');
   const todayKpi = document.getElementById('activity-kpi-today');
   const updatesKpi = document.getElementById('activity-kpi-updates');
   const parcelsKpi = document.getElementById('activity-kpi-parcels');
 
-  const allLogs = state.activityLog || [];
-  if (countEl) countEl.innerText = allLogs.length;
-  if (totalKpi) totalKpi.innerText = allLogs.length;
+  // Filter list
+  const list = getFilteredActivityLog();
+  if (countEl) countEl.innerText = list.length;
+  if (totalKpi) totalKpi.innerText = list.length;
 
-  // Calculate Today count
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   const todayTs = startOfToday.getTime();
-  const todayCount = allLogs.filter(e => (e.ts || 0) >= todayTs).length;
+  const todayCount = list.filter(e => (e.ts || 0) >= todayTs).length;
   if (todayKpi) todayKpi.innerText = todayCount;
 
-  // Calculate Updates count
-  const updatesCount = allLogs.filter(e => e.action === 'create' || e.action === 'edit').length;
+  const updatesCount = list.filter(e => e.action === 'create' || e.action === 'edit').length;
   if (updatesKpi) updatesKpi.innerText = updatesCount;
 
-  // Calculate Parcels count
-  const parcelsCount = allLogs.filter(e => (e.entity || '').toLowerCase().includes('parcel') || e.action === 'parcel').length;
+  const parcelsCount = list.filter(e => (e.module || '').toLowerCase().includes('parcel') || e.action === 'parcel').length;
   if (parcelsKpi) parcelsKpi.innerText = parcelsCount;
 
-  const list = getFilteredActivityLog();
   host.innerHTML = list.length
     ? list.slice(0, 300).map(activityItemHtml).join('')
     : `<div class="text-xs text-slate-400 py-12 text-center flex flex-col items-center justify-center space-y-2">
          <span class="text-3xl">📜</span>
-         <span class="font-semibold text-slate-600">No activity recorded yet</span>
-         <span class="text-[11px] text-slate-400">All actions performed in the devotee portal will be tracked here.</span>
+         <span class="font-semibold text-slate-600">No matching activity records found</span>
+         <span class="text-[11px] text-slate-400">Adjust the filters or search term above to view other events.</span>
        </div>`;
+
   if (window.lucide) lucide.createIcons();
 }
+
+function resetActivityFilters() {
+  const staffSel = document.getElementById('activity-staff-filter');
+  const modSel = document.getElementById('activity-module-filter');
+  const actSel = document.getElementById('activity-filter');
+  const dateSel = document.getElementById('activity-date-filter');
+  const searchInp = document.getElementById('activity-search');
+
+  if (staffSel && isSuperAdmin()) staffSel.value = 'ALL';
+  if (modSel) modSel.value = 'ALL';
+  if (actSel) actSel.value = 'ALL';
+  if (dateSel) dateSel.value = 'ALL';
+  if (searchInp) searchInp.value = '';
+
+  renderActivityLog();
+  showToast('Filters reset to default.', 'info');
+}
+
+// ----------------------------------------------------
+// 🔍 AUDIT DIFF & DETAILS INSPECTOR MODAL
+// ----------------------------------------------------
+function openActivityDiffModal(entryId) {
+  const entry = (state.activityLog || []).find(e => String(e.id) === String(entryId));
+  if (!entry) {
+    showToast('Activity record not found.', 'warning');
+    return;
+  }
+
+  const modal = document.getElementById('activity-diff-modal');
+  if (!modal) return;
+
+  // Header and Metadata
+  document.getElementById('diff-meta-actor').innerText = entry.staffName || entry.actor || 'Sevak';
+  document.getElementById('diff-meta-role').innerText = entry.actorRole || 'STAFF';
+  document.getElementById('diff-meta-module').innerText = (entry.module || 'general').toUpperCase();
+  document.getElementById('diff-meta-action').innerText = (entry.action || 'edit').toUpperCase();
+  document.getElementById('diff-meta-record-id').innerText = entry.recordId || 'N/A';
+  document.getElementById('diff-meta-time').innerText = new Date(entry.ts).toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+  document.getElementById('diff-meta-user-id').innerText = entry.userId || 'Not authenticated / Local';
+  document.getElementById('diff-meta-summary').innerText = entry.summary || 'No summary provided.';
+
+  // Result Badge
+  const badgeHost = document.getElementById('diff-modal-result-badge');
+  if (badgeHost) {
+    if (entry.result === 'DENIED') {
+      badgeHost.innerHTML = '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40">DENIED</span>';
+    } else if (entry.result === 'FAILED') {
+      badgeHost.innerHTML = '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">FAILED</span>';
+    } else {
+      badgeHost.innerHTML = '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">SUCCESS</span>';
+    }
+  }
+
+  // Diff Comparison Container
+  const container = document.getElementById('diff-comparison-container');
+  const oldVals = entry.oldValues;
+  const newVals = entry.newValues;
+
+  let diffHtml = '';
+
+  if (oldVals && newVals && typeof oldVals === 'object' && typeof newVals === 'object') {
+    // Both Old and New exist -> Calculate changed attributes
+    const allKeys = Array.from(new Set([...Object.keys(oldVals), ...Object.keys(newVals)]));
+    const changedKeys = allKeys.filter(k => {
+      const v1 = JSON.stringify(oldVals[k]);
+      const v2 = JSON.stringify(newVals[k]);
+      return v1 !== v2;
+    });
+
+    if (changedKeys.length > 0) {
+      diffHtml = `
+        <div class="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+          <div class="bg-slate-100/80 px-3.5 py-2 border-b border-slate-200 font-bold text-slate-700 flex items-center justify-between">
+            <span>Changed Fields (${changedKeys.length})</span>
+            <span class="text-[10px] text-slate-500 font-normal">Side-by-side comparison</span>
+          </div>
+          <div class="divide-y divide-slate-100 max-h-[320px] overflow-y-auto">
+            ${changedKeys.map(k => {
+              const oStr = oldVals[k] !== undefined ? (typeof oldVals[k] === 'object' ? JSON.stringify(oldVals[k]) : String(oldVals[k])) : '<empty>';
+              const nStr = newVals[k] !== undefined ? (typeof newVals[k] === 'object' ? JSON.stringify(newVals[k]) : String(newVals[k])) : '<removed>';
+              return `
+                <div class="p-3 bg-white hover:bg-slate-50/50">
+                  <div class="font-mono text-[11px] font-bold text-slate-700 mb-1.5">${escapeHtml(k)}</div>
+                  <div class="grid grid-cols-2 gap-2 text-[11px]">
+                    <div class="bg-rose-50/70 border border-rose-200/80 rounded-lg p-2 text-rose-900 font-mono break-all">
+                      <div class="text-[9px] font-bold uppercase text-rose-500 mb-0.5">Previous Value</div>
+                      ${escapeHtml(oStr)}
+                    </div>
+                    <div class="bg-emerald-50/70 border border-emerald-200/80 rounded-lg p-2 text-emerald-900 font-mono break-all">
+                      <div class="text-[9px] font-bold uppercase text-emerald-600 mb-0.5">New Value</div>
+                      ${escapeHtml(nStr)}
+                    </div>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    } else {
+      diffHtml = `<div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-500 text-center">No field-level value changes detected in payload.</div>`;
+    }
+  } else if (newVals && typeof newVals === 'object') {
+    // Only New Values exist (e.g. Creation)
+    diffHtml = `
+      <div class="border border-emerald-200 rounded-xl overflow-hidden shadow-xs">
+        <div class="bg-emerald-50/80 px-3.5 py-2 border-b border-emerald-200 font-bold text-emerald-800">
+          <span>Created Record Attributes</span>
+        </div>
+        <pre class="p-3.5 bg-white text-[11px] font-mono text-slate-700 max-h-[280px] overflow-y-auto whitespace-pre-wrap">${escapeHtml(JSON.stringify(newVals, null, 2))}</pre>
+      </div>`;
+  } else if (oldVals && typeof oldVals === 'object') {
+    // Only Old Values exist (e.g. Deletion snapshot)
+    diffHtml = `
+      <div class="border border-rose-200 rounded-xl overflow-hidden shadow-xs">
+        <div class="bg-rose-50/80 px-3.5 py-2 border-b border-rose-200 font-bold text-rose-800">
+          <span>Archived / Deleted Record Snapshot</span>
+        </div>
+        <pre class="p-3.5 bg-white text-[11px] font-mono text-slate-700 max-h-[280px] overflow-y-auto whitespace-pre-wrap">${escapeHtml(JSON.stringify(oldVals, null, 2))}</pre>
+      </div>`;
+  } else if (entry.changeDetails) {
+    diffHtml = `
+      <div class="border border-indigo-200 rounded-xl overflow-hidden shadow-xs">
+        <div class="bg-indigo-50/80 px-3.5 py-2 border-b border-indigo-200 font-bold text-indigo-800">
+          <span>Change Details</span>
+        </div>
+        <pre class="p-3.5 bg-white text-[11px] font-mono text-slate-700 max-h-[280px] overflow-y-auto whitespace-pre-wrap">${escapeHtml(JSON.stringify(entry.changeDetails, null, 2))}</pre>
+      </div>`;
+  } else {
+    diffHtml = `<div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-400 text-center">No snapshot or diff data attached to this audit record.</div>`;
+  }
+
+  container.innerHTML = diffHtml;
+  modal.classList.remove('hidden');
+  if (window.lucide) lucide.createIcons();
+}
+
+function closeActivityDiffModal() {
+  const modal = document.getElementById('activity-diff-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+window.openActivityDiffModal = openActivityDiffModal;
+window.closeActivityDiffModal = closeActivityDiffModal;
+window.resetActivityFilters = resetActivityFilters;
+window.recordAuditEvent = recordAuditEvent;
 
 function renderRecentChanges() {
   const host = document.getElementById('recent-changes-list');
@@ -4501,38 +4957,57 @@ function renderRecentChanges() {
 }
 
 async function clearActivityLog() {
-  if (!requirePermission('manage_settings', 'clear the activity log')) return;
+  if (!isSuperAdmin()) {
+    showToast('⛔ Permission Denied: Only Super Admin can clear the audit history.', 'error');
+    return;
+  }
   const confirmed = await showAppConfirm({
-    title: 'Clear Activity Log?',
-    message: 'This only clears the audit history list. Devotee records and parcels are not affected.',
-    confirmText: 'Clear Log',
+    title: 'Purge Activity Audit Log?',
+    message: 'This will purge the audit trail history. Devotee records and parcel logistics are not affected.',
+    confirmText: 'Purge Log',
     cancelText: 'Cancel',
     isDanger: true,
     icon: '🧾'
   });
   if (!confirmed) return;
+
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      await client.from('activity_log').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    } catch (e) {}
+  }
+
   state.activityLog = [];
   persistActivityLog();
   renderActivityLog();
   renderRecentChanges();
   updateActivityNavBadge();
-  showToast('Activity log cleared.', 'info');
+  showToast('Activity audit log cleared.', 'info');
 }
 
 function exportActivityLogCsv() {
-  if (!requirePermission('export_data', 'export the activity log')) return;
   const list = getFilteredActivityLog();
-  if (!list.length) { showToast('No activity to export.', 'info'); return; }
+  if (!list.length) { showToast('No activity records to export.', 'info'); return; }
   const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
-  const rows = [['When', 'Action', 'Entity', 'Summary', 'Actor', 'Role'].map(esc).join(',')];
+  const rows = [['When', 'Actor Name', 'Email', 'User UUID', 'Role', 'Module', 'Action', 'Record ID', 'Result', 'Summary'].map(esc).join(',')];
   list.forEach(e => rows.push([
-    new Date(e.ts).toLocaleString('en-GB'), e.action, e.entity, e.summary, e.actor, e.actorRole
+    new Date(e.ts).toLocaleString('en-GB'),
+    e.staffName || e.actor,
+    e.staffEmail || '',
+    e.userId || '',
+    e.actorRole || '',
+    e.module || '',
+    e.action || '',
+    e.recordId || '',
+    e.result || 'SUCCESS',
+    e.summary || ''
   ].map(esc).join(',')));
   const blob = new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `ISKCON_Activity_Log_${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `ISKCON_Activity_Audit_Log_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Activity log exported as CSV.', 'success');
@@ -4554,7 +5029,7 @@ function switchTab(tabId) {
   state.currentTab = tabId;
 
   // Toggle active view sections (Anniversaries tab reuses the wish-dashboard view)
-  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'settings', 'removed', 'requests', 'roles', 'activity'];
+  const views = ['dashboard', 'birthdays', 'parcels', 'devotees', 'removed', 'requests', 'roles', 'activity'];
   const effectiveTab = (tabId === 'anniversaries') ? 'birthdays' : tabId;
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
@@ -4577,8 +5052,9 @@ function switchTab(tabId) {
     loadStaffListFromCloud();
   }
 
-  // Activity Log tab — render full activity list & metrics
+  // Activity Log tab — load from cloud and render full activity list & metrics
   if (tabId === 'activity') {
+    loadActivityLogFromCloud();
     renderActivityLog();
   }
 
@@ -6340,10 +6816,12 @@ function saveDevotee(event) {
     notes: document.getElementById('df-notes').value.trim()
   };
 
+  let oldSnapshot = null;
   if (devoteeId) {
     const idx = state.devotees.findIndex(x => x.id === devoteeId);
     if (idx !== -1) {
       const existing = state.devotees[idx];
+      oldSnapshot = { ...existing };
       const finalPhoto = photoInputVal || existing.photo || '';
       const finalDriveId = extractGoogleDriveFileId(finalPhoto);
       const finalPhotoDirect = finalDriveId ? `https://lh3.googleusercontent.com/d/${finalDriveId}` : (existing.photoDirect || finalPhoto);
@@ -6361,8 +6839,20 @@ function saveDevotee(event) {
   }
 
   const _actName = devoteeData.spiritualName || devoteeData.legalName || 'devotee';
-  if (devoteeId) logActivity('edit', 'Devotee', `Updated devotee "${_actName}".`, devoteeId);
-  else logActivity('create', 'Devotee', `Created devotee "${_actName}".`, devoteeData.id);
+  
+  // Record audit event with diff data
+  recordAuditEvent({
+    action: devoteeId ? 'edit' : 'create',
+    module: 'devotees',
+    recordId: devoteeData.id,
+    summary: devoteeId ? `Updated devotee profile "${_actName}".` : `Registered new devotee "${_actName}".`,
+    result: 'SUCCESS',
+    oldValues: oldSnapshot,
+    newValues: { ...devoteeData }
+  });
+
+  // Centralized Database: Push record directly to Supabase cloud
+  syncDevoteeRecordToCloud(devoteeData);
 
   saveToStorage();
   updateDevoteeAutocompleteList();
@@ -6689,7 +7179,14 @@ async function deleteDevotee(id) {
   if (state.selectedCelebrations) state.selectedCelebrations.delete(id);
   if (state.selectedParcels) state.selectedParcels.delete(id);
   saveToStorage();
-  logActivity('delete', 'Devotee', `Deleted devotee "${name}".`, id);
+  recordAuditEvent({
+    action: 'delete',
+    module: 'devotees',
+    recordId: id,
+    summary: `Permanently deleted devotee "${name}".`,
+    result: 'SUCCESS',
+    oldValues: { ...d }
+  });
   updateDevoteeAutocompleteList();
   updateKPIs();
   renderDevoteesTable();
@@ -9358,42 +9855,51 @@ function refreshProfileAddressView(id) {
   }
 }
 
-// Best-effort mirror of ONE Directory record to Supabase (silent — no toast needed).
-// The local Devotee Directory stays the single source of truth; the cloud copy is
-// kept in step when the table/policies are provisioned (see supabase-setup.sql).
-function syncDevoteeRecordToCloud(d) {
+// Centralized Database: Push ONE Directory record to Supabase
+async function syncDevoteeRecordToCloud(d) {
   const client = getSupabaseClient();
   if (!client || !d) return;
-  (async () => {
-    try {
-      const row = {
-        'SL NO': d.slNo || 0,
-        'DEVOTEE ID': d.id || '',
-        'NAME': d.legalName || '',
-        'INITIATED NAME': d.spiritualName || '',
-        'SPOUSE NAME': d.spouseName || '',
-        'BIRTHDAY': d.birthdayRaw || '',
-        'ANNIVERSARY': d.anniversaryRaw || '',
-        'CONTACT NO': d.phone || '',
-        'ADDRESS': d.address || '',
-        'CITY': d.city || '',
-        'STATE': d.state || '',
-        'PIN CODE': d.pincode || '',
-        'PHOTO': d.photo || ''
-      };
-      const make = (onConflict) => onConflict
-        ? client.from('devotees').upsert([row], { onConflict })
-        : client.from('devotees').insert([row]);
-      let { data, error } = await make('DEVOTEE ID');
-      if (error && /no unique or exclusion constraint matching/i.test(error.message || '')) {
-        ({ data, error } = await make(null));
+  try {
+    const row = {
+      'SL NO': d.slNo || 0,
+      'DEVOTEE ID': d.id || '',
+      'NAME': d.legalName || '',
+      'INITIATED NAME': d.spiritualName || '',
+      'SPOUSE NAME': d.spouseName || '',
+      'BIRTHDAY': d.birthdayRaw || '',
+      'ANNIVERSARY': d.anniversaryRaw || '',
+      'CONTACT NO': d.phone || '',
+      'ADDRESS': d.address || '',
+      'CITY': d.city || '',
+      'STATE': d.state || '',
+      'PIN CODE': d.pincode || '',
+      'PHOTO': d.photo || '',
+      'marital_status': d.maritalStatus || null,
+      'address_verified': d.addressVerified || null,
+      'delivery_mode': d.deliveryMode || null,
+      'courier_partner': d.courierPartner || null
+    };
+
+    const attempt = async (onConflict) => {
+      if (onConflict) {
+        return await client.from('devotees').upsert([row], { onConflict });
       }
-      if (error) console.warn('Address cloud sync skipped:', error.message);
-      else console.log('☁️ Devotee record synced to cloud:', d.id);
-    } catch (e) {
-      console.warn('Address cloud sync exception:', e);
+      return await client.from('devotees').insert([row]);
+    };
+
+    let { data, error } = await attempt('DEVOTEE ID');
+    if (error) ({ data, error } = await attempt('devotee_id'));
+    if (error && /no unique or exclusion constraint matching/i.test(error.message || '')) {
+      ({ data, error } = await attempt(null));
     }
-  })();
+    if (error) {
+      console.warn('☁️ Devotee cloud sync notice:', error.message);
+    } else {
+      console.log('✅ Devotee record synced to Supabase Central Database:', d.id);
+    }
+  } catch (e) {
+    console.warn('Devotee cloud sync exception:', e);
+  }
 }
 
 // ----------------------------------------------------
