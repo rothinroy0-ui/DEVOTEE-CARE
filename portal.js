@@ -670,7 +670,7 @@ function getInitialSampleData() {
       gender: 'Male',
       dob: `1982-${mStr}-${dStrToday}`, // Birthday today!
       ashrama: 'Grihastha',
-      maritalStatus: 'Married',
+      maritalStatus: '',
       phone: '+91 98201 11223',
       whatsapp: '+91 98201 11223',
       email: 'gauranga.prema@iskcon.org',
@@ -703,7 +703,7 @@ function getInitialSampleData() {
       gender: 'Male',
       dob: `1949-${mStr}-${dStrTom}`, // Birthday tomorrow! Senior Vaishnava (77 yrs)
       ashrama: 'Vanaprastha',
-      maritalStatus: 'Widowed',
+      maritalStatus: '',
       phone: '+91 94341 55667',
       whatsapp: '+91 94341 55667',
       email: 'yasodanandana@mayapur.com',
@@ -736,7 +736,7 @@ function getInitialSampleData() {
       gender: 'Male',
       dob: `1997-${mStr}-${dStrNextWk}`, // Upcoming in a few days
       ashrama: 'Brahmachari',
-      maritalStatus: 'Single',
+      maritalStatus: '',
       phone: '+91 97654 32109',
       whatsapp: '+91 97654 32109',
       email: 'madhava.kripa@iskconpune.in',
@@ -769,7 +769,7 @@ function getInitialSampleData() {
       gender: 'Female',
       dob: `1965-02-14`,
       ashrama: 'Grihastha',
-      maritalStatus: 'Married',
+      maritalStatus: '',
       phone: '+91 98112 34567',
       whatsapp: '+91 98112 34567',
       email: 'kuntidevi.dasi@gmail.com',
@@ -802,7 +802,7 @@ function getInitialSampleData() {
       gender: 'Male',
       dob: `1958-${mStr}-12`,
       ashrama: 'Sannyasi',
-      maritalStatus: 'Single',
+      maritalStatus: '',
       phone: '+91 94471 22334',
       whatsapp: '+91 94471 22334',
       email: 'paramananda.swami@iskcon.org',
@@ -835,7 +835,7 @@ function getInitialSampleData() {
       gender: 'Male',
       dob: `1985-08-22`,
       ashrama: 'Grihastha',
-      maritalStatus: 'Married',
+      maritalStatus: '',
       phone: '+91 98480 88990',
       whatsapp: '+91 98480 88990',
       email: 'dr.acyuta@bhaktivedanta-hospital.org',
@@ -1434,6 +1434,29 @@ function initApp() {
     purgeLegacyParcelEntries();
     saveToStorage();
     try { localStorage.setItem(STORAGE_KEYS.PARCEL_PURGED, 'true'); } catch (e) { /* ignore */ }
+  }
+
+  // One-time reset of Marital Status, Address Verified, and Mode of Delivery columns
+  let targetColsReset = false;
+  try { targetColsReset = !!localStorage.getItem('iskcon_target_cols_empty_v1'); } catch (e) { targetColsReset = false; }
+  if (!targetColsReset) {
+    if (Array.isArray(state.devotees)) {
+      state.devotees.forEach(d => {
+        d.maritalStatus = '';
+        d.addressVerified = '';
+        d.deliveryMode = '';
+        d.courierPartner = '';
+      });
+    }
+    if (Array.isArray(state.parcels)) {
+      state.parcels.forEach(p => {
+        p.addressVerified = '';
+        p.deliveryMode = '';
+        p.courierPartner = '';
+      });
+    }
+    saveToStorage();
+    try { localStorage.setItem('iskcon_target_cols_empty_v1', 'true'); } catch (e) { /* ignore */ }
   }
 
   // Display current date in banner
@@ -4960,10 +4983,10 @@ function renderDevoteesTable() {
 
         <!-- 5. Address Column (verification is explicit — never derived from the address text) -->
         <td data-label="Address" class="py-3.5 px-4 min-w-[230px] max-w-sm">
-          <div class="rounded-lg border p-2.5 transition ${isDevoteAddressVerified(d) ? 'bg-emerald-50 border-emerald-300' : (d.address ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200')}">
+          <div class="rounded-lg border p-2.5 transition ${isDevoteAddressVerified(d) ? 'bg-emerald-50 border-emerald-300' : (d.addressVerified ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200')}">
             ${isDevoteAddressVerified(d)
               ? '<div class="text-[10px] font-bold mb-1 text-emerald-700">✓ Verified</div>'
-              : (d.address ? '<div class="text-[10px] font-bold mb-1 text-amber-700">Unverified</div>' : '')}
+              : (d.addressVerified ? '<div class="text-[10px] font-bold mb-1 text-amber-700">Unverified</div>' : '')}
             <div class="text-xs font-bold text-slate-800 leading-snug">
               ${d.address || '<span class="text-slate-400 italic font-normal">No address recorded</span>'}
             </div>
@@ -5733,8 +5756,8 @@ function buildMaritalStatusSelect(d) {
   const sel = normalizeMarital(raw);
   let opts = '';
   if (!sel) {
-    const label = raw ? escapeHtml(raw) : '— Not set';
-    opts += `<option value="__keep__" disabled selected>${label}</option>`;
+    const label = raw ? escapeHtml(raw) : '— Select —';
+    opts += `<option value="" disabled selected>${label}</option>`;
   }
   MARITAL_OPTIONS.forEach(o => {
     opts += `<option value="${o}" ${sel === o ? 'selected' : ''}>${o}</option>`;
@@ -6147,9 +6170,13 @@ function viewDevoteeProfile(id) {
   if (addrEl) addrEl.innerText = (d.address ? d.address : 'No address recorded') + (d.pincode ? ' - ' + d.pincode : '');
   const addrVerifyEl = document.getElementById('vp-address-verify');
   if (addrVerifyEl) {
-    addrVerifyEl.innerHTML = isDevoteAddressVerified(d)
-      ? '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"><span>🟢</span><span>Verified</span></span>'
-      : '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"><span>🔴</span><span>Unverified</span></span>';
+    if (isDevoteAddressVerified(d)) {
+      addrVerifyEl.innerHTML = '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"><span>🟢</span><span>Verified</span></span>';
+    } else if (d.addressVerified) {
+      addrVerifyEl.innerHTML = '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"><span>🔴</span><span>Unverified</span></span>';
+    } else {
+      addrVerifyEl.innerHTML = '<span class="text-slate-400 text-xs italic">—</span>';
+    }
   }
   const emergEl = document.getElementById('vp-emergency');
   if (emergEl) emergEl.innerText = `${d.emergencyName || 'None'} (${d.emergencyPhone || 'N/A'})`;
@@ -6650,7 +6677,7 @@ function renderBirthdaysGrid() {
     const isCouple = !!item.isCouple;
     const spouseDevotee = item.spouseDevotee;
     const displayName = d.spiritualName || d.legalName;
-    const secondaryName = d.spiritualName ? d.legalName : '';
+    const hasAddrVerification = !!((d && (d.addressVerified || '').trim()) || (spouseDevotee && (spouseDevotee.addressVerified || '').trim()));
     const isVerified = isDevoteAddressVerified(d) || (spouseDevotee && isDevoteAddressVerified(spouseDevotee));
     const bdayDateText = item.rawDateStr || formatDate(item.date);
     const eventIcon = item.eventType === 'MARRIAGE' ? '💍' : '🎂';
@@ -6817,7 +6844,9 @@ function renderBirthdaysGrid() {
         <!-- 6. Address Verified -->
         <td class="py-2 px-1.5 text-center">
           <div class="inline-flex flex-col items-center">
-            ${isVerified ? `
+            ${!hasAddrVerification ? `
+              <span class="text-slate-300 text-[10px] italic">—</span>
+            ` : isVerified ? `
               <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs cursor-default" title="Verified in Devotee Directory">
                 <span>🟢</span>
                 <span>Verified</span>
@@ -6835,7 +6864,7 @@ function renderBirthdaysGrid() {
         <td class="py-2 px-2 text-center whitespace-nowrap">
           <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
             class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
-            <option value="" disabled ${d.deliveryMode ? '' : 'selected'}>Select Delivery Mode</option>
+            <option value="" ${d.deliveryMode ? '' : 'selected'}>Select Delivery Mode</option>
             <option value="DELHIVERY" ${d.deliveryMode === 'DELHIVERY' ? 'selected' : ''}>Delhivery Courier</option>
             <option value="SELF" ${d.deliveryMode === 'SELF' ? 'selected' : ''}>Self Mode</option>
           </select>
@@ -6948,14 +6977,11 @@ function setCelebrationDeliveryMode(devId, mode) {
   );
   if (merged && merged.coupleIds) ids = merged.coupleIds;
 
-  // Blank (placeholder) means "not chosen" — never auto-assign a delivery mode.
-  if (!mode) return;
-
   ids.forEach(id => {
     const dev = state.devotees.find(x => x.id === id);
     if (dev) {
-      dev.deliveryMode = mode;
-      dev.courierPartner = (mode === 'SELF') ? 'Self Pickup' : 'Delhivery';
+      dev.deliveryMode = mode || '';
+      dev.courierPartner = (mode === 'SELF') ? 'Self Pickup' : (mode === 'DELHIVERY' ? 'Delhivery' : '');
       // Self Mode rule: Pre Calling ON / Post Calling OFF — applied automatically
       if (mode === 'SELF') { dev.preCalling = 'Yes'; dev.postCalling = 'No'; }
     }
@@ -6964,8 +6990,8 @@ function setCelebrationDeliveryMode(devId, mode) {
   // Sync the courier partner on any existing live parcel for these devotees
   (state.parcels || []).forEach(p => {
     if (ids.includes(p.devoteeId)) {
-      p.courierPartner = (mode === 'SELF') ? 'Self Pickup' : 'Delhivery';
-      p.deliveryMode = mode;
+      p.courierPartner = (mode === 'SELF') ? 'Self Pickup' : (mode === 'DELHIVERY' ? 'Delhivery' : '');
+      p.deliveryMode = mode || '';
       // Self Mode rule applies automatically to every Self Mode consignment
       if (mode === 'SELF') { p.preCalling = 'Yes'; p.postCalling = 'No'; }
     }
@@ -6973,9 +6999,13 @@ function setCelebrationDeliveryMode(devId, mode) {
 
   saveToStorage();
   renderBirthdaysGrid();
-  showToast(mode === 'SELF'
-    ? 'Delivery mode: Self Mode (family pickup) ✅'
-    : 'Delivery mode: Delhivery Courier ✅', 'success');
+  if (mode) {
+    showToast(mode === 'SELF'
+      ? 'Delivery mode: Self Mode (family pickup) ✅'
+      : 'Delivery mode: Delhivery Courier ✅', 'success');
+  } else {
+    showToast('Delivery mode reset to unselected.', 'info');
+  }
   if (window.lucide) lucide.createIcons();
 }
 
@@ -7304,13 +7334,13 @@ function getCourierTrackingUrl(courier, trackingNo) {
 }
 
 // Mode of Delivery label for any record (devotee or consignment).
-// NEVER invents a mode: a record with no chosen mode returns 'Not Set'.
+// NEVER invents a mode: a record with no chosen mode returns ''.
 function deriveDeliveryModeLabel(rec) {
-  const cp = String((rec && rec.courierPartner) || '').toLowerCase();
-  const mode = (rec && rec.deliveryMode) || '';
+  const cp = String((rec && rec.courierPartner) || '').toLowerCase().trim();
+  const mode = String((rec && rec.deliveryMode) || '').trim().toUpperCase();
   if (['self pickup', 'self mode', 'self'].includes(cp) || mode === 'SELF') return 'Self Mode';
-  if (cp || mode === 'DELHIVERY') return 'Delhivery Courier';
-  return 'Not Set';
+  if (['delhivery', 'delhivery courier'].includes(cp) || mode === 'DELHIVERY') return 'Delhivery Courier';
+  return '';
 }
 
 // Mode of Delivery for a consignment (Delhivery Courier / Self Mode) —
@@ -8678,9 +8708,13 @@ function refreshProfileAddressView(id) {
   if (addrEl) addrEl.innerText = (d.address ? d.address : 'No address recorded') + (d.pincode ? ' - ' + d.pincode : '');
   const badgeEl = document.getElementById('vp-address-verify');
   if (badgeEl) {
-    badgeEl.innerHTML = isDevoteAddressVerified(d)
-      ? '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"><span>🟢</span><span>Verified</span></span>'
-      : '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"><span>🔴</span><span>Unverified</span></span>';
+    if (isDevoteAddressVerified(d)) {
+      badgeEl.innerHTML = '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300"><span>🟢</span><span>Verified</span></span>';
+    } else if (d.addressVerified) {
+      badgeEl.innerHTML = '<span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300"><span>🔴</span><span>Unverified</span></span>';
+    } else {
+      badgeEl.innerHTML = '<span class="text-slate-400 text-xs italic">—</span>';
+    }
   }
 }
 
