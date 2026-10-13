@@ -2324,6 +2324,11 @@ function renderDeleteRequests() {
     return;
   }
 
+  const clearBtn = document.getElementById('btn-clear-delete-requests');
+  if (clearBtn) {
+    clearBtn.classList.toggle('hidden', !isSuperAdmin());
+  }
+
   const hintEl = document.getElementById('requests-role-hint');
   if (hintEl) {
     if (isSuperAdmin()) {
@@ -2656,6 +2661,75 @@ async function rejectDeleteRequest(requestId) {
   renderDeleteRequests();
 }
 
+async function clearDeleteRequests() {
+  if (!isSuperAdmin()) {
+    showToast('⛔ Permission Denied: Only authenticated Super Admin can clear delete requests history.', 'error');
+    return;
+  }
+
+  const allReqs = state.deleteRequests || [];
+  if (allReqs.length === 0) {
+    showToast('No deletion requests found to clear.', 'info');
+    return;
+  }
+
+  const processed = allReqs.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED');
+  const pending = allReqs.filter(r => r.status === 'PENDING');
+
+  if (processed.length === 0 && pending.length > 0) {
+    showToast('There are no processed (Approved/Rejected) requests to clear. Pending requests require Super Admin review.', 'warning');
+    return;
+  }
+
+  const confirmed = await showAppConfirm({
+    title: 'Clear Processed Delete Requests History?',
+    message: `Are you sure you want to clear ${processed.length} processed (Approved/Rejected) request record(s) from history? Any pending requests (${pending.length}) will remain safe for review.`,
+    confirmText: 'Clear History',
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗑️'
+  });
+  if (!confirmed) return;
+
+  const btn = document.getElementById('btn-clear-delete-requests');
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('opacity-50');
+  }
+
+  try {
+    const idsToClear = processed.map(r => r.id);
+    const client = getSupabaseClient();
+    if (client && idsToClear.length > 0) {
+      const { error } = await client.from('delete_requests').delete().in('id', idsToClear);
+      if (error) {
+        console.warn('Error clearing delete requests from Supabase:', error);
+        showToast('Error clearing requests from cloud: ' + (error.message || 'Check database permissions.'), 'error');
+        return;
+      }
+    }
+
+    state.deleteRequests = pending;
+    recordAuditEvent({
+      action: 'clear',
+      module: 'delete_requests',
+      summary: `Super Admin cleared ${idsToClear.length} processed deletion requests from history.`,
+      result: 'SUCCESS'
+    });
+    showToast(`✅ Successfully cleared ${idsToClear.length} processed deletion request(s).`, 'success');
+    updateRequestsNavBadge();
+    renderDeleteRequests();
+  } catch (err) {
+    console.error('clearDeleteRequests error:', err);
+    showToast('Failed to clear delete requests.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('opacity-50');
+    }
+  }
+}
+
 // Global exposure
 window.openDeleteRequestModal = openDeleteRequestModal;
 window.closeDeleteRequestModal = closeDeleteRequestModal;
@@ -2666,6 +2740,7 @@ window.unsubscribeFromDeleteRequests = unsubscribeFromDeleteRequests;
 window.filterDeleteRequests = filterDeleteRequests;
 window.approveDeleteRequest = approveDeleteRequest;
 window.rejectDeleteRequest = rejectDeleteRequest;
+window.clearDeleteRequests = clearDeleteRequests;
 
 // ======================================================================
 // 👑 STAFF & ROLE-BASED ACCESS CONTROL (RBAC) MANAGEMENT
@@ -3645,6 +3720,21 @@ function verifyAuthDoor() {
   return true;
 }
 
+// Generate, copy and share the direct login URL (?auth=login)
+function copyLoginLink() {
+  const loginUrl = `${window.location.origin}${window.location.pathname}?auth=login`;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(loginUrl).then(() => {
+      showToast('📋 Direct login link copied to clipboard: ' + loginUrl, 'success');
+    }).catch(() => {
+      prompt('Copy this direct login link to share with sevaks:', loginUrl);
+    });
+  } else {
+    prompt('Copy this direct login link to share with sevaks:', loginUrl);
+  }
+}
+window.copyLoginLink = copyLoginLink;
+
 function showAuthScreen(backToChoice = true) {
   const authScreen = document.getElementById('auth-screen');
   const portalApp = document.getElementById('portal-app');
@@ -3689,6 +3779,17 @@ async function showPortalDashboard(user) {
     }
   }
 
+  // 🛡️ STRICT ACTIVITY ISOLATION:
+  // If not Super Admin, immediately prune local in-memory log so foreign activities are never exposed.
+  if (!isSuperAdmin()) {
+    const myId = user?.id;
+    const myEmail = (user?.email || '').toLowerCase();
+    state.activityLog = (state.activityLog || []).filter(e => {
+      return (myId && e.userId === myId) || (myEmail && (e.staffEmail || '').toLowerCase() === myEmail);
+    });
+    persistActivityLog();
+  }
+
   updateAuthHeader(user);
   if (user && user.email) enforceRoleUI();
 
@@ -3725,6 +3826,12 @@ function updateAuthHeader(user) {
             <span class="text-[10px] font-medium px-1.5 py-0.2 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/20">${roleConfig.label}</span>
           </div>
         </div>
+
+        <!-- Copy Direct Login Link Button -->
+        <button type="button" onclick="copyLoginLink()" class="hidden sm:flex items-center space-x-1.5 bg-white/[0.03] hover:bg-indigo-500/15 text-indigo-300 hover:text-white border border-white/[0.06] hover:border-indigo-500/30 font-medium px-2 py-1.5 rounded-lg transition text-xs cursor-pointer shadow-xs active:scale-95" title="Copy direct login link to share with staff">
+          <i data-lucide="link" class="w-3.5 h-3.5 text-indigo-400"></i>
+          <span class="hidden md:inline">Login Link</span>
+        </button>
 
         <!-- Minimalist Logout Ghost Button -->
         <button onclick="handleAuthSignOut()" class="flex items-center space-x-1.5 bg-white/[0.03] hover:bg-rose-500/10 text-slate-400 hover:text-rose-300 border border-white/[0.06] hover:border-rose-500/20 font-medium px-2.5 py-1.5 rounded-lg transition text-xs cursor-pointer shadow-xs active:scale-95" title="Sign Out of Portal">
@@ -3914,6 +4021,8 @@ async function handleAuthSignOut() {
   currentUser = null;
   currentUserProfile = null;
   currentUserRole = 'VIEWER';
+  state.activityLog = [];
+  try { localStorage.removeItem(STORAGE_KEYS.ACTIVITY); } catch (e) {}
   showAuthScreen();
 
   if (typeof showToast === 'function') {
@@ -4440,26 +4549,51 @@ async function loadActivityLogFromCloud(forceToast = false) {
   if (!client) return;
 
   try {
+    const isSuper = isSuperAdmin();
+    const myId = currentUser?.id;
+    const myEmail = (currentUser?.email || '').toLowerCase();
+
     // Supabase RLS enforces that:
     // - Super Admin sees all rows across all staff
     // - Staff members see only rows where user_id = auth.uid()
-    const { data, error } = await client
+    let query = client
       .from('activity_log')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(300);
 
+    // Defense-in-depth: if not super admin, strictly filter by current user's id
+    if (!isSuper && myId) {
+      query = query.eq('user_id', myId);
+    }
+
+    const { data, error } = await query;
+
     if (error) {
       if (/does not exist|relation .* does not exist|PGRST205/i.test(error.message || '')) {
-        console.warn('☁️ activity_log table missing — run supabase-activity-audit-centralization.sql');
+        console.warn('☁️ activity_log table missing — run supabase-isolate-user-activity-log.sql');
       }
       return;
     }
 
     if (Array.isArray(data)) {
       const merged = new Map();
-      (state.activityLog || []).forEach(e => merged.set(e.id, e));
+
+      // If not super admin, filter out any cached entries belonging to other users
+      (state.activityLog || []).forEach(e => {
+        if (!isSuper) {
+          const match = (myId && e.userId === myId) ||
+                        (myEmail && (e.staffEmail || '').toLowerCase() === myEmail);
+          if (!match) return; // strip cached foreign entries
+        }
+        merged.set(e.id, e);
+      });
+
       data.forEach(r => {
+        // Double-check row ownership for non-super-admin
+        if (!isSuper && myId && r.user_id && r.user_id !== myId) {
+          return; // strictly ignore foreign rows
+        }
         merged.set(String(r.id), {
           id: String(r.id),
           ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
@@ -4492,7 +4626,11 @@ async function loadActivityLogFromCloud(forceToast = false) {
       if (typeof renderActivityLog === 'function') renderActivityLog();
 
       if (forceToast) {
-        showToast(`Audit log refreshed (${arr.length} entries loaded).`, 'success');
+        showToast(isSuper
+          ? `Audit log refreshed (${arr.length} entries loaded).`
+          : `Personal activity log refreshed (${arr.length} entries loaded).`,
+          'success'
+        );
       }
     }
   } catch (e) {
@@ -4580,8 +4718,8 @@ function formatActivityWhen(ts) {
 function updateActivityNavBadge() {
   const badge = document.getElementById('nav-activity-badge');
   if (badge) {
-    const count = (state.activityLog || []).length;
-    badge.innerText = count;
+    const list = getFilteredActivityLog();
+    badge.innerText = list.length;
   }
 }
 
@@ -4948,9 +5086,16 @@ window.recordAuditEvent = recordAuditEvent;
 function renderRecentChanges() {
   const host = document.getElementById('recent-changes-list');
   if (!host) return;
-  const list = (state.activityLog || []).slice(0, 6);
-  host.innerHTML = list.length
-    ? list.map(activityItemHtml).join('')
+  const isSuper = isSuperAdmin();
+  let list = state.activityLog || [];
+  if (!isSuper) {
+    const myId = currentUser?.id;
+    const myEmail = (currentUser?.email || '').toLowerCase();
+    list = list.filter(e => (myId && e.userId === myId) || (myEmail && (e.staffEmail || '').toLowerCase() === myEmail));
+  }
+  const topList = list.slice(0, 6);
+  host.innerHTML = topList.length
+    ? topList.map(activityItemHtml).join('')
     : `<div class="text-xs text-slate-400 py-5 text-center">No recent changes yet.</div>`;
   if (window.lucide) lucide.createIcons();
 }
