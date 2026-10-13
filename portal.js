@@ -6129,7 +6129,7 @@ function renderDevoteesTable() {
   if (filtered.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="10" class="text-center py-10 text-slate-400">
+        <td colspan="8" class="text-center py-10 text-slate-400">
           <div class="flex flex-col items-center space-y-1">
             <i data-lucide="user-x" class="w-8 h-8 text-slate-300"></i>
             <span class="font-semibold text-sm">No devotee records found matching your filters</span>
@@ -6172,21 +6172,6 @@ function renderDevoteesTable() {
       bdayPill = '<span class="bg-red-500 text-white font-bold text-[9px] px-1.5 py-0.2 rounded-full ml-1">Today!</span>';
     }
 
-    // Anniversary cell (shows — if devotee has no anniversary)
-    const annivStr = d.anniversaryRaw || d.anniversaryDate || d.anniversary || '';
-    const annivMissing = !annivStr || ['na', 'n/a', 'no', 'none', 'null', '-'].includes(String(annivStr).trim().toLowerCase());
-    let annivCell = '<span class="text-slate-400 font-semibold">—</span>';
-    if (!annivMissing) {
-      const annivTiming = checkEventTiming(d.anniversaryDate || annivStr);
-      const annivPill = annivTiming.isToday ? '<span class="bg-pink-500 text-white font-bold text-[9px] px-1.5 py-0.2 rounded-full ml-1">Today!</span>' : '';
-      annivCell = `
-          <div class="font-semibold text-slate-800 flex items-center space-x-1.5">
-            <span class="text-xs">💍</span>
-            <span>${annivStr}</span>
-            ${annivPill}
-          </div>`;
-    }
-
     return `
       <tr class="hover:bg-slate-50 transition border-b border-slate-100 ${isChecked ? 'bg-teal-50/50' : ''}">
         <!-- Checkbox -->
@@ -6209,20 +6194,7 @@ function renderDevoteesTable() {
           </div>
         </td>
 
-        <!-- 2. Birthday Column -->
-        <td data-label="🎂 Birthday" class="py-3.5 px-3 whitespace-nowrap">
-          <div class="font-semibold text-slate-800 flex items-center space-x-1.5">
-            <span class="text-xs">🎂</span>
-            <span>${d.birthdayRaw || formatDate(d.dob)}</span>
-          </div>
-        </td>
-
-        <!-- 3. Anniversary Column -->
-        <td data-label="💍 Anniversary" class="py-3.5 px-3 whitespace-nowrap">
-          ${annivCell}
-        </td>
-
-        <!-- 3.5. Marital Status Column (Married | Widow | Unmarried — change needs confirmation) -->
+        <!-- Marital Status Column (Married | Widow | Unmarried — change needs confirmation) -->
         <td data-label="Marital Status" class="py-3.5 px-3 whitespace-nowrap">
           ${buildMaritalStatusSelect(d)}
         </td>
