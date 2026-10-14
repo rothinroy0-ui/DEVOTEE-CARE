@@ -12,7 +12,7 @@ const STORAGE_KEYS = {
   ANNIV_REMOVED: 'iskcon_devotee_care_anniv_removed_v1',
   BDAY_REMOVED: 'iskcon_devotee_care_bday_removed_v1',
   INITIALIZED: 'iskcon_devotee_care_initialized_v1',
-  PARCEL_PURGED: 'iskcon_devotee_care_parcels_purged_v2',
+  PARCEL_PURGED: 'iskcon_devotee_care_parcels_purged_v3',
   ACTIVITY: 'iskcon_devotee_care_activity_v1'
 };
 
@@ -1080,7 +1080,11 @@ function mapSupabaseRowToDevotee(row, existingDevotee = {}) {
     state: row['STATE'] || existingDevotee.state || '',
     pincode: row['PIN CODE'] || existingDevotee.pincode || '',
     photo: photo,
-    photoDirect: directPhoto
+    photoDirect: directPhoto,
+    maritalStatus: row['marital_status'] || row['maritalStatus'] || existingDevotee.maritalStatus || '',
+    addressVerified: row['address_verified'] || row['addressVerified'] || existingDevotee.addressVerified || '',
+    deliveryMode: row['delivery_mode'] || row['deliveryMode'] || existingDevotee.deliveryMode || '',
+    courierPartner: row['courier_partner'] || row['courierPartner'] || existingDevotee.courierPartner || ''
   };
 }
 
@@ -1437,6 +1441,7 @@ function initApp() {
     }
     const seed = getInitialSampleData();
     if (!state.counselors || state.counselors.length === 0) state.counselors = seed.counselors;
+    if (Array.isArray(state.devotees)) state.devotees.forEach(clearDevoteeParcelTrace);
     saveToStorage();
     localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
   }
@@ -1492,7 +1497,13 @@ function initApp() {
   updateLiveDateTime();
   setInterval(updateLiveDateTime, 1000);
 
-  // Initial renders
+  // Initialize Supabase Auth & Gated Session (Strict Authentication Gateway)
+  // Devotee directory, parcels, and dashboard are rendered ONLY after authentication succeeds.
+  initAuthSystem();
+}
+
+let _portalRenderedOnce = false;
+function renderAuthenticatedPortal() {
   populateMonthFilters();
   populateCityFilter();
   populateMaritalStatusFilter();
@@ -1504,14 +1515,9 @@ function initApp() {
   renderRemovedCelebrationSection();
   updateActivityNavBadge();
   loadStaffListFromCloud();
-  initCharts();
-
-  if (window.lucide) {
-    lucide.createIcons();
-  }
-
-  // Initialize Supabase Auth & Gated Session
-  initAuthSystem();
+  if (typeof initCharts === 'function') initCharts();
+  if (window.lucide) lucide.createIcons();
+  _portalRenderedOnce = true;
 }
 
 let _cloudSyncDebounceTimer = null;
@@ -1594,7 +1600,8 @@ function clearDevoteeParcelTrace(d) {
     'parcelStatus', 'parcelStatusText', 'trackingId', 'courierPartner',
     'courierTrackingNo', 'bookingDate', 'expectedDeliveryDate',
     'dispatchDate', 'estimatedDelivery', 'deliveryDate', 'deliveryAgent',
-    'parcelCreatedAt', 'parcelCreated', 'hasParcel', 'parcelType', 'parcelDescription'
+    'parcelCreatedAt', 'parcelCreated', 'hasParcel', 'parcelType', 'parcelDescription',
+    'packageContents'
   ];
   parcelTraceFields.forEach(f => {
     try { delete d[f]; } catch (e) { /* ignore */ }
@@ -1873,6 +1880,7 @@ function allowedTabsForRole(roleKey) {
 
 // Does the current role have this permission?
 function can(perm) {
+  if (!currentUser) return false;
   const list = ROLE_PERMISSIONS[getActiveRoleKey()] || [];
   return list.includes('*') || list.includes(perm);
 }
@@ -3492,37 +3500,15 @@ function clearAuthUrlMarkers() {
 const PUBLIC_OPEN_ACCESS = false;
 const PUBLIC_LANDING_MODE = false; // only used when OPEN ACCESS is off
 
-// 🟢 Open the whole portal to everyone — active portal mode with full access.
+// 🔒 STRICT AUTHENTICATION ENFORCED: No public or preview bypass allowed.
 function enterPublicPortal() {
-  currentUser = null;
-  currentUserProfile = null;
-  currentUserRole = 'SUPER_ADMIN'; // full UI access while the portal is active
-
-  hidePublicLandingViews();
-  if (typeof hideAccessDenied === 'function') hideAccessDenied();
-  if (typeof clearAuthAlert === 'function') clearAuthAlert();
-
-  const authScreen = document.getElementById('auth-screen');
-  const portalApp = document.getElementById('portal-app');
-  if (authScreen) authScreen.classList.add('hidden');
-  if (portalApp) portalApp.classList.remove('hidden');
-
-  updateAuthHeader(null);
-  enforceRoleUI();
-  switchTab('dashboard');
-  if (window.lucide) lucide.createIcons();
+  console.warn('⛔ enterPublicPortal disabled. Mandatory authentication required.');
+  showAuthScreen();
 }
 
-// Local-only "first-run" preview: while no admin account exists yet, a
-// developer can still open the portal on localhost to inspect the UI. This is
-// NEVER available on the deployed site (hostname-gated) and shows a clear
-// "not authenticated" banner.
+// Local preview bypass permanently disabled
 function isLocalHost() {
-  try {
-    const h = window.location.hostname;
-    const proto = window.location.protocol;
-    return h === 'localhost' || h === '127.0.0.1' || h === '' || h === '::1' || proto === 'file:';
-  } catch (e) { return false; }
+  return false;
 }
 
 // Show the public landing (Get Started) view and keep the login UI hidden.
@@ -3559,59 +3545,19 @@ function closeWelcomePage() {
   showLandingView();
 }
 
-// 🧪 Local-only first-run preview — lets you inspect the portal on localhost
-// while Supabase is being set up. Gated by hostname so it can never open the
-// deployed site, and clearly labelled as "not signed in".
+// 🔒 Offline preview bypass permanently disabled: Valid Email ID and Password required.
 function enterPortalPreview() {
-  if (!isLocalHost()) return;
-  currentUser = null;
-  currentUserProfile = null;
-  currentUserRole = 'SUPER_ADMIN'; // full UI so every screen can be inspected
-
-  hidePublicLandingViews();
-  if (typeof hideAccessDenied === 'function') hideAccessDenied();
-  if (typeof clearAuthAlert === 'function') clearAuthAlert();
-
-  const authScreen = document.getElementById('auth-screen');
-  const portalApp = document.getElementById('portal-app');
-  if (authScreen) authScreen.classList.add('hidden');
-  if (portalApp) portalApp.classList.remove('hidden');
-
-  updateAuthHeader(null);
-  renderPreviewChip();
-  enforceRoleUI();
-  switchTab('dashboard');
-
-
-  if (typeof showToast === 'function') {
-    showToast('Local preview mode — you are NOT signed in. Create an admin account to use the real secure workflow.', 'warning');
-  }
-  if (window.lucide) lucide.createIcons();
+  console.warn('⛔ Offline preview bypass disabled. Valid Email ID and Password required.');
+  showAuthScreen();
 }
 
 function renderPreviewChip() {
-  const container = document.getElementById('auth-header-container');
-  if (!container) return;
-  container.innerHTML = `
-    <div class="flex items-center space-x-2">
-      <span class="flex items-center space-x-1.5 bg-amber-500/15 text-amber-300 border border-amber-400/40 font-semibold px-2.5 py-1.5 rounded-lg text-xs" title="Local preview only — not signed in">
-        <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
-        <span class="hidden sm:inline">Local Preview</span>
-      </span>
-      <button onclick="showAuthScreen()" class="flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-3 py-1.5 rounded-lg transition text-xs cursor-pointer">
-        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
-        <span>Sign In</span>
-      </button>
-    </div>
-  `;
-  if (window.lucide) lucide.createIcons();
+  // Preview chip disabled
 }
 
-// Show the "Open local preview" button only when running on localhost.
 function refreshLocalPreviewUI() {
   const wrap = document.getElementById('local-preview-wrap');
-  if (!wrap) return;
-  wrap.classList.toggle('hidden', !isLocalHost());
+  if (wrap) wrap.classList.add('hidden');
 }
 
 // ----------------------------------------------------
@@ -3763,21 +3709,13 @@ window.copyLoginLink = copyLoginLink;
 function showAuthScreen(backToChoice = true) {
   const authScreen = document.getElementById('auth-screen');
   const portalApp = document.getElementById('portal-app');
-  if (authScreen) authScreen.classList.remove('hidden');
-  if (portalApp) portalApp.classList.add('hidden');
-
-  // 🟢 Public open-access mode — the portal stays open, never the login UI.
-  if (PUBLIC_OPEN_ACCESS) {
-    enterPublicPortal();
-    return;
+  if (authScreen) {
+    authScreen.classList.remove('hidden');
+    authScreen.style.removeProperty('display');
   }
-
-  // 🟢 Temporary public landing mode — never reveal the login / sign-up UI.
-  if (PUBLIC_LANDING_MODE) {
-    showLandingView();
-    updateAuthHeader(null);
-    if (window.lucide) lucide.createIcons();
-    return;
+  if (portalApp) {
+    portalApp.classList.add('hidden');
+    portalApp.style.setProperty('display', 'none', 'important');
   }
 
   const panelFromUrl = getPanelFromUrl();
@@ -3789,10 +3727,22 @@ function showAuthScreen(backToChoice = true) {
 }
 
 async function showPortalDashboard(user) {
+  if (!user || !user.email) {
+    console.warn('⛔ showPortalDashboard called without valid user. Mandatory login enforced.');
+    showAuthScreen();
+    return;
+  }
+
   const authScreen = document.getElementById('auth-screen');
   const portalApp = document.getElementById('portal-app');
-  if (authScreen) authScreen.classList.add('hidden');
-  if (portalApp) portalApp.classList.remove('hidden');
+  if (authScreen) {
+    authScreen.classList.add('hidden');
+    authScreen.style.setProperty('display', 'none', 'important');
+  }
+  if (portalApp) {
+    portalApp.classList.remove('hidden');
+    portalApp.style.removeProperty('display');
+  }
 
   // Resolve the role BEFORE the first header render so a fail-closed USER
   // account never flashes the Admin badge/tabs.
@@ -3803,6 +3753,9 @@ async function showPortalDashboard(user) {
       console.warn('Profile fetch handled:', e);
     }
   }
+
+  // Render the portal data now that identity is confirmed
+  renderAuthenticatedPortal();
 
   // 🛡️ STRICT ACTIVITY ISOLATION:
   // If not Super Admin, immediately prune local in-memory log so foreign activities are never exposed.
@@ -4048,6 +4001,20 @@ async function handleAuthSignOut() {
   currentUserRole = 'VIEWER';
   state.activityLog = [];
   try { localStorage.removeItem(STORAGE_KEYS.ACTIVITY); } catch (e) {}
+
+  // Securely clear table DOM content so unauthenticated visitors cannot view cached records
+  const devBody = document.getElementById('devotees-table-body');
+  if (devBody) devBody.innerHTML = '';
+  const parcelBody = document.getElementById('parcels-table-body');
+  if (parcelBody) parcelBody.innerHTML = '';
+  const bdayGrid = document.getElementById('bday-grid-container');
+  if (bdayGrid) bdayGrid.innerHTML = '';
+
+  const emailInput = document.getElementById('auth-email');
+  const passwordInput = document.getElementById('auth-password');
+  if (emailInput) emailInput.value = '';
+  if (passwordInput) passwordInput.value = '';
+
   showAuthScreen();
 
   if (typeof showToast === 'function') {
@@ -4296,23 +4263,6 @@ function setupAuthListener() {
 }
 
 async function initAuthSystem() {
-  // 🟢 Public OPEN-ACCESS mode — no login; the whole portal is public.
-  if (PUBLIC_OPEN_ACCESS) {
-    console.log('🟢 Public OPEN-ACCESS mode ON — opening the portal for everyone (no login).');
-    enterPublicPortal();
-    return;
-  }
-
-  // 🟢 Temporary public landing mode — bypass authentication entirely so that no
-  // login attempt, sign-up form, or database error can reach the landing page.
-  // No Supabase request is made here, so the broken-auth issue cannot surface.
-  // Existing users, records, tables and auth settings are untouched.
-  if (PUBLIC_LANDING_MODE) {
-    console.log('🟢 Public landing mode ON — showing Get Started page (auth bypassed).');
-    showAuthScreen();
-    return;
-  }
-
   const client = getSupabaseClient();
   if (!client) {
     console.warn('⚠️ Supabase client not loaded, displaying sign in screen.');
@@ -5183,6 +5133,11 @@ function exportActivityLogCsv() {
 }
 
 function switchTab(tabId) {
+  if (!currentUser) {
+    showAuthScreen();
+    return;
+  }
+
   // Role gate (Phase 1) — a role may only open tabs belonging to its panel
   if (!allowedTabsForRole().includes(tabId)) {
     const roleKey = getActiveRoleKey();
@@ -5634,23 +5589,36 @@ const MONTH_NAMES = [
 
 function getParcelMonthYear(p) {
   if (!p) return null;
-  const raw = p.bookingDate || p.createdAt || p.parcelCreatedAt;
-  if (!raw) return null;
+  const raw = p.bookingDate || p.createdAt || p.parcelCreatedAt || p.dispatchedDate || p.deliveryDate;
 
   let y = null, m = null;
-  if (typeof raw === 'string' && /^\d{4}-\d{2}/.test(raw)) {
-    const parts = raw.split('T')[0].split('-');
-    y = parseInt(parts[0], 10);
-    m = parseInt(parts[1], 10); // 1-12
-  } else {
-    const d = new Date(raw);
-    if (!isNaN(d.getTime())) {
-      y = d.getFullYear();
-      m = d.getMonth() + 1;
+  if (raw) {
+    if (typeof raw === 'string' && /^\d{4}-\d{2}/.test(raw)) {
+      const parts = raw.split('T')[0].split('-');
+      y = parseInt(parts[0], 10);
+      m = parseInt(parts[1], 10); // 1-12
+    } else {
+      const d = new Date(raw);
+      if (!isNaN(d.getTime())) {
+        y = d.getFullYear();
+        m = d.getMonth() + 1;
+      }
     }
   }
 
-  if (!y || !m || m < 1 || m > 12) return null;
+  // Fallback: use current year and month so no parcel is un-grouped
+  if (!y || !m || m < 1 || m > 12) {
+    const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
+    const now = new Date();
+    y = now.getFullYear();
+    m = (dev && dev.birthMonth) ? parseInt(dev.birthMonth, 10) : (now.getMonth() + 1);
+  }
+  if (!y || !m || m < 1 || m > 12) {
+    const now = new Date();
+    y = now.getFullYear();
+    m = now.getMonth() + 1;
+  }
+
   return {
     year: y,
     month: m,
@@ -5704,7 +5672,7 @@ function getParcelsDuplicateMap() {
 
     const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
     const spouse = dev ? findMatchedSpouseDevotee(dev) : null;
-    let canonId = p.devoteeId;
+    let canonId = p.devoteeId || (dev && dev.id) || 'unknown';
     if (spouse && spouse.id && spouse.id < canonId) {
       canonId = spouse.id;
     }
@@ -5731,7 +5699,184 @@ function getParcelsDuplicateMap() {
   return dupMap;
 }
 
-function showDuplicateParcelWarning(devotee, monthYearLabel, existingParcel) {
+// Compute retention scoring: highest score is preserved as primary, lower scores are marked as duplicates to delete
+function getParcelRetentionScore(p) {
+  if (!p) return 0;
+  let score = 0;
+  // 1. Delivery Status (Delivered is highest value)
+  if (p.delivered === true || p.parcelStatus === 'DELIVERED') score += 1000;
+  else if (p.parcelStatus === 'OUT_FOR_DELIVERY') score += 800;
+  else if (p.parcelStatus === 'IN_TRANSIT') score += 700;
+  else if (p.parcelStatus === 'PACKED_BLESSED' || p.parcelStatus === 'DISPATCHED') score += 600;
+  else score += 100;
+
+  // 2. Real courier tracking number (13-14 digits)
+  const courierTrk = String(p.courierTrackingNo || '').trim();
+  if (/^\d{10,15}$/.test(courierTrk)) score += 500;
+  else if (courierTrk.length >= 8) score += 300;
+  else if ((p.trackingId || '').trim().length >= 5) score += 10;
+
+  // 3. Calling recorded
+  if (p.preCalling === 'Yes' || p.postCalling === 'Yes') score += 200;
+
+  // 4. Prefer Male / husband as primary household contact if tie
+  const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
+  if (dev && dev.gender === 'Male') score += 20;
+
+  // 5. Has phone / address data
+  if (p.phone && p.phone.trim().length >= 10) score += 50;
+  if (p.address && p.address.trim().length >= 10) score += 50;
+
+  return score;
+}
+
+// Identifies all duplicate consignment groups and produces list of IDs to delete, keeping the best one in each group
+function getDuplicateParcelsToDelete() {
+  const map = new Map();
+  const parcels = state.parcels || [];
+
+  parcels.forEach(p => {
+    const my = getParcelMonthYear(p);
+    const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
+    const spouse = dev ? findMatchedSpouseDevotee(dev) : null;
+    let canonId = p.devoteeId || (dev && dev.id) || 'unknown';
+    if (spouse && spouse.id && spouse.id < canonId) {
+      canonId = spouse.id;
+    }
+    const y = my ? my.year : new Date().getFullYear();
+    const m = my ? my.month : (new Date().getMonth() + 1);
+
+    const key = `${canonId}-${y}-${m}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(p);
+  });
+
+  const duplicateGroups = [];
+  const allIdsToDelete = [];
+
+  map.forEach((list, key) => {
+    if (list.length > 1) {
+      // Sort: best retention parcel at index 0 (to KEEP)
+      list.sort((a, b) => {
+        const sa = getParcelRetentionScore(a);
+        const sb = getParcelRetentionScore(b);
+        if (sb !== sa) return sb - sa; // higher score first
+        // If tied, keep earliest created or booked consignment
+        const ta = a.createdAt || a.bookingDate || a.parcelCreatedAt || '';
+        const tb = b.createdAt || b.bookingDate || b.parcelCreatedAt || '';
+        if (ta && tb) {
+          const da = new Date(ta).getTime();
+          const db = new Date(tb).getTime();
+          if (!isNaN(da) && !isNaN(db) && da !== db) return da - db;
+        }
+        return String(a.id || '').localeCompare(String(b.id || ''));
+      });
+
+      const keep = list[0];
+      const toDelete = list.slice(1);
+      toDelete.forEach(item => {
+        if (item.id) allIdsToDelete.push(item.id);
+      });
+
+      const my = getParcelMonthYear(keep);
+      duplicateGroups.push({
+        key,
+        monthLabel: my ? my.label : '',
+        keep,
+        toDelete
+      });
+    }
+  });
+
+  return { duplicateGroups, allIdsToDelete };
+}
+
+// Automatically delete duplicate parcels from Parcel Tracking tab, preserving the primary booking
+async function deleteDuplicateParcels() {
+  if (isViewer()) {
+    showToast('⛔ Viewers cannot delete duplicate parcels.', 'error');
+    return;
+  }
+
+  const { duplicateGroups, allIdsToDelete } = getDuplicateParcelsToDelete();
+  if (!allIdsToDelete || allIdsToDelete.length === 0) {
+    showToast('✅ No duplicate parcels found in tracking. Everything is clean!', 'success');
+    updateParcelKpiCards();
+    return;
+  }
+
+  const deleteCount = allIdsToDelete.length;
+  const groupCount = duplicateGroups.length;
+
+  const confirmed = await showAppConfirm({
+    title: 'Delete Duplicate Consignments',
+    message: `Found ${deleteCount} redundant duplicate parcel consignment${deleteCount > 1 ? 's' : ''} across ${groupCount} devotee/couple group${groupCount > 1 ? 's' : ''}.\n\n` +
+             `The primary/original booking for each devotee will be safely kept. Only redundant extra copies will be permanently deleted.\n\n` +
+             `Do you want to permanently delete these ${deleteCount} duplicate parcel${deleteCount > 1 ? 's' : ''}?`,
+    confirmText: `Delete ${deleteCount} Duplicate${deleteCount > 1 ? 's' : ''}`,
+    cancelText: 'Cancel',
+    isDanger: true,
+    icon: '🗑️'
+  });
+  if (!confirmed) return;
+
+  const idsToDeleteSet = new Set(allIdsToDelete);
+  state.parcels = (state.parcels || []).filter(p => !idsToDeleteSet.has(p.id));
+
+  // If any selected parcels were deleted, unselect them
+  if (state.selectedParcels) {
+    allIdsToDelete.forEach(id => state.selectedParcels.delete(id));
+  }
+
+  // Ensure devotee record mirrors the kept parcel
+  duplicateGroups.forEach(g => {
+    const keep = g.keep;
+    const dev = (state.devotees || []).find(d => d.id === keep.devoteeId);
+    if (dev) {
+      dev.hasParcel = true;
+      dev.parcelCreated = true;
+      dev.parcelId = keep.id;
+      if (keep.courierTrackingNo) dev.courierTrackingNo = keep.courierTrackingNo;
+      if (keep.courierPartner) dev.courierPartner = keep.courierPartner;
+    }
+  });
+
+  saveToStorage();
+  try {
+    localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+  } catch (e) { /* ignore */ }
+
+  // Best-effort delete from Supabase parcels table in chunks of 50
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      for (let i = 0; i < allIdsToDelete.length; i += 50) {
+        const chunk = allIdsToDelete.slice(i, i + 50);
+        client.from('parcels').delete().in('id', chunk).then(() => {});
+      }
+    }
+  } catch (e) {
+    console.warn('Cloud duplicate delete error:', e);
+  }
+
+  logActivity('delete', 'Parcel', `Deleted ${deleteCount} duplicate parcel consignment(s) across ${groupCount} group(s).`);
+
+  // If duplicate filter was active and now 0 duplicates, reset filter to ALL
+  const pFilter = document.getElementById('parcel-filter-purpose');
+  if (pFilter && pFilter.value === 'DUPLICATES') {
+    pFilter.value = 'ALL';
+  }
+
+  updateKPIs();
+  updateParcelKpiCards();
+  renderParcelsTable();
+  renderBirthdaysGrid();
+  renderDevoteesTable();
+
+  showToast(`✅ Successfully deleted ${deleteCount} duplicate parcel${deleteCount > 1 ? 's' : ''}! Original bookings preserved.`, 'success');
+}
+
+function showDuplicateParcelWarning(devotee, monthYearLabel, existingParcel, duplicateParcel = null) {
   const modal = document.getElementById('duplicate-parcel-modal');
   if (!modal) {
     alert(`⚠️ Duplicate Parcel Detected\nThis devotee already has a parcel booked for ${monthYearLabel}.`);
@@ -5787,6 +5932,21 @@ function showDuplicateParcelWarning(devotee, monthYearLabel, existingParcel) {
     };
   }
 
+  // Direct delete button inside modal for duplicate consignment
+  const delBtn = document.getElementById('dp-modal-delete-btn');
+  if (delBtn) {
+    const targetToDelete = duplicateParcel || existingParcel;
+    if (targetToDelete && targetToDelete.id) {
+      delBtn.classList.remove('hidden');
+      delBtn.onclick = async () => {
+        closeDuplicateParcelModal();
+        await deleteParcelRecord(targetToDelete.id, targetToDelete.devoteeId);
+      };
+    } else {
+      delBtn.classList.add('hidden');
+    }
+  }
+
   modal.classList.remove('hidden');
   if (window.lucide) lucide.createIcons();
 
@@ -5807,7 +5967,7 @@ function showDuplicateParcelWarningForParcel(parcelId) {
   const label = dupInfo ? dupInfo.monthYearLabel : (my ? my.label : 'this month');
   const other = (dupInfo && dupInfo.otherParcels && dupInfo.otherParcels[0]) || p;
   const dev = (state.devotees || []).find(d => d.id === p.devoteeId);
-  showDuplicateParcelWarning(dev, label, other);
+  showDuplicateParcelWarning(dev, label, other, p);
 }
 
 function handleParcelKpiDuplicateClick() {
@@ -5854,8 +6014,9 @@ function updateParcelKpiCards() {
 
   const banner = document.getElementById('parcel-duplicate-banner');
   const bannerCount = document.getElementById('parcel-duplicate-banner-count');
+  const isDismissed = sessionStorage.getItem('parcel_duplicate_banner_dismissed') === 'true';
   if (banner) {
-    if (s.duplicates > 0) {
+    if (s.duplicates > 0 && !isDismissed) {
       banner.classList.remove('hidden');
       if (bannerCount) bannerCount.innerText = `${s.duplicates} Entries`;
     } else {
@@ -5863,7 +6024,24 @@ function updateParcelKpiCards() {
     }
   }
 
+  const toolbarBadge = document.getElementById('parcel-duplicate-count-badge');
+  if (toolbarBadge) {
+    if (s.duplicates > 0) {
+      toolbarBadge.innerText = s.duplicates;
+      toolbarBadge.classList.remove('hidden');
+    } else {
+      toolbarBadge.classList.add('hidden');
+    }
+  }
+
   return s;
+}
+
+function dismissDuplicateParcelBanner() {
+  const banner = document.getElementById('parcel-duplicate-banner');
+  if (banner) banner.classList.add('hidden');
+  sessionStorage.setItem('parcel_duplicate_banner_dismissed', 'true');
+  showToast('Duplicate parcel alert banner dismissed.', 'info');
 }
 
 // Highlight the active Purpose KPI card (Birthday / Anniversary / Duplicates) when its filter is applied
@@ -7104,6 +7282,8 @@ async function handleMaritalStatusChange(devoteeId, selectEl) {
   saveToStorage();
   populateMaritalStatusFilter(); // keep the Marital Status filter options live
   renderDevoteesTable();
+  logActivity('edit', 'Devotee', `Updated Marital Status for "${d.spiritualName || d.legalName}" to ${newVal}.`, d.id);
+  syncDevoteeRecordToCloud(d);
   showToast(`Marital Status updated to ${newVal}`, 'success');
 }
 
@@ -7972,7 +8152,7 @@ function renderBirthdaysGrid() {
     if (container) container.innerHTML = '';
     tableBody.innerHTML = `
       <tr>
-        <td colspan="8" class="text-center py-12 text-slate-400">
+        <td colspan="9" class="text-center py-12 text-slate-400">
           <div class="flex flex-col items-center space-y-1.5">
             <span class="text-2xl">🎂</span>
             <span class="font-bold text-sm text-slate-700">No celebrations found for selected filters</span>
@@ -7997,6 +8177,9 @@ function renderBirthdaysGrid() {
     const eventIcon = item.eventType === 'MARRIAGE' ? '💍' : '🎂';
     const serialNo = idx + 1;
     const isSel = state.selectedCelebrations.has(d.id) || (spouseDevotee && state.selectedCelebrations.has(spouseDevotee.id));
+    const liveParcel = (state.parcels || []).find(p => p.devoteeId === d.id || (spouseDevotee && p.devoteeId === spouseDevotee.id));
+    const hasParcel = !!liveParcel;
+    const parcelType = item.eventType === 'MARRIAGE' ? 'Anniversary' : 'Birthday';
 
     return `
       <tr class="hover:bg-slate-50/90 transition border-b border-slate-100 ${isSel ? 'bg-pink-50/40' : ''}">
@@ -8150,7 +8333,27 @@ function renderBirthdaysGrid() {
           </select>
         </td>
 
-        <!-- 6. Actions (Wish / Remove) — Remove = soft-removal, data is never deleted -->
+        <!-- 6. Parcel (Create Parcel / Created) -->
+        <td class="py-2 px-2 text-center whitespace-nowrap">
+          ${hasParcel ? `
+            <button onclick="viewParcelInTracking('${liveParcel.id}')" 
+                    class="inline-flex items-center space-x-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-xs cursor-pointer" 
+                    title="Parcel already created for this celebration — click to view in Parcel Tracking">
+              <span>📦</span>
+              <span>Created</span>
+              <span class="text-[10px] text-emerald-600 font-mono">↗</span>
+            </button>
+          ` : `
+            <button onclick="openCreateParcelModal('${d.id}', '${parcelType}')" 
+                    class="inline-flex items-center space-x-1 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-xs hover:shadow cursor-pointer active:scale-95" 
+                    title="Create Consignment Parcel for ${escapeHtml(displayName)}">
+              <span>📦</span>
+              <span>Create Parcel</span>
+            </button>
+          `}
+        </td>
+
+        <!-- 7. Actions (Wish / Remove) — Remove = soft-removal, data is never deleted -->
         <td class="py-2 px-2 whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
             <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">
@@ -8261,6 +8464,7 @@ function setCelebrationDeliveryMode(devId, mode) {
       dev.courierPartner = (mode === 'SELF') ? 'Self Pickup' : (mode === 'DELHIVERY' ? 'Delhivery' : '');
       // Self Mode rule: Pre Calling ON / Post Calling OFF — applied automatically
       if (mode === 'SELF') { dev.preCalling = 'Yes'; dev.postCalling = 'No'; }
+      syncDevoteeRecordToCloud(dev);
     }
   });
 
@@ -8692,6 +8896,7 @@ function renderParcelsTable() {
   // Parcel Tracking lists ONLY live auto-synced parcel records — created from the
   // Birthday / Anniversary lists. No calendar-based filtering anymore.
   const parcels = state.parcels || [];
+  const dupMap = getParcelsDuplicateMap();
 
   const filtered = parcels.filter(p => {
     // 1. Mode of Delivery Filter (Delhivery Courier / Self Mode)
@@ -8702,8 +8907,10 @@ function renderParcelsTable() {
     // 1a. Date Created filter — exact local date the consignment was created
     if (dateFilter && getParcelCreatedDate(p) !== dateFilter) return false;
 
-    // 1b. Purpose Filter (All / Birthday / Anniversary)
-    if (purposeFilter !== 'ALL') {
+    // 1b. Purpose Filter (All / Birthday / Anniversary / Duplicates)
+    if (purposeFilter === 'DUPLICATES') {
+      if (!dupMap.has(p.id)) return false;
+    } else if (purposeFilter !== 'ALL') {
       const purpose = p.parcelType || p.eventType || '';
       if (purpose !== purposeFilter) return false;
     }
@@ -8763,7 +8970,7 @@ function renderParcelsTable() {
     // detail (courier, tracking no, parcel type) reflects the actual record.
     const devo = state.devotees.find(x => x.id === p.devoteeId) || {};
     const d = Object.assign({}, devo, p, { id: p.devoteeId, parcelCreated: true });
-    const displayName = d.spiritualName || d.legalName;
+    const displayName = p.devoteeName || d.spiritualName || d.legalName;
     const secondaryName = d.spiritualName ? d.legalName : '';
     const courier = d.courierPartner || 'Delivery Courier';
     const deliveryModeLabel = getParcelDeliveryModeLabel(p);
@@ -8775,6 +8982,8 @@ function renderParcelsTable() {
     const serialNo = String(idx + 1).padStart(2, '0');
     const delivered = d.delivered === true;
     const isSel = (state.selectedParcels || new Set()).has(p.id);
+    const isDup = dupMap.has(p.id);
+    const dupInfo = dupMap.get(p.id);
 
     return `
       <tr id="parcel-row-${p.id}" class="hover:bg-slate-50/80 transition${isSel ? ' bg-red-50/50' : ''}">
@@ -8901,6 +9110,21 @@ function renderParcelsTable() {
   updateParcelSelectedCountUI();
 
   if (window.lucide) lucide.createIcons();
+}
+
+// Jump directly to a parcel row in the Parcel Tracking tab and flash highlight it
+function viewParcelInTracking(parcelId) {
+  switchTab('parcels');
+  setTimeout(() => {
+    const row = document.getElementById(`parcel-row-${parcelId}`);
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('bg-amber-100/80', 'ring-2', 'ring-amber-400');
+      setTimeout(() => {
+        row.classList.remove('bg-amber-100/80', 'ring-2', 'ring-amber-400');
+      }, 3500);
+    }
+  }, 250);
 }
 
 // ----------------------------------------------------
@@ -9113,7 +9337,17 @@ async function deleteParcelRecord(parcelId, devoteeId) {
   if (!confirmed) return;
 
   state.parcels = (state.parcels || []).filter(p => p.id !== parcelId);
-  if (dev) clearDevoteeParcelTrace(dev);
+  if (dev) {
+    const remainingParcel = state.parcels.find(x => x.devoteeId === devoteeId);
+    if (!remainingParcel) {
+      clearDevoteeParcelTrace(dev);
+    } else {
+      dev.hasParcel = true;
+      dev.parcelCreated = true;
+      dev.parcelId = remainingParcel.id;
+      if (remainingParcel.courierTrackingNo) dev.courierTrackingNo = remainingParcel.courierTrackingNo;
+    }
+  }
   if (state.selectedParcels) state.selectedParcels.delete(parcelId);
   saveToStorage();
   logActivity('delete', 'Parcel', `Deleted parcel consignment for "${name}".`, parcelId);
@@ -9773,18 +10007,19 @@ async function syncDevoteeRecordToCloud(d) {
       'courier_partner': d.courierPartner || null
     };
 
-    const attempt = async (onConflict) => {
-      if (onConflict) {
-        return await client.from('devotees').upsert([row], { onConflict });
-      }
-      return await client.from('devotees').insert([row]);
-    };
+    // Try update first by DEVOTEE ID
+    let { data, error } = await client
+      .from('devotees')
+      .update(row)
+      .eq('DEVOTEE ID', d.id)
+      .select();
 
-    let { data, error } = await attempt('DEVOTEE ID');
-    if (error) ({ data, error } = await attempt('devotee_id'));
-    if (error && /no unique or exclusion constraint matching/i.test(error.message || '')) {
-      ({ data, error } = await attempt(null));
+    // If record did not exist in cloud, insert/upsert it
+    if (!error && Array.isArray(data) && data.length === 0) {
+      const insRes = await client.from('devotees').upsert([row], { onConflict: 'DEVOTEE ID' });
+      error = insRes.error;
     }
+
     if (error) {
       console.warn('☁️ Devotee cloud sync notice:', error.message);
     } else {
@@ -9926,10 +10161,16 @@ function populateCreateParcelFields(d, parcelTypeOverride = null) {
     parcelDescEl.value = d.parcelDescription || 'Sanctified Sri Sri Radha Madan Mohan Maha-Prasadam Laddu, Tulasi Leaves, Sacred Kalash Blessings & Srimad Bhagavad-gita';
   }
 
-  // Mode of Delivery — never pre-assigned; the user must choose it explicitly.
+  // Mode of Delivery — pre-select devotee's deliveryMode if already chosen, otherwise prompt to choose
   const modeEl = document.getElementById('cp-mode');
   if (modeEl) {
-    modeEl.value = '';
+    if (d.deliveryMode === 'SELF') {
+      modeEl.value = 'Self Mode';
+    } else if (d.deliveryMode === 'DELHIVERY') {
+      modeEl.value = 'Delhivery Courier';
+    } else {
+      modeEl.value = '';
+    }
   }
 
   // Booking Date (Today)
@@ -10001,10 +10242,11 @@ function handleCreateParcelSubmit(e) {
 
   // Manage in state.parcels array as well
   if (!state.parcels) state.parcels = [];
+  const devNameInput = document.getElementById('cp-devotee-name')?.value;
   const parcelRecord = {
     id: `PARCEL-${d.id}-${Date.now()}`,
     devoteeId: d.id,
-    devoteeName: d.spiritualName || d.legalName,
+    devoteeName: devNameInput || d.spiritualName || d.legalName,
     spiritualName: d.spiritualName || '',
     legalName: d.legalName || '',
     phone: d.phone,
@@ -10059,7 +10301,7 @@ function handleCreateParcelSubmit(e) {
 
   // Smooth scroll and highlight the new parcel row
   setTimeout(() => {
-    const row = document.getElementById(`parcel-row-${d.id}`);
+    const row = document.getElementById(`parcel-row-${parcelRecord.id}`);
     if (row) {
       row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       row.classList.add('bg-amber-100/80', 'ring-2', 'ring-amber-400');
