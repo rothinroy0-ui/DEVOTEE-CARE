@@ -1700,7 +1700,19 @@ function applyMobileTableLabels() {
     // (Re)label the rows — freshly rendered rows may not carry labels yet.
     dataRows.forEach(tr => {
       Array.from(tr.children).forEach((td, i) => {
-        if (!td.hasAttribute('data-label')) td.setAttribute('data-label', headers[i] || '');
+        let label = headers[i] || '';
+        if (!label || label === '') {
+          if (td.querySelector('input[type="checkbox"]')) label = 'Select';
+          else if (td.querySelector('button, a')) label = 'Action';
+        }
+        // Normalize common action/select labels
+        if (/^(action|actions)$/i.test(label)) label = 'Action';
+        if (/^(#|s\.no\.?|sl\.?|sl\s*no\.?)$/i.test(label)) label = '#';
+        if (/^(select|sel)$/i.test(label)) label = 'Select';
+        // Clean up emojis from header like "📞 Phone" -> "Phone"
+        label = label.replace(/[^\w\s.#/-]/gi, '').trim();
+
+        td.setAttribute('data-label', label);
       });
     });
     if (!table.classList.contains('responsive-table')) table.classList.add('responsive-table');
@@ -6233,7 +6245,7 @@ function renderDevoteesTable() {
         </td>
 
         <!-- 6. Phone Column -->
-        <td data-label="📞 Phone" class="py-3.5 px-3 whitespace-nowrap">
+        <td data-label="Phone" class="py-3.5 px-3 whitespace-nowrap">
           ${d.phone ? `
             <a href="tel:${d.phone}" class="font-medium text-slate-700 hover:text-teal-600 flex items-center space-x-1 transition" title="Call Devotee (${d.phone})">
               <span class="text-xs">📞</span>
@@ -6243,7 +6255,7 @@ function renderDevoteesTable() {
         </td>
 
         <!-- 7. Action Column -->
-        <td data-label="" class="py-3.5 px-4 text-right whitespace-nowrap">
+        <td data-label="Action" class="py-3.5 px-4 text-right whitespace-nowrap">
           <div class="flex items-center justify-end space-x-1.5">
             <button onclick="editDevotee('${d.id}')" class="inline-flex items-center space-x-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-900 border border-indigo-200 font-bold px-3 py-1.5 rounded-lg text-xs shadow-xs transition transform active:scale-95 cursor-pointer" title="✏️ Edit Devotee Profile">
               <i data-lucide="pencil" class="w-3.5 h-3.5"></i>

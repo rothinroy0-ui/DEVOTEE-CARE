@@ -331,7 +331,11 @@
        ============================================================ */
     @media (max-width: 640px) {
       /* Never allow sideways page scroll */
-      html, body { overflow-x: hidden; }
+      html, body {
+        overflow-x: hidden;
+        width: 100%;
+        max-width: 100vw;
+      }
       img, video, canvas { max-width: 100%; height: auto; }
 
       button, a, input, select, textarea, label { touch-action: manipulation; }
@@ -341,72 +345,289 @@
       select, textarea { font-size: 16px; }
 
       /* Comfortable content gutter + bottom safe area */
-      main { padding-left: .85rem !important; padding-right: .85rem !important;
-             padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
-      #portal-app > header > div,
-      #portal-app > nav > div { padding-left: .85rem !important; padding-right: .85rem !important; }
+      main {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 1rem !important;
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+      }
+      #portal-app > header > div {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        height: auto !important;
+        min-height: 3.75rem;
+        padding-top: 0.4rem;
+        padding-bottom: 0.4rem;
+      }
+      #portal-app > nav > div {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+      }
 
       /* Section titles a touch smaller */
-      h2.font-serif { font-size: 1.05rem !important; line-height: 1.3; }
+      h2.font-serif { font-size: 1.15rem !important; line-height: 1.3; }
 
-      /* Swipeable data tables (all of them) */
-      .overflow-x-auto { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
-      .overflow-x-auto table { font-size: 11px; }
-      .overflow-x-auto table th,
-      .overflow-x-auto table td { padding-left: .6rem; padding-right: .6rem; }
-
-      /* Modals: always fit the screen and scroll from inside */
-      .fixed.inset-0 > div { max-height: 90dvh !important; overflow-y: auto; }
-
-      /* Executive nav: momentum scroll + snap the tabs */
-      #main-nav-tabs { -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
-      #main-nav-tabs .nav-tab { scroll-snap-align: center; }
-
-      /* ---- Devotee Directory → stacked cards ------------------------ */
-      #devotees-table-card { background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important; }
-      #devotees-table-card > .overflow-x-auto { overflow: visible !important; }
-      /* Every other multi-column table becomes cards too (wrapper goes transparent) */
-      #portal-app .bg-white:has(> .overflow-x-auto > .responsive-table) {
-        background: transparent !important; border: 0 !important; box-shadow: none !important; overflow: visible !important;
+      /* Executive nav: compact, touch-friendly, momentum scroll + snap */
+      #main-nav-tabs {
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x proximity;
+        padding-top: 0.35rem !important;
+        padding-bottom: 0.35rem !important;
+        gap: 0.35rem !important;
       }
-      #portal-app .bg-white:has(> .overflow-x-auto > .responsive-table) > .overflow-x-auto { overflow: visible !important; }
-      .responsive-table thead { display: none !important; }
-      .responsive-table tbody { display: block !important; }
+      #main-nav-tabs .nav-tab {
+        scroll-snap-align: center;
+        padding: 0.42rem 0.75rem !important;
+        font-size: 0.8rem !important;
+        border-radius: 0.65rem !important;
+        gap: 0.35rem !important;
+      }
+      #main-nav-tabs .nav-tab svg {
+        width: 15px !important;
+        height: 15px !important;
+      }
+
+      /* Modals: fit viewport and scroll from inside cleanly */
+      .fixed.inset-0 {
+        padding: 0.5rem !important;
+      }
+      .fixed.inset-0 > div {
+        max-height: 94dvh !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 1rem !important;
+        overflow-y: auto;
+      }
+
+      /* ---- Devotee Directory & Celebration Tables → stacked cards ---- */
+      #devotees-table-card,
+      #bday-table-view-wrapper {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+      #devotees-table-card > .overflow-x-auto,
+      #bday-table-view-wrapper > .overflow-x-auto,
+      #portal-app .bg-white:has(> .overflow-x-auto > .responsive-table) > .overflow-x-auto {
+        overflow: visible !important;
+      }
+      #portal-app .bg-white:has(> .overflow-x-auto > .responsive-table) {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+      }
+
+      .responsive-table {
+        display: block !important;
+        width: 100% !important;
+      }
+      .responsive-table thead {
+        display: none !important;
+      }
+      .responsive-table tbody {
+        display: block !important;
+        width: 100% !important;
+      }
+
+      /* Each devotee / celebration row becomes a beautiful mobile card */
       .responsive-table tr {
         display: block !important;
         background: #ffffff !important;
         border: 1px solid #e2e8f0 !important;
-        border-radius: .9rem !important;
-        margin: 0 0 .7rem !important;
-        padding: .35rem .8rem .5rem !important;
-        box-shadow: 0 1px 3px rgba(15, 23, 42, .06) !important;
+        border-radius: 1rem !important;
+        margin: 0 0 0.85rem !important;
+        padding: 0.85rem !important;
+        box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.08) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
       }
-      .responsive-table tr:hover { background: #ffffff !important; }
-      .responsive-table tr.bg-teal-50\/50 { background: #f0fdfa !important; }
+      .responsive-table tr:hover {
+        background: #ffffff !important;
+      }
+      .responsive-table tr.bg-teal-50\/50,
+      .responsive-table tr.bg-pink-50\/40 {
+        background: #f0fdfa !important;
+        border-color: #99f6e4 !important;
+      }
+
+      /* Base card field row */
       .responsive-table td {
-        display: flex !important; align-items: flex-start; justify-content: space-between;
-        gap: .9rem; width: 100% !important;
-        padding: .42rem .05rem !important;
-        border: 0 !important; text-align: left !important; white-space: normal !important;
-        min-width: 0 !important; max-width: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+        padding: 0.4rem 0 !important;
+        border: 0 !important;
+        border-bottom: 1px solid #f8fafc !important;
+        text-align: right !important;
+        white-space: normal !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        font-size: 0.78rem !important;
       }
+      .responsive-table td:last-child {
+        border-bottom: 0 !important;
+      }
+
+      /* Label on left */
       .responsive-table td::before {
         content: attr(data-label);
-        flex: 0 0 36%; max-width: 40%;
-        font-weight: 700; font-size: .58rem; letter-spacing: .04em;
-        text-transform: uppercase; color: #64748b; padding-top: .28rem;
+        flex: 0 0 32% !important;
+        max-width: 38% !important;
+        font-weight: 700 !important;
+        font-size: 0.65rem !important;
+        letter-spacing: 0.03em !important;
+        text-transform: uppercase !important;
+        color: #64748b !important;
+        text-align: left !important;
+        line-height: 1.2 !important;
+        padding-top: 0 !important;
       }
-      .responsive-table td[data-label=""]::before,
-      .responsive-table td[colspan]::before { content: none !important; }
-      .responsive-table td[data-label=""] { justify-content: flex-end; text-align: right !important; }
-      .responsive-table td[colspan] { display: block !important; text-align: center !important; }
 
-      html.dark #devotees-table-card { background: transparent !important; border: 0 !important; }
-      html.dark #portal-app .bg-white:has(> .overflow-x-auto > .responsive-table) { background: transparent !important; border: 0 !important; }
-      html.dark .responsive-table tr { background: var(--n-card) !important; border-color: var(--n-line) !important; box-shadow: none !important; }
-      html.dark .responsive-table tr:hover { background: var(--n-card) !important; }
-      html.dark .responsive-table tr.bg-teal-50\/50 { background: rgba(20, 184, 166, .14) !important; }
-      html.dark .responsive-table td::before { color: var(--n-muted); }
+      /* Reset desktop min-width overrides */
+      .responsive-table td,
+      .responsive-table td * {
+        min-width: 0 !important;
+      }
+      .responsive-table td .whitespace-nowrap {
+        white-space: normal !important;
+      }
+
+      /* Card Top / Header: Devotee Name & Avatar cell takes prominent full-width */
+      .responsive-table td[data-label="Name"],
+      .responsive-table td[data-label="Recipient"] {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        width: 100% !important;
+        padding: 0.2rem 0 0.65rem 0 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        margin-bottom: 0.35rem !important;
+        text-align: left !important;
+      }
+      .responsive-table td[data-label="Name"]::before,
+      .responsive-table td[data-label="Recipient"]::before {
+        display: none !important;
+      }
+      .responsive-table td[data-label="Name"] > div,
+      .responsive-table td[data-label="Recipient"] > div {
+        width: 100% !important;
+        min-width: 0 !important;
+      }
+
+      /* Card Header Metadata: Select checkbox and S.No. badge */
+      .responsive-table td[data-label="Select"],
+      .responsive-table td[data-label="#"],
+      .responsive-table td[data-label="S.No."],
+      .responsive-table td[data-label="S.NO."] {
+        display: inline-flex !important;
+        width: auto !important;
+        padding: 0.2rem 0.5rem !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 0.5rem !important;
+        background: #f8fafc !important;
+        margin-right: 0.4rem !important;
+        margin-bottom: 0.4rem !important;
+        font-size: 0.72rem !important;
+        vertical-align: middle !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+      }
+      .responsive-table td[data-label="Select"]::before,
+      .responsive-table td[data-label="#"]::before,
+      .responsive-table td[data-label="S.No."]::before,
+      .responsive-table td[data-label="S.NO."]::before {
+        display: none !important;
+      }
+
+      /* Card Bottom / Action Buttons: Full-width button row with great touch targets */
+      .responsive-table td[data-label="Action"],
+      .responsive-table td[data-label="Actions"],
+      .responsive-table td[data-label=""] {
+        display: flex !important;
+        width: 100% !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        border-top: 1px solid #f1f5f9 !important;
+        border-bottom: 0 !important;
+        padding-top: 0.65rem !important;
+        margin-top: 0.35rem !important;
+        gap: 0.5rem !important;
+      }
+      .responsive-table td[data-label="Action"]::before,
+      .responsive-table td[data-label="Actions"]::before,
+      .responsive-table td[data-label=""]::before {
+        display: none !important;
+      }
+      .responsive-table td[data-label="Action"] button,
+      .responsive-table td[data-label="Actions"] button,
+      .responsive-table td[data-label=""] button {
+        padding: 0.45rem 0.85rem !important;
+        font-size: 0.78rem !important;
+        border-radius: 0.55rem !important;
+      }
+
+      /* Address Cell: Clean full-width text alignment inside cards */
+      .responsive-table td[data-label="Address"] {
+        align-items: flex-start !important;
+      }
+      .responsive-table td[data-label="Address"] > div {
+        max-width: 68% !important;
+        text-align: left !important;
+      }
+
+      /* Empty states */
+      .responsive-table td[colspan] {
+        display: block !important;
+        text-align: center !important;
+        border: 0 !important;
+      }
+      .responsive-table td[colspan]::before {
+        display: none !important;
+      }
+
+      /* Dark mode cards */
+      html.dark .responsive-table tr {
+        background: var(--n-card) !important;
+        border-color: var(--n-line) !important;
+        box-shadow: none !important;
+      }
+      html.dark .responsive-table tr:hover {
+        background: var(--n-card) !important;
+      }
+      html.dark .responsive-table tr.bg-teal-50\/50,
+      html.dark .responsive-table tr.bg-pink-50\/40 {
+        background: rgba(20, 184, 166, 0.12) !important;
+        border-color: rgba(20, 184, 166, 0.3) !important;
+      }
+      html.dark .responsive-table td {
+        border-bottom-color: rgba(255, 255, 255, 0.04) !important;
+      }
+      html.dark .responsive-table td::before {
+        color: var(--n-muted) !important;
+      }
+      html.dark .responsive-table td[data-label="Name"],
+      html.dark .responsive-table td[data-label="Recipient"] {
+        border-bottom-color: var(--n-line) !important;
+      }
+      html.dark .responsive-table td[data-label="Select"],
+      html.dark .responsive-table td[data-label="#"],
+      html.dark .responsive-table td[data-label="S.No."],
+      html.dark .responsive-table td[data-label="S.NO."] {
+        background: var(--n-soft) !important;
+        border-color: var(--n-line) !important;
+      }
+      html.dark .responsive-table td[data-label="Action"],
+      html.dark .responsive-table td[data-label="Actions"],
+      html.dark .responsive-table td[data-label=""] {
+        border-top-color: var(--n-line) !important;
+      }
     }
 
     @media print {
@@ -855,7 +1076,7 @@
             <div class="text-lg font-bold text-emerald-700" id="track-delivered">0</div>
             <div class="text-[10px] text-emerald-600 uppercase font-semibold">Delivered</div>
           </div>
-          <div class="bg-purple-50 rounded-lg p-3 text-center">
+          <div class="bg-purple-50 rounded-lg p-3 text-center col-span-2 sm:col-span-1">
             <div class="text-lg font-bold text-purple-700" id="track-returned">0</div>
             <div class="text-[10px] text-purple-600 uppercase font-semibold">Returned</div>
           </div>
@@ -1104,21 +1325,21 @@
               <button onclick="clearDevoteeAgeFilter()" class="ml-1 text-slate-500 hover:text-teal-800 underline font-normal" title="Clear age filter">✕</button>
             </span>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <button onclick="exportSelectedDevoteesPDF()" class="bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Download the devotees you have ticked (works across all pages) as a printable PDF">
+          <div class="w-full sm:w-auto grid grid-cols-2 sm:flex sm:items-center gap-2">
+            <button onclick="exportSelectedDevoteesPDF()" class="justify-center bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-semibold px-3 py-2 sm:py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Download the devotees you have ticked (works across all pages) as a printable PDF">
               <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
               <span>Export Selected PDF</span>
               <span id="selected-devotee-badge" class="hidden bg-white/30 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">0</span>
             </button>
-            <button onclick="exportFilteredDevoteesPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the currently filtered list (search, city, month, age) as a printable PDF report">
+            <button onclick="exportFilteredDevoteesPDF()" class="justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-semibold px-3 py-2 sm:py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the currently filtered list (search, city, month, age) as a printable PDF report">
               <i data-lucide="file-down" class="w-3.5 h-3.5"></i>
               <span>Export PDF</span>
             </button>
-            <button onclick="exportFilteredDevoteesCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the currently filtered list as CSV">
+            <button onclick="exportFilteredDevoteesCSV()" class="justify-center bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold px-3 py-2 sm:py-1.5 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the currently filtered list as CSV">
               <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
               <span>Export CSV</span>
             </button>
-            <button onclick="resetDevoteeFilters()" class="text-teal-600 hover:text-teal-700 font-medium">Clear Filters</button>
+            <button onclick="resetDevoteeFilters()" class="justify-center col-span-2 sm:col-span-1 text-center py-2 sm:py-1 text-teal-600 hover:text-teal-700 font-medium text-xs">Clear Filters</button>
           </div>
         </div>
       </div>
@@ -1279,10 +1500,10 @@
           <div>
             <label class="block text-[11px] font-semibold text-slate-500 mb-1">📍 City Filter:</label>
             <div class="relative">
-              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
               <input type="text" id="bday-city-search" autocomplete="off"
                      placeholder="Search city..."
-                     class="w-full pl-9 pr-7 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500 font-medium text-slate-700"
+                     class="w-full pl-9 pr-7 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-pink-500 font-medium text-slate-700 shadow-sm"
                      oninput="handleCelebrationCitySearch(this.value)"
                      onfocus="handleCelebrationCitySearch('')"
                      onblur="onCelebrationCityBlur()"
@@ -1296,8 +1517,8 @@
           <div>
             <label class="block text-[11px] font-semibold text-slate-500 mb-1">Search Celebration Devotees:</label>
             <div class="relative">
-              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
-              <input type="text" id="bday-search-input" oninput="renderBirthdaysGrid()" placeholder="Search by name, initiated name, phone, city, or PIN..." class="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="bday-search-input" oninput="renderBirthdaysGrid()" placeholder="Search by name, initiated name, phone, city, or PIN..." class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-pink-500 shadow-sm">
             </div>
           </div>
 
@@ -1339,7 +1560,7 @@
       <!-- Birthday & Anniversary Table View -->
       <div id="bday-table-view-wrapper" class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs">
+          <table class="responsive-table w-full text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
                 <th class="py-3 px-2 text-center">
@@ -1401,7 +1622,7 @@
           </button>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs">
+          <table class="responsive-table w-full text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
                 <th class="py-3 px-3">Photo</th>
@@ -1434,7 +1655,7 @@
           </button>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs">
+          <table class="responsive-table w-full text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
                 <th class="py-3 px-3">Photo</th>
@@ -1568,7 +1789,7 @@
             <!-- Mode of Delivery (Delhivery Courier / Self Mode) -->
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 mb-1">Mode of Delivery:</label>
-              <select id="parcel-filter-mode" onchange="renderParcelsTable()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white font-medium">
+              <select id="parcel-filter-mode" onchange="renderParcelsTable()" class="py-2 px-3 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 bg-white font-medium shadow-sm">
                 <option value="ALL">All Modes</option>
                 <option value="Delhivery Courier">🚚 Delhivery Courier</option>
                 <option value="Self Mode">🏠 Self Mode</option>
@@ -1579,24 +1800,24 @@
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 mb-1">📅 Date Created:</label>
               <div class="relative">
-                <input type="date" id="parcel-filter-date" onchange="handleParcelDateChange()" title="Select a date to see every consignment created on that exact day" class="py-1.5 px-3 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-400 bg-white font-semibold text-slate-700 shadow-sm">
+                <input type="date" id="parcel-filter-date" onchange="handleParcelDateChange()" title="Select a date to see every consignment created on that exact day" class="py-2 px-3 text-xs border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-400 bg-white font-semibold text-slate-700 shadow-sm">
                 <button type="button" onclick="clearParcelDate()" id="parcel-date-clear" class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs px-1 cursor-pointer" title="Clear date filter">✕</button>
               </div>
             </div>
 
             <!-- Search input -->
-            <div>
+            <div class="flex-1 min-w-[200px]">
               <label class="block text-[11px] font-semibold text-slate-500 mb-1">Consignment Search:</label>
               <div class="relative">
-                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
-                <input type="text" id="parcel-filter-search" oninput="renderParcelsTable()" placeholder="Name, Phone, Tracking ID, City..." class="pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 w-52">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="parcel-filter-search" oninput="renderParcelsTable()" placeholder="Name, Phone, Tracking ID, City..." class="pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 w-full sm:w-56 shadow-sm">
               </div>
             </div>
 
             <!-- Purpose Filter (All / Birthday / Anniversary / Duplicates) -->
             <div>
               <label class="block text-[11px] font-semibold text-slate-500 mb-1">Purpose:</label>
-              <select id="parcel-filter-purpose" onchange="renderParcelsTable()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 bg-white font-medium">
+              <select id="parcel-filter-purpose" onchange="renderParcelsTable()" class="py-2 px-3 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white font-medium shadow-sm">
                 <option value="ALL">All Purposes</option>
                 <option value="Birthday">🎂 Birthday</option>
                 <option value="Anniversary">💍 Anniversary</option>
@@ -1605,8 +1826,8 @@
             </div>
 
             <!-- Clear Filters -->
-            <div class="self-end">
-              <button onclick="clearParcelFilters()" class="text-sky-700 hover:text-sky-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset mode, purpose, date & search filters">
+            <div class="self-end pb-1 sm:pb-0">
+              <button onclick="clearParcelFilters()" class="text-sky-700 hover:text-sky-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer py-1" title="Reset mode, purpose, date & search filters">
                 <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
                 <span>Clear Filters</span>
               </button>
@@ -1614,13 +1835,13 @@
           </div>
 
           <!-- Batch Operations -->
-          <div class="flex flex-wrap items-center gap-2 pt-2 sm:pt-0">
-            <button onclick="bulkDeleteParcels()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Delete all ☑-selected consignments">
+          <div class="w-full sm:w-auto grid grid-cols-2 sm:flex sm:items-center gap-2 pt-2 sm:pt-0">
+            <button onclick="bulkDeleteParcels()" class="justify-center bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Delete all ☑-selected consignments">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
               <span>Delete Selected</span>
               <span id="parcel-selected-badge" class="hidden bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-[10px]">0</span>
             </button>
-            <button onclick="exportParcelReportPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the current Tracking Report (respecting active filters) as PDF">
+            <button onclick="exportParcelReportPDF()" class="justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the current Tracking Report (respecting active filters) as PDF">
               <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
               <span>Export Report (PDF)</span>
             </button>
@@ -1631,7 +1852,7 @@
       <!-- Logistics Consignments Master Table -->
       <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse text-xs">
+          <table class="responsive-table w-full text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
                 <th class="py-3.5 px-3 text-center">
@@ -2601,11 +2822,11 @@
         </div>
 
         <!-- Form Tabs -->
-        <div id="df-form-tabs" class="flex border-b border-slate-200 space-x-4 mb-4">
-          <button type="button" onclick="setDevoteeFormTab('basic')" class="form-subtab font-semibold pb-2 border-b-2 border-teal-600 text-teal-700" data-ftab="basic">1. Basic & Contact</button>
-          <button type="button" onclick="setDevoteeFormTab('spiritual')" class="form-subtab font-semibold pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800" data-ftab="spiritual">2. Spiritual & Diksa</button>
-          <button type="button" onclick="setDevoteeFormTab('health')" class="form-subtab font-semibold pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800" data-ftab="health">3. Health & Medical</button>
-          <button type="button" onclick="setDevoteeFormTab('counselor')" class="form-subtab font-semibold pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800" data-ftab="counselor">4. Counselor & Seva</button>
+        <div id="df-form-tabs" class="flex border-b border-slate-200 space-x-4 mb-4 overflow-x-auto whitespace-nowrap pb-1 scrollbar-none">
+          <button type="button" onclick="setDevoteeFormTab('basic')" class="form-subtab font-semibold pb-2 border-b-2 border-teal-600 text-teal-700 shrink-0" data-ftab="basic">1. Basic & Contact</button>
+          <button type="button" onclick="setDevoteeFormTab('spiritual')" class="form-subtab font-semibold pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 shrink-0" data-ftab="spiritual">2. Spiritual & Diksa</button>
+          <button type="button" onclick="setDevoteeFormTab('health')" class="form-subtab font-semibold pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 shrink-0" data-ftab="health">3. Health & Medical</button>
+          <button type="button" onclick="setDevoteeFormTab('counselor')" class="form-subtab font-semibold pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 shrink-0" data-ftab="counselor">4. Counselor & Seva</button>
         </div>
 
         <form id="devotee-form" onsubmit="saveDevotee(event)">
