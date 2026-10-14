@@ -1257,8 +1257,8 @@
       <!-- Controls: Multi-Filter Toolbar -->
       <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3.5">
 
-        <!-- Row: Month View, Date View, City Filter, Search, Mode of Delivery & Marital Status -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+        <!-- Row: Month View, Date View, City Filter, Search & Mode of Delivery -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           
           <!-- Month View (Month Selector — populated dynamically, current month pre-selected) -->
           <div>
@@ -1310,19 +1310,11 @@
               <option value="Self Mode">Self Mode</option>
             </select>
           </div>
-
-          <!-- Marital Status Filter (options populate live from the database) -->
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">💍 Marital Status:</label>
-            <select id="bday-filter-marital" onchange="handleCelebrationMaritalChange()" title="Show only devotees/couples with the chosen marital status" class="w-full py-2 px-3 text-xs border border-fuchsia-200 rounded-xl focus:ring-2 focus:ring-fuchsia-400 bg-white font-semibold text-slate-700 shadow-sm">
-              <option value="ALL" selected>All Statuses</option>
-            </select>
-          </div>
         </div>
 
         <!-- Clear Filters — reset every filter in this toolbar (Month / Date / City / Mode / Search) -->
         <div class="flex items-center justify-end pt-1 border-t border-slate-100">
-          <button onclick="clearCelebrationFilters()" class="text-rose-600 hover:text-rose-800 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset month, date, city, delivery mode, marital status & search filters">
+          <button onclick="clearCelebrationFilters()" class="text-rose-600 hover:text-rose-800 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset month, date, city, delivery mode & search filters">
             <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
             <span>Clear Filters</span>
           </button>
@@ -1358,7 +1350,6 @@
                 <th id="bday-date-col-title" class="py-3 px-4">Birthday</th>
                 <th class="py-3 px-4">Phone</th>
                 <th class="py-3 px-4">City</th>
-                <th class="py-3 px-4">Marital Status</th>
                 <th class="py-3 px-4 text-center">Address Verified</th>
                 <th class="py-3 px-4 text-center">Mode of Delivery</th>
                 <th class="py-3 px-4 text-right">Actions</th>

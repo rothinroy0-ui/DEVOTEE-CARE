@@ -7960,7 +7960,7 @@ function renderBirthdaysGrid() {
     if (container) container.innerHTML = '';
     tableBody.innerHTML = `
       <tr>
-        <td colspan="10" class="text-center py-12 text-slate-400">
+        <td colspan="9" class="text-center py-12 text-slate-400">
           <div class="flex flex-col items-center space-y-1.5">
             <span class="text-2xl">🎂</span>
             <span class="font-bold text-sm text-slate-700">No celebrations found for selected filters</span>
@@ -7987,16 +7987,6 @@ function renderBirthdaysGrid() {
     const eventIcon = item.eventType === 'MARRIAGE' ? '💍' : '🎂';
     const serialNo = idx + 1;
     const isSel = state.selectedCelebrations.has(d.id) || (spouseDevotee && state.selectedCelebrations.has(spouseDevotee.id));
-
-    // Marital Status cell — one badge per distinct status among the displayed devotee(s)
-    const shownStatuses = [...new Set(
-      (isCouple && spouseDevotee ? [d, spouseDevotee] : [d])
-        .map(dev => (dev.maritalStatus || '').trim())
-        .filter(Boolean)
-    )];
-    const maritalCell = shownStatuses.length
-      ? `<div class="flex flex-col items-start space-y-0.5">${shownStatuses.map(s => getMaritalStatusBadgeHtml(s)).join('')}</div>`
-      : '<span class="text-slate-300 text-[10px] italic">—</span>';
 
     return `
       <tr class="hover:bg-slate-50/90 transition border-b border-slate-100 ${isSel ? 'bg-pink-50/40' : ''}">
@@ -8140,12 +8130,7 @@ function renderBirthdaysGrid() {
           `}
         </td>
 
-        <!-- 5. Marital Status -->
-        <td class="py-2 px-1.5 whitespace-nowrap">
-          ${maritalCell}
-        </td>
-
-        <!-- 6. Address Verified -->
+        <!-- 5. Address Verified -->
         <td class="py-2 px-1.5 text-center">
           <div class="inline-flex flex-col items-center">
             ${!hasAddrVerification ? `
@@ -8164,7 +8149,7 @@ function renderBirthdaysGrid() {
           </div>
         </td>
 
-        <!-- 7. Mode of Delivery (Delhivery Courier / Self Mode) -->
+        <!-- 6. Mode of Delivery (Delhivery Courier / Self Mode) -->
         <td class="py-2 px-2 text-center whitespace-nowrap">
           <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
             class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
@@ -8174,7 +8159,7 @@ function renderBirthdaysGrid() {
           </select>
         </td>
 
-        <!-- 8. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
+        <!-- 7. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
         <td class="py-2 px-2 whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
             <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">
