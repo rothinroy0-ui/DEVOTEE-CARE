@@ -8138,7 +8138,7 @@ function renderBirthdaysGrid() {
           </select>
         </td>
 
-        <!-- 6. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
+        <!-- 6. Actions (Wish / Remove) — Remove = soft-removal, data is never deleted -->
         <td class="py-2 px-2 whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
             <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">
@@ -8148,9 +8148,6 @@ function renderBirthdaysGrid() {
             <button onclick="removeCelebrationEntry('${d.id}', '${item.eventType}')" class="inline-flex items-center space-x-1 bg-amber-500 hover:bg-amber-600 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Move to Removed section (record is never deleted)">
               <i data-lucide="folder-minus" class="w-3 h-3"></i>
               <span>Remove</span>
-            </button>
-            <button onclick="openGreetingCardModal('${d.id}', '${item.eventType.toLowerCase()}')" class="p-1 text-violet-700 hover:bg-violet-50 rounded transition border border-violet-200 hover:border-violet-400" title="Greeting Card">
-              <i data-lucide="sparkles" class="w-4 h-4"></i>
             </button>
           </div>
         </td>
@@ -9483,265 +9480,15 @@ function exportParcelReportPDF() {
 }
 
 // ----------------------------------------------------
-// FESTIVE GREETING CARD GENERATOR
+// GREETING CARD (Disabled as requested)
 // ----------------------------------------------------
-let activeGreetingDevotee = null;
-let activeGreetingType = 'birthday';
+function openGreetingCardModal() {}
+function openGenericGreetingCard() {}
+function closeGreetingCardModal() {}
+function copyGreetingCardText() {}
+function shareGreetingCardWhatsApp() {}
+function downloadGreetingCardPNG() {}
 
-function openGreetingCardModal(devoteeId, eventType = 'birthday') {
-  const d = state.devotees.find(x => x.id === devoteeId);
-  if (!d) return;
-
-  activeGreetingDevotee = d;
-  activeGreetingType = eventType;
-
-  let displayName = d.spiritualName || d.legalName;
-  let legalName = d.spiritualName ? `(${d.legalName})` : '';
-  const photoUrl = getDirectPhotoUrl(d.photo || d.photoDirect || d.cloudinaryPhoto, d);
-
-  if (eventType === 'marriage') {
-    const matched = findMatchedSpouseDevotee(d);
-    if (matched) {
-      const spouseDisplayName = matched.spiritualName || matched.legalName;
-      displayName = `${displayName} & ${spouseDisplayName}`;
-      legalName = `(${d.legalName} & ${matched.legalName})`;
-    } else if (d.spouseName) {
-      displayName = `${displayName} & ${d.spouseName}`;
-    }
-  }
-
-  document.getElementById('gc-spiritual-name').innerText = displayName;
-  document.getElementById('gc-legal-name').innerText = legalName;
-
-  // Sri Sri Radha Madan Mohan image (kept in sync with the PNG download)
-  const deityEl = document.getElementById('gc-deity-img');
-  if (deityEl) deityEl.src = RADHA_MADAN_MOHAN_IMG;
-
-  const imgEl = document.getElementById('gc-photo');
-  if (imgEl) {
-    if (photoUrl) {
-      imgEl.src = photoUrl;
-      imgEl.setAttribute('referrerpolicy', 'no-referrer');
-      imgEl.style.display = 'block';
-      imgEl.onerror = function() {
-        this.style.display = 'none';
-      };
-    } else {
-      imgEl.style.display = 'none';
-    }
-  }
-
-  const titleEl = document.getElementById('gc-title');
-  const dateEl = document.getElementById('gc-date-text');
-  const quoteEl = document.getElementById('gc-blessing-quote');
-
-  if (eventType === 'marriage') {
-    titleEl.innerText = 'Happy Vivaha Anniversary!';
-    const matched = findMatchedSpouseDevotee(d);
-    const spouseText = matched 
-      ? `Blessed Couple: ${displayName}` 
-      : (d.spouseName ? `with ${d.spouseName}` : 'Sacred Grihastha Union');
-    dateEl.innerText = `${d.anniversaryRaw || d.anniversaryDate || 'Sacred Wedding'} • ${spouseText}`;
-    quoteEl.innerText = '"May Sri Sri Radha-Madhava and Lord Sri Chaitanya Mahaprabhu bless your Grihastha family with divine harmony, devotional peace, and eternal advancement in Krishna consciousness."';
-  } else if (eventType === 'initiation') {
-    titleEl.innerText = 'Happy Diksa Anniversary!';
-    dateEl.innerText = `Spiritual Initiation • Disciple of ${d.guru || 'Guru Maharaj'}`;
-    quoteEl.innerText = '"May you always remain situated under the divine lotus feet of your Spiritual Master and Guru Parampara, tasting the unlimited nectar of the Holy Names."';
-  } else {
-    titleEl.innerText = 'Happy Appearance Day!';
-    const age = calculateAge(d.dob);
-    dateEl.innerText = `${d.birthdayRaw || 'Auspicious Birthday'} • ${age > 0 ? 'Turning ' + age + ' Years' : 'Vyasa-puja Blessings'}`;
-    quoteEl.innerText = '"May Sri Sri Radha-Madhava and Srila Prabhupada shower Their supreme mercy upon you with excellent health, long life, and endless taste for chanting the Maha-Mantra."';
-  }
-
-  document.getElementById('greeting-card-modal').classList.remove('hidden');
-  if (window.lucide) lucide.createIcons();
-}
-
-function openGenericGreetingCard() {
-  if (state.devotees.length > 0) {
-    openGreetingCardModal(state.devotees[0].id, 'birthday');
-  }
-}
-
-function closeGreetingCardModal() {
-  document.getElementById('greeting-card-modal').classList.add('hidden');
-}
-
-function copyGreetingCardText() {
-  if (!activeGreetingDevotee) return;
-  const d = activeGreetingDevotee;
-  const name = d.spiritualName || d.legalName;
-  const text = `Hare Krishna ${name}! 🙏\n\nAll glories to Srila Prabhupada! 🪷\n\nOn behalf of ISKCON Devotee Celebrations Department, we send you our warmest prayers and auspicious blessings on your special celebration!\n\n"May Sri Sri Radha-Madhava bless you with pure bhakti, divine health, and long life in Krishna's service."\n\nHare Krishna Hare Krishna Krishna Krishna Hare Hare\nHare Rama Hare Rama Rama Rama Hare Hare ✨`;
-  copyToClipboard(text, 'Festive Wish Text copied to clipboard!');
-}
-
-function shareGreetingCardWhatsApp() {
-  if (!activeGreetingDevotee) return;
-  const d = activeGreetingDevotee;
-  const phone = (d.whatsapp || d.phone || '').replace(/[^\d]/g, '');
-  const name = d.spiritualName || d.legalName;
-  const text = `Hare Krishna ${name}! 🙏\n\nPlease accept our humble obeisances. All glories to Srila Prabhupada! 🪷\n\nWishing you an auspicious and blissful Appearance Day / Anniversary from the ISKCON Devotee Celebrations Department! 🎉\n\nMay Sri Sri Radha-Madhava and Lord Gauranga shower Their unlimited mercy upon you with excellent health and pure devotion.\n\nHare Krishna Hare Krishna Krishna Krishna Hare Hare\nHare Rama Hare Rama Rama Rama Hare Hare ✨`;
-
-  const cleanNum = phone.startsWith('91') ? phone : `91${phone}`;
-  window.open(`https://wa.me/${cleanNum}?text=${encodeURIComponent(text)}`, '_blank');
-}
-
-function drawImageCover(ctx, img, dx, dy, dw, dh) {
-  const iw = img.naturalWidth || img.width || 1;
-  const ih = img.naturalHeight || img.height || 1;
-  const scale = Math.max(dw / iw, dh / ih);
-  const sw = dw / scale, sh = dh / scale;
-  const sx = (iw - sw) / 2, sy = (ih - sh) / 2;
-  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
-}
-
-async function downloadGreetingCardPNG() {
-  const canvas = document.getElementById('hidden-card-canvas');
-  if (!canvas || !activeGreetingDevotee) return;
-
-  const ctx = canvas.getContext('2d');
-  const d = activeGreetingDevotee;
-  const displayName = d.spiritualName || d.legalName;
-
-  // Preload Sri Sri Radha Madan Mohan image (graceful fallback if it fails to load)
-  const deityImage = await new Promise(resolve => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = RADHA_MADAN_MOHAN_IMG;
-    setTimeout(() => resolve(null), 4000);
-  });
-
-  // Background Gradient
-  const grad = ctx.createLinearGradient(0, 0, 0, 1000);
-  grad.addColorStop(0, '#fffbeb');
-  grad.addColorStop(0.5, '#fef3c7');
-  grad.addColorStop(1, '#fde68a');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 1000, 1000);
-
-  // Ornate Border
-  ctx.strokeStyle = '#d97706';
-  ctx.lineWidth = 14;
-  ctx.strokeRect(20, 20, 960, 960);
-  ctx.strokeStyle = '#92400e';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(34, 34, 932, 932);
-
-  // Header
-  ctx.fillStyle = '#78350f';
-  ctx.font = 'bold 23px Georgia, serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('INTERNATIONAL SOCIETY FOR KRISHNA CONSCIOUSNESS', 500, 78);
-
-  ctx.fillStyle = '#b45309';
-  ctx.font = 'italic 17px Georgia, serif';
-  ctx.fillText('Founder-Acharya: His Divine Grace A.C. Bhaktivedanta Swami Prabhupada', 500, 110);
-
-  ctx.fillStyle = '#991b1b';
-  ctx.font = 'bold 24px Georgia, serif';
-  ctx.fillText('ISKCON DEVOTEE CELEBRATIONS DEPARTMENT', 500, 148);
-
-  // Line
-  ctx.strokeStyle = '#f59e0b';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(350, 168);
-  ctx.lineTo(650, 168);
-  ctx.stroke();
-
-  // Sri Sri Radha Madan Mohan framed medallion
-  const dx = 410, dy = 188, dw = 180, dh = 188;
-  ctx.fillStyle = '#fef3c7';
-  ctx.fillRect(dx, dy, dw, dh);
-  if (deityImage) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(dx, dy, dw, dh, 22) : ctx.rect(dx, dy, dw, dh);
-    ctx.clip();
-    drawImageCover(ctx, deityImage, dx, dy, dw, dh);
-    ctx.restore();
-  } else {
-    ctx.fillStyle = '#fef9c3';
-    ctx.fillRect(dx, dy, dw, dh);
-    ctx.fillStyle = '#d97706';
-    ctx.font = '18px Georgia, serif';
-    ctx.fillText('🪷', 500, 268);
-  }
-  ctx.strokeStyle = '#d97706';
-  ctx.lineWidth = 5;
-  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(dx, dy, dw, dh, 22); ctx.stroke(); }
-  else { ctx.strokeRect(dx, dy, dw, dh); }
-  ctx.strokeStyle = '#f59e0b';
-  ctx.lineWidth = 2;
-  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(dx + 6, dy + 6, dw - 12, dh - 12, 16); ctx.stroke(); }
-
-  // Caption under deity image
-  ctx.fillStyle = '#7c2d12';
-  ctx.font = 'bold 17px Georgia, serif';
-  ctx.fillText('Sri Sri Radha Madan Mohan', 500, 398);
-
-  // Devotee Photo Circle Placeholder
-  ctx.beginPath();
-  ctx.arc(500, 480, 66, 0, Math.PI * 2);
-  ctx.fillStyle = '#f59e0b';
-  ctx.fill();
-  ctx.strokeStyle = '#b45309';
-  ctx.lineWidth = 5;
-  ctx.stroke();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '48px serif';
-  ctx.fillText(d.gender === 'Female' ? '🌸' : '🪷', 500, 498);
-
-  // Title
-  ctx.fillStyle = '#991b1b';
-  ctx.font = 'bold 42px Georgia, serif';
-  const title = (activeGreetingType === 'marriage') ? 'Happy Vivaha Anniversary!' : 'Happy Appearance Day!';
-  ctx.fillText(title, 500, 582);
-
-  // Devotee Name Box
-  ctx.fillStyle = '#ffffff';
-  ctx.roundRect ? ctx.roundRect(150, 612, 700, 85, 16) : ctx.fillRect(150, 612, 700, 85);
-  ctx.fill();
-  ctx.strokeStyle = '#fbbf24';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.fillStyle = '#1e293b';
-  ctx.font = 'bold 30px Georgia, serif';
-  ctx.fillText(displayName, 500, 664);
-
-  // Srila Prabhupada Blessing Quote
-  ctx.fillStyle = '#451a03';
-  ctx.font = 'italic 20px Georgia, serif';
-  ctx.fillText('"May Sri Sri Radha-Madhava bless you with excellent health, long life,', 500, 732);
-  ctx.fillText('and pure unalloyed devotional service to the Vaishnavas."', 500, 764);
-
-  // Maha-Mantra Box
-  ctx.fillStyle = '#d97706';
-  ctx.roundRect ? ctx.roundRect(100, 794, 800, 100, 16) : ctx.fillRect(100, 794, 800, 100);
-  ctx.fill();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 25px Georgia, serif';
-  ctx.fillText('Hare Krishna Hare Krishna Krishna Krishna Hare Hare', 500, 837);
-  ctx.fillText('Hare Rama Hare Rama Rama Rama Hare Hare', 500, 874);
-
-  // Footer
-  ctx.fillStyle = '#78350f';
-  ctx.font = 'bold 17px Georgia, serif';
-  ctx.fillText('With Loving Vaishnava Prayers & Dandavat Pranams 🙏', 500, 946);
-
-  // Trigger download
-  const link = document.createElement('a');
-  link.download = `ISKCON_Blessing_${(displayName).replace(/\s+/g, '_')}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  showToast('Greeting Card downloaded successfully as PNG image!', 'success');
-}
 
 // ----------------------------------------------------
 // ADDRESS VERIFICATION & EDIT MODAL
