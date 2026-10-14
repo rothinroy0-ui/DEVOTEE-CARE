@@ -7960,7 +7960,7 @@ function renderBirthdaysGrid() {
     if (container) container.innerHTML = '';
     tableBody.innerHTML = `
       <tr>
-        <td colspan="9" class="text-center py-12 text-slate-400">
+        <td colspan="8" class="text-center py-12 text-slate-400">
           <div class="flex flex-col items-center space-y-1.5">
             <span class="text-2xl">🎂</span>
             <span class="font-bold text-sm text-slate-700">No celebrations found for selected filters</span>
@@ -7975,14 +7975,12 @@ function renderBirthdaysGrid() {
 
   if (emptyState) emptyState.classList.add('hidden');
 
-  // Render Table View: Select ☑ | S.No. | Name | Date | Phone | City | Address Verified | Mode of Delivery | Actions
+  // Render Table View: Select ☑ | S.No. | Name | Date | Phone | City | Mode of Delivery | Actions
   tableBody.innerHTML = filtered.map((item, idx) => {
     const d = item.devotee;
     const isCouple = !!item.isCouple;
     const spouseDevotee = item.spouseDevotee;
     const displayName = d.spiritualName || d.legalName;
-    const hasAddrVerification = !!((d && (d.addressVerified || '').trim()) || (spouseDevotee && (spouseDevotee.addressVerified || '').trim()));
-    const isVerified = isDevoteAddressVerified(d) || (spouseDevotee && isDevoteAddressVerified(spouseDevotee));
     const bdayDateText = item.rawDateStr || formatDate(item.date);
     const eventIcon = item.eventType === 'MARRIAGE' ? '💍' : '🎂';
     const serialNo = idx + 1;
@@ -8130,26 +8128,7 @@ function renderBirthdaysGrid() {
           `}
         </td>
 
-        <!-- 5. Address Verified -->
-        <td class="py-2 px-1.5 text-center">
-          <div class="inline-flex flex-col items-center">
-            ${!hasAddrVerification ? `
-              <span class="text-slate-300 text-[10px] italic">—</span>
-            ` : isVerified ? `
-              <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-xs cursor-default" title="Verified in Devotee Directory">
-                <span>🟢</span>
-                <span>Verified</span>
-              </span>
-            ` : `
-              <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300 shadow-xs cursor-default" title="Not yet verified — update from Devotee Directory">
-                <span>🔴</span>
-                <span>Unverified</span>
-              </span>
-            `}
-          </div>
-        </td>
-
-        <!-- 6. Mode of Delivery (Delhivery Courier / Self Mode) -->
+        <!-- 5. Mode of Delivery (Delhivery Courier / Self Mode) -->
         <td class="py-2 px-2 text-center whitespace-nowrap">
           <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
             class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
@@ -8159,7 +8138,7 @@ function renderBirthdaysGrid() {
           </select>
         </td>
 
-        <!-- 7. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
+        <!-- 6. Actions (Wish / Remove / Greeting Card) — Remove = soft-removal, data is never deleted -->
         <td class="py-2 px-2 whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
             <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">
