@@ -113,6 +113,19 @@ function parseDateParts(dateStr) {
   return null;
 }
 
+// Safely format any date value into an HTML <input type="date"> value (YYYY-MM-DD)
+function toIsoDateInput(dateVal) {
+  if (!dateVal) return '';
+  const str = String(dateVal).trim();
+  if (['na', 'n/a', 'no', 'none', 'null', '-'].includes(str.toLowerCase())) return '';
+  const parts = parseDateParts(str);
+  if (!parts) return '';
+  const y = parts.year ? String(parts.year).padStart(4, '0') : '1990';
+  const m = String(parts.month + 1).padStart(2, '0');
+  const d = String(parts.day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // Calculate years from any date string
 function calculateYearsPassed(dateStr) {
   const parts = parseDateParts(dateStr);
@@ -6730,16 +6743,20 @@ function openDevoteeModal(devoteeId = null) {
       document.getElementById('save-devotee-btn-text').innerText = 'Update Devotee Profile';
       document.getElementById('devotee-id').value = d.id;
 
-      // Edit mode = compact "Address & Phone" update window only
+      // Edit mode = compact update window (Address, Mobile, Birthday & Anniversary)
       setDevoteeFormMode('contact');
-      if (subTitle) subTitle.innerText = 'Update Address & Mobile Number';
+      if (subTitle) subTitle.innerText = 'Update Address, Mobile & Celebration Dates';
       if (bannerName) bannerName.innerText = d.spiritualName || d.legalName || '';
 
       // Populate Basic
       document.getElementById('df-legal-name').value = d.legalName || '';
       document.getElementById('df-spiritual-name').value = d.spiritualName || '';
       document.getElementById('df-gender').value = d.gender || 'Male';
-      document.getElementById('df-dob').value = d.dob || '';
+      document.getElementById('df-dob').value = toIsoDateInput(d.dob || d.birthdayRaw || d.birthday);
+      const annivEl = document.getElementById('df-anniversary');
+      if (annivEl) {
+        annivEl.value = toIsoDateInput(d.anniversaryDate || d.anniversaryRaw || d.anniversary);
+      }
       document.getElementById('df-ashrama').value = d.ashrama || 'Grihastha';
       // Marital Status: normalize legacy values (Single→Unmarried, Widowed→Widow);
       // any other value not in the canonical set is preserved as a "keep as-is" option.
@@ -6808,6 +6825,8 @@ function openDevoteeModal(devoteeId = null) {
     document.getElementById('devotee-modal-title').innerText = 'Add New Devotee Profile';
     document.getElementById('save-devotee-btn-text').innerText = 'Save Devotee Record';
     document.getElementById('devotee-id').value = '';
+    const annivEl = document.getElementById('df-anniversary');
+    if (annivEl) annivEl.value = '';
     if (document.getElementById('df-photo')) {
       document.getElementById('df-photo').value = '';
     }
@@ -6840,8 +6859,8 @@ function setDevoteeFormTab(tab) {
   });
 }
 
-// Compact "Address & Phone" edit mode — hides everything in the devotee form
-// except phone/whatsapp/address/city, so the Edit window stays clean & focused.
+// Compact "Address, Phone, Birthday & Anniversary" edit mode — hides locked
+// administrative profile fields so the Edit window stays clean & focused on essentials.
 let devoteeEditHiddenCells = [];
 
 function setDevoteeFormMode(mode) {
@@ -6856,12 +6875,18 @@ function setDevoteeFormMode(mode) {
     if (photoGroup) photoGroup.classList.add('hidden');
     if (emergencyGroup) emergencyGroup.classList.add('hidden');
     if (banner) banner.classList.remove('hidden');
-    if (card) { card.classList.remove('max-w-4xl'); card.classList.add('max-w-md'); }
+    if (card) { card.classList.remove('max-w-4xl'); card.classList.add('max-w-xl'); }
     setDevoteeFormTab('basic');
 
-    // Hide every Basic-tab field EXCEPT the phone & address fields
+    // Remove required validation from fields hidden in edit mode so native browser validation doesn't block submission
+    const legalEl = document.getElementById('df-legal-name');
+    if (legalEl) legalEl.removeAttribute('required');
+    const genderEl = document.getElementById('df-gender');
+    if (genderEl) genderEl.removeAttribute('required');
+
+    // Hide locked administrative Basic-tab fields (keep Birthday, Anniversary, Phone, Address, City visible)
     devoteeEditHiddenCells = [];
-    ['df-legal-name', 'df-spiritual-name', 'df-gender', 'df-dob', 'df-ashrama', 'df-marital', 'df-email']
+    ['df-legal-name', 'df-spiritual-name', 'df-gender', 'df-ashrama', 'df-marital', 'df-email']
       .forEach(id => {
         const el = document.getElementById(id);
         const cell = el ? el.closest('div') : null;
@@ -6875,7 +6900,11 @@ function setDevoteeFormMode(mode) {
     if (photoGroup) photoGroup.classList.remove('hidden');
     if (emergencyGroup) emergencyGroup.classList.remove('hidden');
     if (banner) banner.classList.add('hidden');
-    if (card) { card.classList.add('max-w-4xl'); card.classList.remove('max-w-md'); }
+    if (card) { card.classList.add('max-w-4xl'); card.classList.remove('max-w-xl'); }
+    const legalEl = document.getElementById('df-legal-name');
+    if (legalEl) legalEl.setAttribute('required', 'true');
+    const genderEl = document.getElementById('df-gender');
+    if (genderEl) genderEl.setAttribute('required', 'true');
     devoteeEditHiddenCells.forEach(c => c.classList.remove('hidden'));
     devoteeEditHiddenCells = [];
   }
@@ -6896,12 +6925,34 @@ function saveDevotee(event) {
   const driveId = extractGoogleDriveFileId(photoInputVal);
   const photoDirectVal = driveId ? `https://lh3.googleusercontent.com/d/${driveId}` : photoInputVal;
 
+  const dobVal = document.getElementById('df-dob')?.value.trim() || '';
+  const annivVal = document.getElementById('df-anniversary')?.value.trim() || '';
+  const bParts = parseDateParts(dobVal);
+  const aParts = parseDateParts(annivVal);
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const bRawFormatted = bParts ? `${String(bParts.day).padStart(2, '0')}-${monthNames[bParts.month]}-${bParts.year}` : (dobVal || '');
+  const aRawFormatted = aParts ? `${String(aParts.day).padStart(2, '0')}-${monthNames[aParts.month]}-${aParts.year}` : (annivVal || '');
+
   const devoteeData = {
     id: devoteeId || `DEV-${Date.now().toString().slice(-5)}`,
     legalName: document.getElementById('df-legal-name').value.trim(),
     spiritualName: document.getElementById('df-spiritual-name').value.trim(),
     gender: document.getElementById('df-gender').value,
-    dob: document.getElementById('df-dob').value,
+    dob: dobVal,
+    birthdayRaw: bRawFormatted,
+    birthday: bRawFormatted,
+    bDay: bParts ? bParts.day : null,
+    bMonth: bParts ? bParts.month + 1 : null,
+    bYear: bParts ? bParts.year : null,
+    birthDay: bParts ? bParts.day : null,
+    birthMonth: bParts ? bParts.month + 1 : null,
+    birthYear: bParts ? bParts.year : null,
+    anniversaryDate: annivVal,
+    anniversaryRaw: aRawFormatted,
+    anniversary: aRawFormatted,
+    aDay: aParts ? aParts.day : null,
+    aMonth: aParts ? aParts.month + 1 : null,
+    aYear: aParts ? aParts.year : null,
     ashrama: document.getElementById('df-ashrama').value,
     maritalStatus: document.getElementById('df-marital').value,
     phone: document.getElementById('df-phone').value.trim(),
@@ -6933,6 +6984,8 @@ function saveDevotee(event) {
   };
 
   let oldSnapshot = null;
+  let targetRecord = devoteeData;
+
   if (devoteeId) {
     const idx = state.devotees.findIndex(x => x.id === devoteeId);
     if (idx !== -1) {
@@ -6947,6 +7000,7 @@ function saveDevotee(event) {
         photo: finalPhoto,
         photoDirect: finalPhotoDirect
       };
+      targetRecord = state.devotees[idx];
       showToast('Devotee profile updated successfully!', 'success');
     }
   } else {
@@ -6954,21 +7008,21 @@ function saveDevotee(event) {
     showToast('New devotee registered successfully!', 'success');
   }
 
-  const _actName = devoteeData.spiritualName || devoteeData.legalName || 'devotee';
+  const _actName = targetRecord.spiritualName || targetRecord.legalName || 'devotee';
   
   // Record audit event with diff data
   recordAuditEvent({
     action: devoteeId ? 'edit' : 'create',
     module: 'devotees',
-    recordId: devoteeData.id,
+    recordId: targetRecord.id,
     summary: devoteeId ? `Updated devotee profile "${_actName}".` : `Registered new devotee "${_actName}".`,
     result: 'SUCCESS',
     oldValues: oldSnapshot,
-    newValues: { ...devoteeData }
+    newValues: { ...targetRecord }
   });
 
   // Centralized Database: Push record directly to Supabase cloud
-  syncDevoteeRecordToCloud(devoteeData);
+  syncDevoteeRecordToCloud(targetRecord);
 
   saveToStorage();
   updateDevoteeAutocompleteList();
