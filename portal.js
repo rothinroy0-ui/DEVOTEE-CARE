@@ -13,8 +13,50 @@ const STORAGE_KEYS = {
   BDAY_REMOVED: 'iskcon_devotee_care_bday_removed_v1',
   INITIALIZED: 'iskcon_devotee_care_initialized_v1',
   PARCEL_PURGED: 'iskcon_devotee_care_parcels_purged_v3',
-  ACTIVITY: 'iskcon_devotee_care_activity_v1'
+  ACTIVITY: 'iskcon_devotee_care_activity_v1',
+  DELETED_PARCELS: 'iskcon_deleted_parcel_ids_v1',
+  DELETED_DEVOTEES: 'iskcon_deleted_devotee_ids_v1'
 };
+
+// 🛡️ PERSISTENT TOMBSTONE ENGINE:
+// Prevents deleted parcels and devotees from ever resurrecting via cloud sync or master data
+function getDeletedParcelIds() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_PARCELS);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function markParcelsAsDeleted(parcelIds) {
+  if (!parcelIds) return;
+  const ids = Array.isArray(parcelIds) ? parcelIds : [parcelIds];
+  const set = getDeletedParcelIds();
+  ids.forEach(id => { if (id) set.add(String(id)); });
+  try {
+    localStorage.setItem(STORAGE_KEYS.DELETED_PARCELS, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+
+function getDeletedDevoteeIds() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DELETED_DEVOTEES);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function markDevoteesAsDeleted(devoteeIds) {
+  if (!devoteeIds) return;
+  const ids = Array.isArray(devoteeIds) ? devoteeIds : [devoteeIds];
+  const set = getDeletedDevoteeIds();
+  ids.forEach(id => { if (id) set.add(String(id)); });
+  try {
+    localStorage.setItem(STORAGE_KEYS.DELETED_DEVOTEES, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
 
 // Global State
 let state = {
@@ -1122,15 +1164,16 @@ async function initSupabaseAndSync() {
         return mapSupabaseRowToDevotee(row, existing);
       });
 
-      // Keep any devotees from master dataset not present in Supabase table
+      // Keep any devotees from master dataset not present in Supabase table (excluding deleted devotees)
       const syncedIds = new Set(updatedDevotees.map(d => d.id));
+      const deletedDevIds = getDeletedDevoteeIds();
       (state.devotees || []).forEach(d => {
-        if (d.id && !syncedIds.has(d.id)) {
+        if (d.id && !syncedIds.has(d.id) && !deletedDevIds.has(d.id)) {
           updatedDevotees.push(d);
         }
       });
 
-      state.devotees = updatedDevotees;
+      state.devotees = updatedDevotees.filter(d => !deletedDevIds.has(d.id));
       saveToStorage();
 
       // Refresh displays with live Supabase data
@@ -1282,12 +1325,34 @@ async function fetchParcelsFromSupabase() {
       return;
     }
 
-    if (Array.isArray(data) && data.length > 0) {
-      console.log(`☁️ Supabase parcels synced: ${data.length} records retrieved.`);
-      const cloudParcels = data.map(fromSupabaseParcel);
-      state.parcels = cloudParcels;
+    if (Array.isArray(data)) {
+      const deletedIds = getDeletedParcelIds();
+      const activeParcels = [];
+      const staleDeletedIdsInCloud = [];
+
+      data.forEach(row => {
+        const p = fromSupabaseParcel(row);
+        if (p && p.id && deletedIds.has(String(p.id))) {
+          staleDeletedIdsInCloud.push(String(p.id));
+        } else if (p && p.id) {
+          activeParcels.push(p);
+        }
+      });
+
+      // Background purge: if Supabase still had records that were deleted locally, purge them from Supabase Cloud now!
+      if (staleDeletedIdsInCloud.length > 0) {
+        for (let i = 0; i < staleDeletedIdsInCloud.length; i += 50) {
+          const chunk = staleDeletedIdsInCloud.slice(i, i + 50);
+          client.from('parcels').delete().in('id', chunk).then(() => {
+            console.log(`🧹 Purged ${chunk.length} stale deleted parcels from Supabase Cloud.`);
+          }).catch(() => {});
+        }
+      }
+
+      state.parcels = activeParcels;
       localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
       renderParcelsTable();
+      renderBirthdaysGrid();
       updateKPIs();
       if (window.lucide) lucide.createIcons();
     }
@@ -1306,7 +1371,10 @@ function handleParcelSyncError(error, silent) {
 }
 
 async function syncParcelToSupabase(parcel, silent = false) {
-  if (!parcel) return;
+  if (!parcel || !parcel.id) return;
+  const deletedIds = getDeletedParcelIds();
+  if (deletedIds.has(String(parcel.id))) return; // Never sync deleted parcel
+
   const client = getSupabaseClient();
   if (!client) return;
 
@@ -1325,10 +1393,14 @@ async function syncParcelToSupabase(parcel, silent = false) {
 
 async function syncAllLocalParcelsToCloud(silent = false) {
   const client = getSupabaseClient();
-  if (!client || !state.parcels || state.parcels.length === 0) return;
+  if (!client) return;
+
+  const deletedIds = getDeletedParcelIds();
+  const activeParcels = (state.parcels || []).filter(p => p && p.id && !deletedIds.has(String(p.id)));
+  if (activeParcels.length === 0) return;
 
   try {
-    const payloads = state.parcels.map(toSupabaseParcel);
+    const payloads = activeParcels.map(toSupabaseParcel);
     const { error } = await client.from('parcels').upsert(payloads, { onConflict: 'id' });
     if (error) {
       handleParcelSyncError(error, silent);
@@ -1569,9 +1641,13 @@ async function handleManualCloudSync() {
 
 function loadFromStorage() {
   try {
-    state.devotees = JSON.parse(localStorage.getItem(STORAGE_KEYS.DEVOTEES)) || [];
+    const deletedParcelIds = getDeletedParcelIds();
+    const deletedDevIds = getDeletedDevoteeIds();
+    state.devotees = (JSON.parse(localStorage.getItem(STORAGE_KEYS.DEVOTEES)) || [])
+      .filter(d => d && d.id && !deletedDevIds.has(String(d.id)));
     state.counselors = JSON.parse(localStorage.getItem(STORAGE_KEYS.COUNSELORS)) || [];
-    state.parcels = JSON.parse(localStorage.getItem(STORAGE_KEYS.PARCELS)) || [];
+    state.parcels = (JSON.parse(localStorage.getItem(STORAGE_KEYS.PARCELS)) || [])
+      .filter(p => p && p.id && !deletedParcelIds.has(String(p.id)));
     const rawRemoved = localStorage.getItem(STORAGE_KEYS.ANNIV_REMOVED);
     state.anniversaryRemovedIds = rawRemoved ? JSON.parse(rawRemoved) : [];
     if (!Array.isArray(state.anniversaryRemovedIds)) state.anniversaryRemovedIds = [];
@@ -2575,6 +2651,11 @@ async function approveDeleteRequest(requestId) {
   // 3. Remove from client local memory & storage
   if (req.record_type === 'DEVOTEE') {
     const devId = req.record_id;
+    markDevoteesAsDeleted(devId);
+    const devParcels = (state.parcels || []).filter(p => String(p.devoteeId) === String(devId));
+    if (devParcels.length > 0) {
+      markParcelsAsDeleted(devParcels.map(p => p.id));
+    }
     state.devotees = (state.devotees || []).filter(d => String(d.id) !== String(devId));
     state.parcels = (state.parcels || []).filter(p => String(p.devoteeId) !== String(devId));
     if (state.selectedDevotees) state.selectedDevotees.delete(devId);
@@ -2587,11 +2668,13 @@ async function approveDeleteRequest(requestId) {
     renderParcelsTable();
   } else if (req.record_type === 'PARCEL') {
     const parcelId = req.record_id;
+    markParcelsAsDeleted(parcelId);
     state.parcels = (state.parcels || []).filter(p => String(p.id) !== String(parcelId));
     if (state.selectedParcels) state.selectedParcels.delete(parcelId);
     saveToStorage();
     updateKPIs();
     renderParcelsTable();
+    renderBirthdaysGrid();
   }
 
   req.status = 'APPROVED';
@@ -5820,6 +5903,9 @@ async function deleteDuplicateParcels() {
   });
   if (!confirmed) return;
 
+  // 1. Mark in tombstone set so they can NEVER resurrect
+  markParcelsAsDeleted(allIdsToDelete);
+
   const idsToDeleteSet = new Set(allIdsToDelete);
   state.parcels = (state.parcels || []).filter(p => !idsToDeleteSet.has(p.id));
 
@@ -5846,14 +5932,18 @@ async function deleteDuplicateParcels() {
     localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
   } catch (e) { /* ignore */ }
 
-  // Best-effort delete from Supabase parcels table in chunks of 50
+  // 2. Direct delete from Supabase Cloud (AWAITED)
   try {
     const client = getSupabaseClient();
     if (client) {
       for (let i = 0; i < allIdsToDelete.length; i += 50) {
         const chunk = allIdsToDelete.slice(i, i + 50);
-        client.from('parcels').delete().in('id', chunk).then(() => {});
+        const { error } = await client.from('parcels').delete().in('id', chunk);
+        if (error) {
+          console.warn('⚠️ Supabase duplicate delete warning:', error.message);
+        }
       }
+      console.log(`✅ Permanently deleted ${allIdsToDelete.length} duplicate parcels from Supabase Cloud.`);
     }
   } catch (e) {
     console.warn('Cloud duplicate delete error:', e);
@@ -7535,12 +7625,29 @@ async function deleteDevotee(id) {
   });
   if (!confirmed) return;
 
+  // 1. Mark devotee and their parcels in tombstone set so they can NEVER resurrect
+  markDevoteesAsDeleted(id);
+  const devoteeParcelIds = (state.parcels || [])
+    .filter(p => p.devoteeId === id)
+    .map(p => p.id);
+  if (devoteeParcelIds.length > 0) {
+    markParcelsAsDeleted(devoteeParcelIds);
+  }
+
+  // 2. Remove from local memory & storage
   state.devotees = state.devotees.filter(x => x.id !== id);
   state.parcels = (state.parcels || []).filter(p => p.devoteeId !== id);
   if (state.selectedDevotees) state.selectedDevotees.delete(id);
   if (state.selectedCelebrations) state.selectedCelebrations.delete(id);
-  if (state.selectedParcels) state.selectedParcels.delete(id);
+  if (state.selectedParcels) {
+    devoteeParcelIds.forEach(pid => state.selectedParcels.delete(pid));
+  }
   saveToStorage();
+  try {
+    localStorage.setItem(STORAGE_KEYS.DEVOTEES, JSON.stringify(state.devotees));
+    localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+  } catch (e) {}
+
   recordAuditEvent({
     action: 'delete',
     module: 'devotees',
@@ -7555,17 +7662,26 @@ async function deleteDevotee(id) {
   renderBirthdaysGrid();
   renderParcelsTable();
   initCharts();
-  // BEST-EFFORT CLOUD DELETE
+
+  // 3. Delete from Supabase Cloud (Devotee record + related parcels)
   try {
     const client = getSupabaseClient();
     if (client) {
-      client.from('devotees').delete().eq('DEVOTEE ID', id).then(() => {});
+      const { error: dErr } = await client.from('devotees').delete().eq('DEVOTEE ID', id);
+      if (dErr) console.warn('Supabase devotee delete warning:', dErr.message);
+      if (devoteeParcelIds.length > 0) {
+        await client.from('parcels').delete().eq('devotee_id', id);
+      }
+      console.log('✅ Devotee and related parcels deleted from Supabase Cloud:', id);
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    console.warn('Cloud devotee delete error:', e);
+  }
+
   showToast(`Devotee ${name} removed successfully`, 'success');
 }
 
-function deleteAllBirthdayAnniversaryRecords() {
+async function deleteAllBirthdayAnniversaryRecords() {
   if (!isSuperAdmin()) {
     showToast('⛔ Bulk deletion is restricted to Super Admin only.', 'error');
     return;
@@ -7595,18 +7711,40 @@ function deleteAllBirthdayAnniversaryRecords() {
   );
   if (!ok) return;
 
+  const idsArr = Array.from(idsInTable);
+  markDevoteesAsDeleted(idsArr);
+
   state.devotees = state.devotees.filter(d => !idsInTable.has(d.id));
 
   if (state.selectedDevotees) state.selectedDevotees.clear();
   if (state.selectedParcels) state.selectedParcels.clear();
 
   saveToStorage();
+  try {
+    localStorage.setItem(STORAGE_KEYS.DEVOTEES, JSON.stringify(state.devotees));
+  } catch (e) {}
+
   updateDevoteeAutocompleteList();
   updateKPIs();
   renderDevoteesTable();
   renderBirthdaysGrid();
   renderParcelsTable();
   initCharts();
+
+  // Delete from Supabase in chunks of 50
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      for (let i = 0; i < idsArr.length; i += 50) {
+        const chunk = idsArr.slice(i, i + 50);
+        await client.from('devotees').delete().in('DEVOTEE ID', chunk);
+      }
+      console.log(`✅ Permanently deleted ${idsArr.length} devotees from Supabase Cloud.`);
+    }
+  } catch (e) {
+    console.warn('Supabase bulk devotee delete warning:', e);
+  }
+
   showToast(`Deleted ${count} birthday/anniversary record${count > 1 ? 's' : ''}`, 'success');
 }
 
@@ -9292,16 +9430,62 @@ async function bulkDeleteParcels() {
   renderBirthdaysGrid();
   renderParcelsTable();
   const idsToDeleteArr = Array.from(idsToDelete);
-  // BEST-EFFORT CLOUD DELETE
+
+  // 1. Mark in tombstone set so they can NEVER resurrect
+  markParcelsAsDeleted(idsToDeleteArr);
+
+  state.parcels = (state.parcels || []).filter(p => {
+    if (idsToDelete.has(p.id)) {
+      devoteeIds.add(p.devoteeId);
+      return false;
+    }
+    return true;
+  });
+
+  // Remove the parcel trace from those devotees so their celebration row goes
+  // back to a clean "Create Parcel" state.
+  (state.devotees || []).forEach(d => {
+    if (devoteeIds.has(d.id)) {
+      const remaining = state.parcels.find(p => p.devoteeId === d.id);
+      if (!remaining) {
+        clearDevoteeParcelTrace(d);
+      } else {
+        d.hasParcel = true;
+        d.parcelCreated = true;
+        d.parcelId = remaining.id;
+      }
+    }
+  });
+
+  state.selectedParcels.clear();
+  saveToStorage();
+  try {
+    localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+  } catch (e) {}
+
+  logActivity('delete', 'Parcel', `Deleted ${count} parcel consignment(s).`);
+  updateKPIs();
+  renderDevoteesTable();
+  renderBirthdaysGrid();
+  renderParcelsTable();
+
+  // 2. Direct delete from Supabase Cloud (AWAITED)
   try {
     const client = getSupabaseClient();
     if (client) {
       for (let i = 0; i < idsToDeleteArr.length; i += 50) {
-        const chunk = idsToDeleteArr.slice(i, i+50);
-        client.from('parcels').delete().in('id', chunk).then(() => {});
+        const chunk = idsToDeleteArr.slice(i, i + 50);
+        const { error } = await client.from('parcels').delete().in('id', chunk);
+        if (error) {
+          console.warn('⚠️ Supabase bulk parcel delete warning:', error.message);
+        }
       }
+      console.log(`✅ Permanently deleted ${idsToDeleteArr.length} parcels from Supabase Cloud.`);
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    console.warn('Bulk parcel delete exception:', e);
+  }
+
   showToast(`Deleted ${count} parcel record${count > 1 ? 's' : ''} permanently`, 'success');
 }
 
@@ -9336,6 +9520,10 @@ async function deleteParcelRecord(parcelId, devoteeId) {
   });
   if (!confirmed) return;
 
+  // 1. Record ID in tombstone set immediately so it can NEVER resurrect
+  markParcelsAsDeleted(parcelId);
+
+  // 2. Remove from local state and update devotee parcel trace
   state.parcels = (state.parcels || []).filter(p => p.id !== parcelId);
   if (dev) {
     const remainingParcel = state.parcels.find(x => x.devoteeId === devoteeId);
@@ -9350,11 +9538,31 @@ async function deleteParcelRecord(parcelId, devoteeId) {
   }
   if (state.selectedParcels) state.selectedParcels.delete(parcelId);
   saveToStorage();
+  try {
+    localStorage.setItem(STORAGE_KEYS.PARCELS, JSON.stringify(state.parcels));
+  } catch (e) {}
+
   logActivity('delete', 'Parcel', `Deleted parcel consignment for "${name}".`, parcelId);
   updateKPIs();
   renderParcelsTable();
   renderBirthdaysGrid();
   renderDevoteesTable();
+
+  // 3. IMMEDIATELY DELETE FROM SUPABASE CLOUD DATABASE (AWAITED)
+  try {
+    const client = getSupabaseClient();
+    if (client) {
+      const { error } = await client.from('parcels').delete().eq('id', parcelId);
+      if (error) {
+        console.warn('⚠️ Supabase cloud parcel delete notice:', error.message);
+      } else {
+        console.log('✅ Parcel deleted from Supabase Cloud:', parcelId);
+      }
+    }
+  } catch (e) {
+    console.warn('Supabase cloud delete exception:', e);
+  }
+
   showToast('Parcel consignment deleted permanently.', 'success');
 }
 
