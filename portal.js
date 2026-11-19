@@ -3819,6 +3819,20 @@ async function showPortalDashboard(user) {
     return;
   }
 
+  // 🔒 Super Admin only — central guard so every entry path (sign-in, session
+  // restore, password recovery) passes through the same role check.
+  if (!PUBLIC_OPEN_ACCESS) {
+    const roleKnown = currentUserProfile && getUserRole(user) === 'SUPER_ADMIN';
+    if (!roleKnown) {
+      const allowed = await enforceSuperAdminSession(user);
+      if (!allowed) {
+        showAuthScreen();
+        showAuthAlert('⛔ Access denied — this portal is restricted to Super Admin accounts.', 'error');
+        return;
+      }
+    }
+  }
+
   const authScreen = document.getElementById('auth-screen');
   const portalApp = document.getElementById('portal-app');
   if (authScreen) {
