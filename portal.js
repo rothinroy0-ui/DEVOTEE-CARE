@@ -1583,7 +1583,6 @@ function renderAuthenticatedPortal() {
   renderDashboard();
   renderDevoteesTable();
   renderBirthdaysGrid();
-  renderParcelsTable();
   renderRemovedCelebrationSection();
   updateActivityNavBadge();
   loadStaffListFromCloud();
@@ -1871,11 +1870,11 @@ const ROLE_PANELS = {
 
 // Tabs each role is allowed to open (nav gating + switchTab guard)
 const ROLE_TAB_ACCESS = {
-  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity'],
-  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'parcels', 'removed', 'requests', 'roles', 'activity'],
-  STAFF: ['devotees', 'birthdays', 'anniversaries', 'parcels', 'activity'],
-  USER: ['birthdays', 'anniversaries', 'parcels'],
-  VIEWER: ['devotees', 'birthdays', 'anniversaries', 'parcels']
+  SUPER_ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'removed', 'requests', 'roles', 'activity'],
+  ADMIN: ['dashboard', 'devotees', 'birthdays', 'anniversaries', 'removed', 'requests', 'roles', 'activity'],
+  STAFF: ['devotees', 'birthdays', 'anniversaries', 'activity'],
+  USER: ['birthdays', 'anniversaries'],
+  VIEWER: ['devotees', 'birthdays', 'anniversaries']
 };
 
 // Action permissions per role ('*' = every action)
@@ -8569,37 +8568,7 @@ function renderBirthdaysGrid() {
           `}
         </td>
 
-        <!-- 5. Mode of Delivery (Delhivery Courier / Self Mode) -->
-        <td class="py-2 px-2 text-center whitespace-nowrap">
-          <select onchange="setCelebrationDeliveryMode('${d.id}', this.value)" title="Choose how this celebration parcel is delivered"
-            class="px-1.5 py-1 text-[10px] font-semibold border border-slate-300 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-pink-400 focus:border-pink-400">
-            <option value="" ${d.deliveryMode ? '' : 'selected'}>Select Delivery Mode</option>
-            <option value="DELHIVERY" ${d.deliveryMode === 'DELHIVERY' ? 'selected' : ''}>Delhivery Courier</option>
-            <option value="SELF" ${d.deliveryMode === 'SELF' ? 'selected' : ''}>Self Mode</option>
-          </select>
-        </td>
-
-        <!-- 6. Parcel (Create Parcel / Created) -->
-        <td class="py-2 px-2 text-center whitespace-nowrap">
-          ${hasParcel ? `
-            <button onclick="viewParcelInTracking('${liveParcel.id}')" 
-                    class="inline-flex items-center space-x-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-xs cursor-pointer" 
-                    title="Parcel already created for this celebration — click to view in Parcel Tracking">
-              <span>📦</span>
-              <span>Created</span>
-              <span class="text-[10px] text-emerald-600 font-mono">↗</span>
-            </button>
-          ` : `
-            <button onclick="openCreateParcelModal('${d.id}', '${parcelType}')" 
-                    class="inline-flex items-center space-x-1 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold px-2.5 py-1 rounded-lg text-[11px] transition shadow-xs hover:shadow cursor-pointer active:scale-95" 
-                    title="Create Consignment Parcel for ${escapeHtml(displayName)}">
-              <span>📦</span>
-              <span>Create Parcel</span>
-            </button>
-          `}
-        </td>
-
-        <!-- 7. Actions (Wish / Remove) — Remove = soft-removal, data is never deleted -->
+        <!-- 5. Actions (Wish / Remove) — Remove = soft-removal, data is never deleted -->
         <td class="py-2 px-2 whitespace-nowrap">
           <div class="flex items-center justify-end gap-1">
             <button onclick="openWishesModal('${d.id}', '${item.eventType.toLowerCase()}')" class="inline-flex items-center space-x-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2 py-1 rounded text-[11px] transition shadow-xs" title="Send a Birthday/Anniversary Wish">

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -123,7 +123,7 @@
     }
 
     /* ============================================================
-       Executive Dashboard nav bar — devotional theme
+       Executive Dashboard nav bar â€” devotional theme
        (saffron / amber-gold active, deep-maroon bar, per-tab accents)
        ============================================================ */
     #main-nav-tabs .nav-tab {
@@ -188,10 +188,10 @@
     }
 
     /* ============================================================
-       🌙 NIGHT (DARK) MODE — "Temple at Night" devotional palette.
+       ðŸŒ™ NIGHT (DARK) MODE â€” "Temple at Night" devotional palette.
        Deep maroon-plum blacks + warm lamp-light text, harmonising
        with the maroon/gold executive nav bar.
-       ↳ Tweak only the --n-* variables below to re-skin night mode.
+       â†³ Tweak only the --n-* variables below to re-skin night mode.
        ============================================================ */
     html.dark {
       color-scheme: dark;
@@ -327,7 +327,7 @@
     html.dark textarea::placeholder { color: #7d6f6c; }
 
     /* ============================================================
-       📱 MOBILE-FRIENDLY LAYER  (≤ 640px phones / small tablets)
+       ðŸ“± MOBILE-FRIENDLY LAYER  (â‰¤ 640px phones / small tablets)
        ============================================================ */
     @media (max-width: 640px) {
       /* Never allow sideways page scroll */
@@ -401,7 +401,7 @@
         overflow-y: auto;
       }
 
-      /* ---- Devotee Directory & Celebration Tables → stacked cards ---- */
+      /* ---- Devotee Directory & Celebration Tables â†’ stacked cards ---- */
       #devotees-table-card,
       #bday-table-view-wrapper {
         background: transparent !important;
@@ -647,7 +647,7 @@
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
   <!-- ============================================================== -->
-  <!-- 🔐 AUTHENTICATION SCREEN: ISKCON RADHAPUR (DURGAPUR)          -->
+  <!-- ðŸ” AUTHENTICATION SCREEN: ISKCON RADHAPUR (DURGAPUR)          -->
   <!-- ============================================================== -->
   <div id="auth-screen" class="min-h-screen w-full flex flex-col justify-center items-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 relative overflow-hidden">
     
@@ -657,7 +657,7 @@
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- Sacred Watermark -->
-    <div class="absolute top-6 right-6 opacity-10 pointer-events-none text-8xl sm:text-9xl select-none">🪷</div>
+    <div class="absolute top-6 right-6 opacity-10 pointer-events-none text-8xl sm:text-9xl select-none">ðŸª·</div>
 
     <!-- Floating Light / Dark toggle (available before login too) -->
     <button onclick="toggleTheme()" title="Switch light / dark mode" aria-label="Switch light / dark mode" class="absolute top-5 left-5 z-30 flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 backdrop-blur-md transition cursor-pointer shadow-lg active:scale-95">
@@ -698,24 +698,24 @@
           <div id="auth-alert-text" class="flex-1 font-medium leading-relaxed"></div>
         </div>
 
-        <!-- Access Denied — URL route guard (Admin URL vs User URL) -->
+        <!-- Access Denied â€” URL route guard (Admin URL vs User URL) -->
         <div id="access-denied-box" class="hidden mb-4 p-4 rounded-xl border border-rose-700/70 bg-rose-950/60 space-y-3">
           <div class="flex items-center space-x-2">
-            <span class="text-xl leading-none">⛔</span>
+            <span class="text-xl leading-none">â›”</span>
             <span class="text-sm font-black text-rose-100 uppercase tracking-wide">Access Denied</span>
           </div>
           <p id="access-denied-msg" class="text-xs leading-relaxed text-rose-200/90"></p>
           <div class="flex flex-wrap gap-2">
-            <button type="button" onclick="goToPanel('USER')" class="flex-1 min-w-[150px] bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">🪷 Open my User Portal</button>
-            <button type="button" onclick="handleAuthSignOut()" class="flex-1 min-w-[120px] bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">🚪 Sign out</button>
+            <button type="button" onclick="goToPanel('USER')" class="flex-1 min-w-[150px] bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">ðŸª· Open my User Portal</button>
+            <button type="button" onclick="handleAuthSignOut()" class="flex-1 min-w-[120px] bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">ðŸšª Sign out</button>
           </div>
         </div>
 
-        <!-- 🔐 DEVOTEE CARE LOGIN FORM VIEW -->
+        <!-- ðŸ” DEVOTEE CARE LOGIN FORM VIEW -->
         <div id="auth-form-view" class="space-y-4">
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
             <div class="flex items-center space-x-2">
-              <span class="text-amber-400 text-base">🙏</span>
+              <span class="text-amber-400 text-base">ðŸ™</span>
               <span class="text-xs font-bold text-slate-200">Super Admin Sign In</span>
             </div>
             <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-lg border bg-rose-500/15 border-rose-400/40 text-rose-300 flex items-center space-x-1">
@@ -772,7 +772,7 @@
                   id="auth-password" 
                   required 
                   autocomplete="current-password" 
-                  placeholder="••••••••••••" 
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" 
                   class="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500 transition shadow-inner">
                 <button 
                   type="button" 
@@ -894,7 +894,7 @@
 
 
   <!-- ============================================================== -->
-  <!-- 🛡️ PROTECTED PORTAL APPLICATION CONTAINER                      -->
+  <!-- ðŸ›¡ï¸ PROTECTED PORTAL APPLICATION CONTAINER                      -->
   <!-- ============================================================== -->
   <div id="portal-app" class="hidden min-h-screen flex flex-col" style="display: none !important;">
 
@@ -914,7 +914,7 @@
               <span class="text-slate-600 font-normal">/</span>
               <span class="text-xs font-semibold text-amber-400/90 tracking-wide">DEVOTEE CARE</span>
             </div>
-            <p class="text-[11px] text-slate-400 font-normal leading-tight italic truncate max-w-lg hidden xl:block">"Our love for Krishna will be tested by how we love and serve one another." — Srila Prabhupada</p>
+            <p class="text-[11px] text-slate-400 font-normal leading-tight italic truncate max-w-lg hidden xl:block">"Our love for Krishna will be tested by how we love and serve one another." â€” Srila Prabhupada</p>
           </div>
         </div>
 
@@ -970,11 +970,6 @@
               <span>Anniversaries</span>
               <span id="nav-anniv-badge" class="ml-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-1.5 py-0.2 rounded-full font-semibold">0</span>
             </button>
-            <button onclick="switchTab('parcels')" class="nav-tab flex items-center space-x-2" data-tab="parcels">
-              <i data-lucide="truck" class="w-4 h-4"></i>
-              <span>Parcel &amp; Tracking</span>
-              <span id="nav-parcel-badge" class="ml-1 bg-sky-500/15 text-sky-300 border border-sky-500/30 text-[10px] px-1.5 py-0.2 rounded-full font-semibold">0</span>
-            </button>
             <button onclick="switchTab('removed')" class="nav-tab flex items-center space-x-2" data-tab="removed">
               <i data-lucide="archive" class="w-4 h-4"></i>
               <span>Removal Records</span>
@@ -1011,55 +1006,17 @@
         <div class="relative z-10">
           <div>
             <div class="flex items-center space-x-2 mb-1">
-              <span class="text-xs bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-full font-medium border border-indigo-400/30">Hare Krishna! Dandavat Pranams 🙏</span>
+              <span class="text-xs bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-full font-medium border border-indigo-400/30">Hare Krishna! Dandavat Pranams ðŸ™</span>
               <span id="current-date-badge" class="text-xs text-indigo-200/80 font-medium"></span>
             </div>
             <p class="text-slate-300 text-sm max-w-2xl leading-relaxed">
-              Devotee appearance day celebrations, marriage anniversaries wish desk, and Flipkart/Amazon-grade prasadam parcel tracking system.
+              Devotee appearance day celebrations, marriage anniversaries wish desk, and pastoral care for the congregation.
             </p>
           </div>
         </div>
-        <div class="absolute -right-8 -bottom-10 opacity-10 pointer-events-none text-9xl">🪷</div>
+        <div class="absolute -right-8 -bottom-10 opacity-10 pointer-events-none text-9xl">ðŸª·</div>
       </div>
 
-      <!-- 1. Tracking System (Top Priority) -->
-      <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm">
-        <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-          <div>
-            <h3 class="font-bold text-slate-800 text-sm flex items-center space-x-2">
-              <i data-lucide="package-search" class="w-4 h-4 text-indigo-600"></i>
-              <span>Tracking System</span>
-            </h3>
-            <p class="text-xs text-slate-500">Complete parcel & delivery management</p>
-          </div>
-          <button onclick="switchTab('parcels')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-xs font-semibold transition flex items-center space-x-1.5 shadow">
-            <i data-lucide="external-link" class="w-4 h-4"></i>
-            <span>Open Tracking System</span>
-          </button>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div class="bg-slate-50 rounded-lg p-3 text-center">
-            <div class="text-lg font-bold text-slate-800" id="track-total">0</div>
-            <div class="text-[10px] text-slate-500 uppercase font-semibold">Total Parcels</div>
-          </div>
-          <div class="bg-rose-50 rounded-lg p-3 text-center">
-            <div class="text-lg font-bold text-rose-700" id="track-pending">0</div>
-            <div class="text-[10px] text-rose-600 uppercase font-semibold">Pending</div>
-          </div>
-          <div class="bg-amber-50 rounded-lg p-3 text-center">
-            <div class="text-lg font-bold text-amber-700" id="track-transit">0</div>
-            <div class="text-[10px] text-amber-600 uppercase font-semibold">In Transit</div>
-          </div>
-          <div class="bg-emerald-50 rounded-lg p-3 text-center">
-            <div class="text-lg font-bold text-emerald-700" id="track-delivered">0</div>
-            <div class="text-[10px] text-emerald-600 uppercase font-semibold">Delivered</div>
-          </div>
-          <div class="bg-purple-50 rounded-lg p-3 text-center col-span-2 sm:col-span-1">
-            <div class="text-lg font-bold text-purple-700" id="track-returned">0</div>
-            <div class="text-[10px] text-purple-600 uppercase font-semibold">Returned</div>
-          </div>
-        </div>
-      </div>
 
       <!-- 2. Upcoming Calendar Celebrations -->
       <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
@@ -1073,7 +1030,7 @@
               <p class="text-xs text-slate-500">Birthdays & Anniversaries (Next 14 Days)</p>
             </div>
             <button onclick="switchTab('birthdays')" class="text-xs text-pink-600 hover:text-pink-700 font-bold">
-              Wish All →
+              Wish All â†’
             </button>
           </div>
 
@@ -1102,7 +1059,7 @@
           </div>
           <div id="stat-bday-month" class="text-2xl font-bold text-rose-600">0</div>
           <div class="text-[11px] text-rose-600 mt-1 font-medium cursor-pointer hover:underline" onclick="switchTab('birthdays')">
-            View Celebrations →
+            View Celebrations â†’
           </div>
         </div>
 
@@ -1145,7 +1102,7 @@
         </div>
       </div>
 
-      <!-- AGE-WISE DEVOTEE DISTRIBUTION (live counts from the Database — click a card to open a filtered Directory list) -->
+      <!-- AGE-WISE DEVOTEE DISTRIBUTION (live counts from the Database â€” click a card to open a filtered Directory list) -->
       <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm">
         <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
           <div>
@@ -1153,12 +1110,12 @@
               <i data-lucide="pie-chart" class="w-4 h-4 text-teal-600"></i>
               <span>Age-wise Devotee Distribution</span>
             </h3>
-            <p class="text-xs text-slate-500">Live counts — new devotees & age changes update the cards automatically</p>
+            <p class="text-xs text-slate-500">Live counts â€” new devotees & age changes update the cards automatically</p>
           </div>
-          <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Click a card → filtered Directory</span>
+          <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Click a card â†’ filtered Directory</span>
         </div>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <!-- 0–25 -->
+          <!-- 0â€“25 -->
           <button onclick="filterDevoteesByAge('0-25')" class="text-left bg-gradient-to-br from-sky-50 to-white rounded-xl p-4 border border-sky-200 hover:border-sky-400 hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full">0-25</span>
@@ -1166,7 +1123,7 @@
             <div id="stat-age-025" data-age-stat="0-25" class="text-3xl font-extrabold text-sky-700">0</div>
             <div class="text-[11px] text-slate-500 font-medium mt-1">Devotees</div>
           </button>
-          <!-- 26–50 -->
+          <!-- 26â€“50 -->
           <button onclick="filterDevoteesByAge('26-50')" class="text-left bg-gradient-to-br from-teal-50 to-white rounded-xl p-4 border border-teal-200 hover:border-teal-400 hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[9px] font-bold uppercase tracking-wider text-teal-700 bg-teal-100 border border-teal-200 px-1.5 py-0.5 rounded-full">25-50</span>
@@ -1174,7 +1131,7 @@
             <div id="stat-age-2650" data-age-stat="26-50" class="text-3xl font-extrabold text-teal-700">0</div>
             <div class="text-[11px] text-slate-500 font-medium mt-1">Devotees</div>
           </button>
-          <!-- 51–60 -->
+          <!-- 51â€“60 -->
           <button onclick="filterDevoteesByAge('51-60')" class="text-left bg-gradient-to-br from-amber-50 to-white rounded-xl p-4 border border-amber-200 hover:border-amber-400 hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">50-60</span>
@@ -1200,7 +1157,7 @@
             <i data-lucide="history" class="w-4 h-4 text-amber-600"></i>
             <span>Recent Changes</span>
           </h3>
-          <button onclick="switchTab('activity')" class="text-[11px] font-semibold text-teal-700 hover:text-teal-800">View all →</button>
+          <button onclick="switchTab('activity')" class="text-[11px] font-semibold text-teal-700 hover:text-teal-800">View all â†’</button>
         </div>
         <div id="recent-changes-list"></div>
       </div>
@@ -1220,7 +1177,7 @@
           </h2>
         </div>
 
-        <!-- Age-wise Devotee Distribution (live counts — click a card to filter this list) -->
+        <!-- Age-wise Devotee Distribution (live counts â€” click a card to filter this list) -->
         <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
           <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-200">
             <div>
@@ -1228,11 +1185,11 @@
                 <i data-lucide="pie-chart" class="w-4 h-4 text-teal-600"></i>
                 <span>Age-wise Devotee Distribution</span>
               </h3>
-              <p class="text-xs text-slate-500">Live counts — click a card to filter this list by age</p>
+              <p class="text-xs text-slate-500">Live counts â€” click a card to filter this list by age</p>
             </div>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <!-- 0–25 -->
+            <!-- 0â€“25 -->
             <button onclick="filterDevoteesByAge('0-25')" class="text-left bg-gradient-to-br from-sky-50 to-white rounded-xl p-3 border border-sky-200 hover:border-sky-400 hover:shadow-md transition">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[9px] font-bold uppercase tracking-wider text-sky-700 bg-sky-100 border border-sky-200 px-1.5 py-0.5 rounded-full">0-25</span>
@@ -1240,7 +1197,7 @@
               <div id="dir-age-025" data-age-stat="0-25" class="text-2xl font-extrabold text-sky-700">0</div>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5">Devotees</div>
             </button>
-            <!-- 26–50 -->
+            <!-- 26â€“50 -->
             <button onclick="filterDevoteesByAge('26-50')" class="text-left bg-gradient-to-br from-teal-50 to-white rounded-xl p-3 border border-teal-200 hover:border-teal-400 hover:shadow-md transition">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[9px] font-bold uppercase tracking-wider text-teal-700 bg-teal-100 border border-teal-200 px-1.5 py-0.5 rounded-full">25-50</span>
@@ -1248,7 +1205,7 @@
               <div id="dir-age-2650" data-age-stat="26-50" class="text-2xl font-extrabold text-teal-700">0</div>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5">Devotees</div>
             </button>
-            <!-- 51–60 -->
+            <!-- 51â€“60 -->
             <button onclick="filterDevoteesByAge('51-60')" class="text-left bg-gradient-to-br from-amber-50 to-white rounded-xl p-3 border border-amber-200 hover:border-amber-400 hover:shadow-md transition">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">50-60</span>
@@ -1282,7 +1239,7 @@
             </select>
           </div>
 
-          <!-- Month Filter (populated dynamically — includes This Month shortcut) -->
+          <!-- Month Filter (populated dynamically â€” includes This Month shortcut) -->
           <div>
             <select id="filter-month" onchange="renderDevoteesTable()" class="w-full py-2 px-2.5 text-xs border border-teal-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white font-medium text-slate-700 shadow-sm"></select>
           </div>
@@ -1298,9 +1255,9 @@
               <button onclick="clearDevoteeSelection()" class="ml-1 text-slate-500 hover:text-rose-700 underline font-normal" title="Clear selection">Clear</button>
             </span>
             <span id="age-filter-chip" class="hidden font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full text-[11px] items-center space-x-1">
-              <span>🎂</span>
-              <span id="age-filter-chip-label">Age 0–25</span>
-              <button onclick="clearDevoteeAgeFilter()" class="ml-1 text-slate-500 hover:text-teal-800 underline font-normal" title="Clear age filter">✕</button>
+              <span>ðŸŽ‚</span>
+              <span id="age-filter-chip-label">Age 0â€“25</span>
+              <button onclick="clearDevoteeAgeFilter()" class="ml-1 text-slate-500 hover:text-teal-800 underline font-normal" title="Clear age filter">âœ•</button>
             </span>
           </div>
           <div class="w-full sm:w-auto grid grid-cols-2 sm:flex sm:items-center gap-2">
@@ -1352,7 +1309,7 @@
         <!-- Pagination Controls -->
         <div class="p-3 bg-slate-50/60 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
           <div class="text-xs text-slate-500 text-center sm:text-left">
-            Showing <span id="page-start" class="font-bold text-slate-800">0</span>–<span id="page-end" class="font-bold text-slate-800">0</span> of <span id="pagination-total-count" class="font-bold text-slate-800">0</span> devotees
+            Showing <span id="page-start" class="font-bold text-slate-800">0</span>â€“<span id="page-end" class="font-bold text-slate-800">0</span> of <span id="pagination-total-count" class="font-bold text-slate-800">0</span> devotees
           </div>
           <div class="flex flex-wrap items-center justify-center gap-1" id="pagination-controls">
             <!-- Dynamically populated -->
@@ -1373,22 +1330,6 @@
         </div>
       </div>
 
-      <!-- Standalone Bulk Create Parcel Card (own space — above both Birthday & Anniversary lists) -->
-      <div class="bg-emerald-50/70 rounded-xl p-4 border border-emerald-200/80 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center space-x-3">
-          <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm flex-shrink-0">
-            <i data-lucide="package-plus" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <div class="text-sm font-bold text-emerald-900">Bulk Create Parcel</div>
-            <div class="text-[11px] text-emerald-700/80">Select devotees on the Birthday / Anniversary list with the ☑ checkbox, then create prasadam parcels for all of them in one click.</div>
-          </div>
-        </div>
-        <button onclick="bulkCreateParcelsForSelected()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow-sm transition flex items-center space-x-2 cursor-pointer" title="Create parcels for all ☑-selected devotees at once">
-          <i data-lucide="package-plus" class="w-4 h-4"></i>
-          <span>+ Bulk Create Parcel</span>
-        </button>
-      </div>
 
       <!-- Quick Celebration Metric Strip -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -1459,24 +1400,24 @@
         <!-- Row: Month View, Date View, City Filter, Search & Mode of Delivery -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           
-          <!-- Month View (Month Selector — populated dynamically, current month pre-selected) -->
+          <!-- Month View (Month Selector â€” populated dynamically, current month pre-selected) -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">🗓️ Month View:</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">ðŸ—“ï¸ Month View:</label>
             <select id="bday-select-month" onchange="handleCelebrationMonthChange()" class="w-full py-2 px-3 text-xs border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-400 bg-white font-semibold text-slate-700 shadow-sm"></select>
           </div>
 
-          <!-- Date View (Exact Date Picker — shows every Birthday & Anniversary on that day) -->
+          <!-- Date View (Exact Date Picker â€” shows every Birthday & Anniversary on that day) -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">📅 Date View (Exact Date):</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">ðŸ“… Date View (Exact Date):</label>
             <div class="relative">
               <input type="date" id="bday-select-date" onchange="handleCelebrationDateChange()" title="Select a date to see every Birthday & Anniversary falling on that exact day" class="w-full py-2 px-3 text-xs border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-400 bg-white font-semibold text-slate-700 shadow-sm">
-              <button type="button" onclick="clearCelebrationDate()" id="bday-date-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs px-1 cursor-pointer" title="Clear date filter">✕</button>
+              <button type="button" onclick="clearCelebrationDate()" id="bday-date-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs px-1 cursor-pointer" title="Clear date filter">âœ•</button>
             </div>
           </div>
 
-          <!-- City Filter (searchable — every city name from the database) -->
+          <!-- City Filter (searchable â€” every city name from the database) -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">📍 City Filter:</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">ðŸ“ City Filter:</label>
             <div class="relative">
               <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
               <input type="text" id="bday-city-search" autocomplete="off"
@@ -1486,7 +1427,7 @@
                      onfocus="handleCelebrationCitySearch('')"
                      onblur="onCelebrationCityBlur()"
                      onkeydown="onCelebrationCityKeydown(event)">
-              <button type="button" id="bday-city-clear" onclick="clearCelebrationCity()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs cursor-pointer" title="Clear city filter">✕</button>
+              <button type="button" id="bday-city-clear" onclick="clearCelebrationCity()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs cursor-pointer" title="Clear city filter">âœ•</button>
               <div id="bday-city-dropdown" class="hidden absolute z-30 left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-xl shadow-lg text-xs"></div>
             </div>
           </div>
@@ -1500,18 +1441,9 @@
             </div>
           </div>
 
-          <!-- Mode of Delivery Filter (matches the per-row Delivery select: Delhivery Courier / Self Mode) -->
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">🚚 Mode of Delivery:</label>
-            <select id="bday-filter-mode" onchange="handleCelebrationModeChange()" title="Show only celebrations delivered via Delhivery Courier or Self Mode" class="w-full py-2 px-3 text-xs border border-teal-200 rounded-xl focus:ring-2 focus:ring-teal-400 bg-white font-semibold text-slate-700 shadow-sm">
-              <option value="ALL" selected>All Modes</option>
-              <option value="Delhivery Courier">Delhivery Courier</option>
-              <option value="Self Mode">Self Mode</option>
-            </select>
-          </div>
         </div>
 
-        <!-- Clear Filters — reset every filter in this toolbar (Month / Date / City / Mode / Search) -->
+        <!-- Clear Filters â€” reset every filter in this toolbar (Month / Date / City / Mode / Search) -->
         <div class="flex items-center justify-end pt-1 border-t border-slate-100">
           <button onclick="clearCelebrationFilters()" class="text-rose-600 hover:text-rose-800 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset month, date, city, delivery mode & search filters">
             <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
@@ -1520,7 +1452,7 @@
         </div>
       </div>
 
-      <!-- Bulk Selection Bar (checkbox selection system — same as Devotee Directory) -->
+      <!-- Bulk Selection Bar (checkbox selection system â€” same as Devotee Directory) -->
       <div id="bday-bulk-bar" class="hidden bg-white rounded-xl p-3 border border-pink-200/80 shadow-sm flex-wrap items-center justify-between gap-3">
         <div class="flex items-center space-x-2 text-xs text-slate-600">
           <span class="font-semibold">Selected:</span>
@@ -1549,8 +1481,6 @@
                 <th id="bday-date-col-title" class="py-3 px-4">Birthday</th>
                 <th class="py-3 px-4">Phone</th>
                 <th class="py-3 px-4">City</th>
-                <th class="py-3 px-4 text-center">Mode of Delivery</th>
-                <th class="py-3 px-3 text-center">Parcel</th>
                 <th class="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -1564,7 +1494,7 @@
       <!-- Empty State -->
       <div id="bday-empty-state" class="hidden bg-white rounded-xl p-12 text-center border border-slate-200">
         <div class="w-12 h-12 rounded-full bg-pink-50 text-pink-500 mx-auto flex items-center justify-center text-2xl mb-3">
-          🎂
+          ðŸŽ‚
         </div>
         <h3 class="text-sm font-bold text-slate-700">No celebrations found matching the filters</h3>
         <p class="text-xs text-slate-400 mt-1">Try the Month View (select a month), the Date View (pick an exact date), or clear your search filters.</p>
@@ -1573,7 +1503,7 @@
     </section>
 
 
-    <!-- 2b. REMOVAL RECORDS VIEW — Birthday & Anniversary removal lists, separately -->
+    <!-- 2b. REMOVAL RECORDS VIEW â€” Birthday & Anniversary removal lists, separately -->
     <section id="view-removed" class="hidden space-y-6">
 
       <!-- Header -->
@@ -1583,16 +1513,16 @@
             <i data-lucide="archive" class="w-5 h-5 text-amber-600"></i>
             <h2 class="text-xl font-bold text-slate-800 font-serif">Removal Records</h2>
           </div>
-          <span class="text-[11px] text-slate-500">Soft-removed records — nothing is ever deleted · Restore anytime</span>
+          <span class="text-[11px] text-slate-500">Soft-removed records â€” nothing is ever deleted Â· Restore anytime</span>
         </div>
       </div>
 
-      <!-- 🎂 Birthday Removal List -->
+      <!-- ðŸŽ‚ Birthday Removal List -->
       <div class="bg-white rounded-xl border border-rose-200/80 shadow-sm overflow-hidden">
         <div class="px-4 py-3 bg-rose-50/70 border-b border-rose-100 flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-bold text-rose-900 flex items-center space-x-1.5">
             <i data-lucide="cake" class="w-4 h-4 text-rose-700"></i>
-            <span>🎂 Birthday Removal List</span>
+            <span>ðŸŽ‚ Birthday Removal List</span>
             <strong id="removed-bday-count" class="bg-white border border-rose-300 px-2.5 py-0.5 rounded-full text-[11px]">0</strong>
           </h3>
           <button onclick="restoreAllBirthdayRemoved()" class="text-rose-700 hover:text-rose-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Restore every removed Birthday record back to the Birthday list">
@@ -1620,12 +1550,12 @@
         </div>
       </div>
 
-      <!-- 💍 Anniversary Removal List -->
+      <!-- ðŸ’ Anniversary Removal List -->
       <div class="bg-white rounded-xl border border-emerald-200/80 shadow-sm overflow-hidden">
         <div class="px-4 py-3 bg-emerald-50/70 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-bold text-emerald-900 flex items-center space-x-1.5">
             <i data-lucide="heart" class="w-4 h-4 text-emerald-700"></i>
-            <span>💍 Anniversary Removal List</span>
+            <span>ðŸ’ Anniversary Removal List</span>
             <strong id="removed-anniv-count" class="bg-white border border-emerald-300 px-2.5 py-0.5 rounded-full text-[11px]">0</strong>
           </h3>
           <button onclick="restoreAllAnniversaryRemoved()" class="text-emerald-700 hover:text-emerald-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Restore every removed Anniversary couple back to the Anniversary list">
@@ -1654,175 +1584,6 @@
       </div>
     </section>
 
-
-    <!-- 3. PARCEL TRACKING SYSTEM (FLIPKART & AMAZON STYLE) -->
-    <section id="view-parcels" class="hidden space-y-6">
-      
-      <!-- Top Banner (Logistics Header) -->
-      <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="truck" class="w-5 h-5 text-sky-600"></i>
-          <h2 class="text-xl font-bold text-slate-800 font-serif">Parcel & Tracking</h2>
-        </div>
-      </div>
-
-      <!-- Logistics KPI Cards (live counts from the Delivery Tracking data) -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-
-        <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm hover:shadow-md transition cursor-pointer" onclick="handleParcelKpiPurposeClick('ALL')" title="Show all consignments">
-          <div class="flex items-center justify-between text-slate-500 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Total Consignments</span>
-            <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-              <i data-lucide="package" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-total" class="text-2xl font-bold text-slate-800">0</div>
-          <div class="text-[11px] text-slate-400 mt-0.5">Created Parcels</div>
-        </div>
-
-        <div class="bg-white rounded-xl p-4 border border-purple-200/80 shadow-sm hover:shadow-md transition bg-purple-50/20">
-          <div class="flex items-center justify-between text-purple-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Out for Delivery</span>
-            <div class="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
-              <i data-lucide="bike" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-out" class="text-2xl font-bold text-purple-600">0</div>
-          <div class="text-[11px] text-purple-600 font-medium mt-0.5">Packed & En Route</div>
-        </div>
-
-        <div class="bg-white rounded-xl p-4 border border-emerald-200/80 shadow-sm hover:shadow-md transition bg-emerald-50/20">
-          <div class="flex items-center justify-between text-emerald-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Delivered</span>
-            <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-              <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-delivered" class="text-2xl font-bold text-emerald-600">0</div>
-          <div class="text-[11px] text-emerald-600 font-medium mt-0.5">Received with Blessings</div>
-        </div>
-
-        <div id="parcel-kpi-bday" class="bg-white rounded-xl p-4 border border-pink-200/80 shadow-sm hover:shadow-md transition bg-pink-50/20 cursor-pointer" onclick="handleParcelKpiPurposeClick('Birthday')" title="Show Birthday parcels only">
-          <div class="flex items-center justify-between text-pink-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Birthday 🎂</span>
-            <div class="w-7 h-7 rounded-lg bg-pink-100 text-pink-700 flex items-center justify-center">
-              <i data-lucide="cake" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-bday" class="text-2xl font-bold text-pink-600">0</div>
-          <div class="text-[11px] text-pink-600 font-medium mt-0.5">Birthday Consignments</div>
-        </div>
-
-        <div id="parcel-kpi-anniv" class="bg-white rounded-xl p-4 border border-violet-200/80 shadow-sm hover:shadow-md transition bg-violet-50/20 cursor-pointer" onclick="handleParcelKpiPurposeClick('Anniversary')" title="Show Anniversary parcels only">
-          <div class="flex items-center justify-between text-violet-700 mb-1.5">
-            <span class="text-[11px] font-bold uppercase tracking-wider">Anniversary 💍</span>
-            <div class="w-7 h-7 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center">
-              <i data-lucide="gem" class="w-4 h-4"></i>
-            </div>
-          </div>
-          <div id="stat-parcel-anniv" class="text-2xl font-bold text-violet-600">0</div>
-          <div class="text-[11px] text-violet-600 font-medium mt-0.5">Anniversary Consignments</div>
-        </div>
-      </div>
-
-      <!-- Controls & Filter Toolbar -->
-      <div class="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-2.5">
-            
-            <!-- Mode of Delivery (Delhivery Courier / Self Mode) -->
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Mode of Delivery:</label>
-              <select id="parcel-filter-mode" onchange="renderParcelsTable()" class="py-2 px-3 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 bg-white font-medium shadow-sm">
-                <option value="ALL">All Modes</option>
-                <option value="Delhivery Courier">🚚 Delhivery Courier</option>
-                <option value="Self Mode">🏠 Self Mode</option>
-              </select>
-            </div>
-
-            <!-- Date Created (Exact Date Picker — shows every consignment created on that day) -->
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">📅 Date Created:</label>
-              <div class="relative">
-                <input type="date" id="parcel-filter-date" onchange="handleParcelDateChange()" title="Select a date to see every consignment created on that exact day" class="py-2 px-3 text-xs border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-400 bg-white font-semibold text-slate-700 shadow-sm">
-                <button type="button" onclick="clearParcelDate()" id="parcel-date-clear" class="hidden absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs px-1 cursor-pointer" title="Clear date filter">✕</button>
-              </div>
-            </div>
-
-            <!-- Search input -->
-            <div class="flex-1 min-w-[200px]">
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Consignment Search:</label>
-              <div class="relative">
-                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-                <input type="text" id="parcel-filter-search" oninput="renderParcelsTable()" placeholder="Name, Phone, Tracking ID, City..." class="pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-sky-500 w-full sm:w-56 shadow-sm">
-              </div>
-            </div>
-
-            <!-- Purpose Filter (All / Birthday / Anniversary) -->
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-500 mb-1">Purpose:</label>
-              <select id="parcel-filter-purpose" onchange="renderParcelsTable()" class="py-2 px-3 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 bg-white font-medium shadow-sm">
-                <option value="ALL">All Purposes</option>
-                <option value="Birthday">🎂 Birthday</option>
-                <option value="Anniversary">💍 Anniversary</option>
-              </select>
-            </div>
-
-            <!-- Clear Filters -->
-            <div class="self-end pb-1 sm:pb-0">
-              <button onclick="clearParcelFilters()" class="text-sky-700 hover:text-sky-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer py-1" title="Reset mode, purpose, date & search filters">
-                <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
-                <span>Clear Filters</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Batch Operations -->
-          <div class="w-full sm:w-auto grid grid-cols-2 sm:flex sm:items-center gap-2 pt-2 sm:pt-0">
-            <button onclick="bulkDeleteParcels()" class="justify-center bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Delete all ☑-selected consignments">
-              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-              <span>Delete Selected</span>
-              <span id="parcel-selected-badge" class="hidden bg-white text-rose-700 font-bold px-1.5 py-0.5 rounded-full text-[10px]">0</span>
-            </button>
-            <button onclick="exportParcelReportPDF()" class="justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Export the current Tracking Report (respecting active filters) as PDF">
-              <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-              <span>Export Report (PDF)</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Logistics Consignments Master Table -->
-      <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="responsive-table w-full text-left border-collapse text-xs">
-            <thead>
-              <tr class="bg-slate-50/90 border-b border-slate-200 text-slate-700 font-bold uppercase tracking-wider text-[11px]">
-                <th class="py-3.5 px-3 text-center">
-                  <input type="checkbox" id="parcel-select-all" onchange="toggleSelectAllParcels(this.checked)" class="w-4 h-4 rounded border-slate-300 text-red-600 focus:ring-red-500 cursor-pointer" title="Select All Consignments">
-                </th>
-                <th class="py-3.5 px-3 text-center">S.No.</th>
-                <th class="py-3.5 px-3">Recipient</th>
-                <th class="py-3.5 px-3">Purpose</th>
-                <th class="py-3.5 px-3">Tracking No.</th>
-                <th class="py-3.5 px-3 text-center">Pre Calling</th>
-                <th class="py-3.5 px-3 text-center">Post Calling</th>
-                <th class="py-3.5 px-3 text-center">Status / Duplicate Warning</th>
-                <th class="py-3.5 px-4 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody id="parcels-table-body" class="divide-y divide-slate-100">
-              <!-- Dynamically populated rows -->
-            </tbody>
-          </table>
-        </div>
-
-        <div id="parcels-pagination" class="p-3 bg-slate-50/60 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
-          <!-- Dynamic pagination controls -->
-        </div>
-      </div>
-
-    </section>
 
 
     <!-- 4. BACKUP & DATA MANAGEMENT VIEW -->
@@ -1881,24 +1642,6 @@
           </div>
         </div>
 
-        <!-- Clear Parcel Data Card -->
-        <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
-          <div>
-            <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
-              <i data-lucide="trash-2" class="w-5 h-5"></i>
-            </div>
-            <h3 class="text-base font-bold text-slate-800">Clear All Parcel Data</h3>
-            <p class="text-xs text-slate-500 mt-1">
-              Remove all parcel tracking details, courier information, delivery status, and tracking IDs from every devotee record.
-            </p>
-          </div>
-          <div class="mt-5 pt-4 border-t border-slate-100">
-            <button onclick="clearAllParcelData()" class="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-sm transition flex items-center space-x-2">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-              <span>Clear Parcel Data</span>
-            </button>
-          </div>
-        </div>
 
         <!-- Sample Data Generator Card -->
         <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
@@ -1950,7 +1693,7 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div class="space-y-1.5">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold uppercase tracking-wider">
-              <span>🛡️ Access Control & Audit</span>
+              <span>ðŸ›¡ï¸ Access Control & Audit</span>
             </div>
             <h2 class="text-2xl font-black font-serif text-white tracking-tight">Delete Requests</h2>
             <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
@@ -2019,11 +1762,11 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div class="space-y-1.5">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold uppercase tracking-wider">
-              <span>🛡️ Access Control &amp; Staff Roles</span>
+              <span>ðŸ›¡ï¸ Access Control &amp; Staff Roles</span>
             </div>
             <h2 class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
               <span>Staff &amp; Role Management</span>
-              <span class="text-amber-400 text-lg">👑</span>
+              <span class="text-amber-400 text-lg">ðŸ‘‘</span>
             </h2>
             <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Super Admin, Admin, Staff, and Viewer permission management. Control who can edit devotee records, view sensitive data, and request permanent deletions.
@@ -2055,7 +1798,7 @@
         <div class="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600">Super Admin</span>
-            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">👑</div>
+            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">ðŸ‘‘</div>
           </div>
           <div id="roles-kpi-super-admin" class="text-2xl font-black text-amber-700 mt-2">1</div>
           <span class="text-[10.5px] text-amber-700/80 mt-0.5 block">Full System Control</span>
@@ -2063,7 +1806,7 @@
         <div class="bg-white rounded-xl border border-indigo-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600">Admins</span>
-            <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">🛡️</div>
+            <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">ðŸ›¡ï¸</div>
           </div>
           <div id="roles-kpi-admin" class="text-2xl font-black text-indigo-700 mt-2">0</div>
           <span class="text-[10.5px] text-indigo-700/80 mt-0.5 block">Operations &amp; Parcels</span>
@@ -2071,7 +1814,7 @@
         <div class="bg-white rounded-xl border border-emerald-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Staff Sevaks</span>
-            <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">🛠️</div>
+            <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">ðŸ› ï¸</div>
           </div>
           <div id="roles-kpi-staff" class="text-2xl font-black text-emerald-700 mt-2">0</div>
           <span class="text-[10.5px] text-emerald-700/80 mt-0.5 block">Edit &amp; Request Deletion</span>
@@ -2079,7 +1822,7 @@
         <div class="bg-white rounded-xl border border-sky-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-sky-600">Viewers / Users</span>
-            <div class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold">👁️</div>
+            <div class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold">ðŸ‘ï¸</div>
           </div>
           <div id="roles-kpi-viewer" class="text-2xl font-black text-sky-700 mt-2">0</div>
           <span class="text-[10.5px] text-sky-700/80 mt-0.5 block">Read-Only Congregation</span>
@@ -2105,32 +1848,32 @@
             </thead>
             <tbody class="divide-y divide-slate-100 font-medium">
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">👑 Super Admin</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">ðŸ‘‘ Super Admin</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Full Unrestricted Access</td>
-                <td class="py-2.5 px-3 text-emerald-700">✅ View, Create, Edit, Export</td>
-                <td class="py-2.5 px-3 text-emerald-700 font-bold">✅ Direct Delete &amp; Approve Requests</td>
-                <td class="py-2.5 px-3 text-emerald-700">✅ Manage All Roles &amp; Staff</td>
+                <td class="py-2.5 px-3 text-emerald-700">âœ… View, Create, Edit, Export</td>
+                <td class="py-2.5 px-3 text-emerald-700 font-bold">âœ… Direct Delete &amp; Approve Requests</td>
+                <td class="py-2.5 px-3 text-emerald-700">âœ… Manage All Roles &amp; Staff</td>
               </tr>
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">🛡️ Admin</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">ðŸ›¡ï¸ Admin</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Administrative Operations</td>
-                <td class="py-2.5 px-3 text-emerald-700">✅ View, Create, Edit, Export</td>
-                <td class="py-2.5 px-3 text-amber-700">⚠️ Soft Remove / Direct Delete Devotees</td>
-                <td class="py-2.5 px-3 text-emerald-700">✅ Manage Staff</td>
+                <td class="py-2.5 px-3 text-emerald-700">âœ… View, Create, Edit, Export</td>
+                <td class="py-2.5 px-3 text-amber-700">âš ï¸ Soft Remove / Direct Delete Devotees</td>
+                <td class="py-2.5 px-3 text-emerald-700">âœ… Manage Staff</td>
               </tr>
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">🛠️ Staff</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">ðŸ› ï¸ Staff</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Daily Devotee Care</td>
-                <td class="py-2.5 px-3 text-emerald-700">✅ View, Create, Edit Devotees &amp; Parcels</td>
-                <td class="py-2.5 px-3 text-rose-700 font-bold">🔒 Protected: Must send Deletion Request</td>
-                <td class="py-2.5 px-3 text-slate-400">❌ Cannot alter roles</td>
+                <td class="py-2.5 px-3 text-emerald-700">âœ… View, Create, Edit Devotees &amp; Parcels</td>
+                <td class="py-2.5 px-3 text-rose-700 font-bold">ðŸ”’ Protected: Must send Deletion Request</td>
+                <td class="py-2.5 px-3 text-slate-400">âŒ Cannot alter roles</td>
               </tr>
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">👁️ Viewer / User</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">ðŸ‘ï¸ Viewer / User</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Congregation View</td>
-                <td class="py-2.5 px-3 text-slate-600">👁️ Read-Only celebration views</td>
-                <td class="py-2.5 px-3 text-slate-400">❌ No deletion access</td>
-                <td class="py-2.5 px-3 text-slate-400">❌ No staff access</td>
+                <td class="py-2.5 px-3 text-slate-600">ðŸ‘ï¸ Read-Only celebration views</td>
+                <td class="py-2.5 px-3 text-slate-400">âŒ No deletion access</td>
+                <td class="py-2.5 px-3 text-slate-400">âŒ No staff access</td>
               </tr>
             </tbody>
           </table>
@@ -2171,7 +1914,7 @@
 
         <!-- Empty state for staff -->
         <div id="staff-empty-state" class="hidden p-8 text-center text-slate-400">
-          <div class="text-3xl mb-2">👥</div>
+          <div class="text-3xl mb-2">ðŸ‘¥</div>
           <p class="text-sm font-semibold text-slate-600">No staff accounts found.</p>
           <p class="text-xs text-slate-400 mt-1">Click "+ Add Staff / Sevak" to invite team members.</p>
         </div>
@@ -2187,11 +1930,11 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div class="space-y-1.5">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-              <span>🧾 Complete Audit Trail</span>
+              <span>ðŸ§¾ Complete Audit Trail</span>
             </div>
             <h2 id="activity-view-title" class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
               <span>All Portal Activity Log</span>
-              <span class="text-amber-400 text-lg">🪷</span>
+              <span class="text-amber-400 text-lg">ðŸª·</span>
             </h2>
             <p id="activity-view-subtitle" class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Real-time audit history tracking all devotee additions, edits, removals, parcels, calls, deletion requests, and devotee logins across all sevak accounts.
@@ -2300,7 +2043,7 @@
                   id="activity-staff-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">👤 All Staff Accounts</option>
+                  <option value="ALL">ðŸ‘¤ All Staff Accounts</option>
                 </select>
               </div>
 
@@ -2311,13 +2054,13 @@
                   id="activity-module-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">📦 All Modules</option>
-                  <option value="devotees">🪷 Devotee Directory</option>
-                  <option value="parcels">🚚 Parcels &amp; Tracking</option>
-                  <option value="delete_requests">📝 Deletion Requests</option>
-                  <option value="roles">👥 Staff &amp; Roles</option>
-                  <option value="auth">🔐 Authentication &amp; Login</option>
-                  <option value="database">☁️ Database Operations</option>
+                  <option value="ALL">ðŸ“¦ All Modules</option>
+                  <option value="devotees">ðŸª· Devotee Directory</option>
+                  <option value="parcels">ðŸšš Parcels &amp; Tracking</option>
+                  <option value="delete_requests">ðŸ“ Deletion Requests</option>
+                  <option value="roles">ðŸ‘¥ Staff &amp; Roles</option>
+                  <option value="auth">ðŸ” Authentication &amp; Login</option>
+                  <option value="database">â˜ï¸ Database Operations</option>
                 </select>
               </div>
 
@@ -2328,19 +2071,19 @@
                   id="activity-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">📁 All Actions</option>
-                  <option value="create">🟢 Created / Added</option>
-                  <option value="edit">🔵 Updated / Edited</option>
-                  <option value="remove">🟡 Removed (Wishes)</option>
-                  <option value="restore">🔄 Restored</option>
-                  <option value="delete">🔴 Deleted</option>
-                  <option value="parcel">📦 Parcel Status</option>
-                  <option value="request_delete">📝 Deletion Requested</option>
-                  <option value="approve_delete">✅ Approved Deletion</option>
-                  <option value="reject_delete">⛔ Rejected Deletion</option>
-                  <option value="sync">☁️ Cloud Synced</option>
-                  <option value="login">🔐 Devotee Logins</option>
-                  <option value="denied">🚫 Access Denied</option>
+                  <option value="ALL">ðŸ“ All Actions</option>
+                  <option value="create">ðŸŸ¢ Created / Added</option>
+                  <option value="edit">ðŸ”µ Updated / Edited</option>
+                  <option value="remove">ðŸŸ¡ Removed (Wishes)</option>
+                  <option value="restore">ðŸ”„ Restored</option>
+                  <option value="delete">ðŸ”´ Deleted</option>
+                  <option value="parcel">ðŸ“¦ Parcel Status</option>
+                  <option value="request_delete">ðŸ“ Deletion Requested</option>
+                  <option value="approve_delete">âœ… Approved Deletion</option>
+                  <option value="reject_delete">â›” Rejected Deletion</option>
+                  <option value="sync">â˜ï¸ Cloud Synced</option>
+                  <option value="login">ðŸ” Devotee Logins</option>
+                  <option value="denied">ðŸš« Access Denied</option>
                 </select>
               </div>
 
@@ -2351,7 +2094,7 @@
                   id="activity-date-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">📅 All Dates</option>
+                  <option value="ALL">ðŸ“… All Dates</option>
                   <option value="today">Today</option>
                   <option value="yesterday">Yesterday</option>
                   <option value="7days">Last 7 Days</option>
@@ -2385,13 +2128,13 @@
 
   <!-- MODALS -->
 
-  <!-- 🔍 AUDIT DETAILS & CHANGE DIFF MODAL -->
+  <!-- ðŸ” AUDIT DETAILS & CHANGE DIFF MODAL -->
   <div id="activity-diff-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 flex items-center justify-between shrink-0">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0">🔍</div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0">ðŸ”</div>
           <div>
             <h3 class="font-bold text-base text-white tracking-wide flex items-center space-x-2">
               <span>Audit Event &amp; Change Inspector</span>
@@ -2400,7 +2143,7 @@
             <p id="diff-modal-subtitle" class="text-xs text-slate-300 mt-0.5">Verified change record</p>
           </div>
         </div>
-        <button type="button" onclick="closeActivityDiffModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg transition cursor-pointer">✕</button>
+        <button type="button" onclick="closeActivityDiffModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg transition cursor-pointer">âœ•</button>
       </div>
 
       <!-- Modal Body (Scrollable) -->
@@ -2410,27 +2153,27 @@
         <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Actor / Sevak</span>
-            <span id="diff-meta-actor" class="font-semibold text-slate-800 block truncate">—</span>
+            <span id="diff-meta-actor" class="font-semibold text-slate-800 block truncate">â€”</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Role</span>
-            <span id="diff-meta-role" class="font-semibold text-slate-800 block">—</span>
+            <span id="diff-meta-role" class="font-semibold text-slate-800 block">â€”</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Module</span>
-            <span id="diff-meta-module" class="font-semibold text-slate-800 block uppercase">—</span>
+            <span id="diff-meta-module" class="font-semibold text-slate-800 block uppercase">â€”</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Action</span>
-            <span id="diff-meta-action" class="font-semibold text-slate-800 block">—</span>
+            <span id="diff-meta-action" class="font-semibold text-slate-800 block">â€”</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Record ID</span>
-            <span id="diff-meta-record-id" class="font-mono text-slate-800 block truncate font-semibold">—</span>
+            <span id="diff-meta-record-id" class="font-mono text-slate-800 block truncate font-semibold">â€”</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Timestamp</span>
-            <span id="diff-meta-time" class="font-semibold text-slate-700 block">—</span>
+            <span id="diff-meta-time" class="font-semibold text-slate-700 block">â€”</span>
           </div>
           <div class="col-span-2 sm:col-span-3">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Authenticated User ID (UUID)</span>
@@ -2441,7 +2184,7 @@
         <!-- Summary -->
         <div>
           <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Event Summary</span>
-          <p id="diff-meta-summary" class="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-slate-800 font-medium leading-relaxed">—</p>
+          <p id="diff-meta-summary" class="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-slate-800 font-medium leading-relaxed">â€”</p>
         </div>
 
         <!-- Diff / Values Comparison Section -->
@@ -2464,14 +2207,14 @@
     </div>
   </div>
 
-  <!-- 📝 DELETE PERMISSION REQUEST MODAL (FOR STAFF) -->
+  <!-- ðŸ“ DELETE PERMISSION REQUEST MODAL (FOR STAFF) -->
   <div id="delete-request-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
       
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-rose-900 via-rose-800 to-slate-900 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">📝</div>
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">ðŸ“</div>
           <div>
             <h3 class="font-bold text-base font-serif">Request Record Deletion</h3>
             <p class="text-xs text-rose-200">Super Admin Approval Required</p>
@@ -2530,14 +2273,14 @@
     </div>
   </div>
 
-  <!-- 👥 ADD / INVITE STAFF MODAL -->
+  <!-- ðŸ‘¥ ADD / INVITE STAFF MODAL -->
   <div id="add-staff-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
       
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">👑</div>
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">ðŸ‘‘</div>
           <div>
             <h3 class="font-bold text-base font-serif">Add Staff / Sevak Member</h3>
             <p class="text-xs text-purple-200">Role-Based Access Control</p>
@@ -2581,10 +2324,10 @@
               Assigned Role <span class="text-rose-500">*</span>
             </label>
             <select id="new-staff-role" required class="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-xs">
-              <option value="STAFF" selected>🛠️ Staff (Edit Allowed)</option>
-              <option value="ADMIN">🛡️ Admin (Operations)</option>
-              <option value="VIEWER">👁️ Viewer (Read Only)</option>
-              <option value="SUPER_ADMIN">👑 Super Admin (Full Control)</option>
+              <option value="STAFF" selected>ðŸ› ï¸ Staff (Edit Allowed)</option>
+              <option value="ADMIN">ðŸ›¡ï¸ Admin (Operations)</option>
+              <option value="VIEWER">ðŸ‘ï¸ Viewer (Read Only)</option>
+              <option value="SUPER_ADMIN">ðŸ‘‘ Super Admin (Full Control)</option>
             </select>
           </div>
           <div>
@@ -2621,7 +2364,7 @@
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">🛠️</div>
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">ðŸ› ï¸</div>
           <div>
             <h3 class="font-bold text-base font-serif">Assign Seva / Work Modules</h3>
             <p class="text-xs text-purple-200" id="assign-work-modal-subtitle">Configure module permissions for staff member</p>
@@ -2648,7 +2391,7 @@
             </div>
           </div>
           <span id="assign-work-staff-role" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-            🛠️ Staff
+            ðŸ› ï¸ Staff
           </span>
         </div>
 
@@ -2674,7 +2417,7 @@
               <input type="checkbox" name="assignedWorkModule" value="devotees" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 border-slate-300">
               <div class="ml-3">
                 <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>👥</span>
+                  <span>ðŸ‘¥</span>
                   <span>Devotee Directory</span>
                 </div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Manage master directory, view devotee profiles, add and edit devotee records.</div>
@@ -2686,7 +2429,7 @@
               <input type="checkbox" name="assignedWorkModule" value="birthdays" class="mt-0.5 rounded text-rose-600 focus:ring-rose-500 w-4 h-4 border-slate-300">
               <div class="ml-3">
                 <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>🎂</span>
+                  <span>ðŸŽ‚</span>
                   <span>Birthday Wishes Dashboard</span>
                 </div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Upcoming devotee birthdays, WhatsApp calling, and celebratory wishes.</div>
@@ -2698,24 +2441,13 @@
               <input type="checkbox" name="assignedWorkModule" value="anniversaries" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 border-slate-300">
               <div class="ml-3">
                 <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>💍</span>
+                  <span>ðŸ’</span>
                   <span>Anniversary Wishes Dashboard</span>
                 </div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Marriage anniversaries, greetings, prasadam dispatch coordination.</div>
               </div>
             </label>
 
-            <!-- 4. Parcel Tracking -->
-            <label class="flex items-start p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl cursor-pointer transition">
-              <input type="checkbox" name="assignedWorkModule" value="parcels" class="mt-0.5 rounded text-sky-600 focus:ring-sky-500 w-4 h-4 border-slate-300">
-              <div class="ml-3">
-                <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>📦</span>
-                  <span>Parcel Dispatch &amp; Tracking</span>
-                </div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Create gift parcels, courier tracking IDs, Indian Post / DTDC status updates.</div>
-              </div>
-            </label>
           </div>
         </div>
 
@@ -2740,7 +2472,7 @@
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-teal-700 to-slate-800 text-white p-4 sm:px-6 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">🪷</div>
+          <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">ðŸª·</div>
           <div>
             <h3 id="devotee-modal-title" class="font-bold text-base font-serif">Add New Devotee Profile</h3>
             <p class="text-xs text-teal-200" id="devotee-modal-subtitle">Devotee Master Registry Form</p>
@@ -2756,7 +2488,7 @@
         
         <!-- Edit-mode banner (Birthday, Anniversary, Address & Phone) -->
         <div id="df-edit-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-start space-x-3">
-          <div class="text-xl">🪷</div>
+          <div class="text-xl">ðŸª·</div>
           <div class="flex-1">
             <div class="text-[10px] font-bold uppercase tracking-wide text-amber-700">Editing Devotee Details</div>
             <div class="text-base font-bold text-slate-800 font-serif" id="df-edit-banner-name"></div>
@@ -2797,12 +2529,12 @@
               </div>
 
               <div id="df-group-dob">
-                <label class="block font-semibold text-slate-700 mb-1">🎂 Date of Birth / Birthday</label>
+                <label class="block font-semibold text-slate-700 mb-1">ðŸŽ‚ Date of Birth / Birthday</label>
                 <input type="date" id="df-dob" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500">
               </div>
 
               <div id="df-group-anniversary">
-                <label class="block font-semibold text-slate-700 mb-1">💍 Date of Anniversary</label>
+                <label class="block font-semibold text-slate-700 mb-1">ðŸ’ Date of Anniversary</label>
                 <input type="date" id="df-anniversary" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500">
               </div>
 
@@ -3032,7 +2764,7 @@
       <div id="vp-header-bg" class="bg-gradient-to-r from-teal-700 to-slate-800 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-4">
           <div id="vp-avatar" class="w-14 h-14 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-2xl font-bold font-serif">
-            🪷
+            ðŸª·
           </div>
           <div>
             <div class="flex items-center space-x-2">
@@ -3102,10 +2834,10 @@
                   <span id="vp-address-verify" class="inline-flex"></span>
                   <div class="flex items-center justify-end space-x-1 pt-0.5">
                     <button id="vp-update-address-btn" class="inline-flex items-center space-x-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-teal-200 text-teal-700 hover:bg-teal-50 transition" title="Update address & pincode in the Devotee Directory">
-                      <span>✏️</span><span>Update</span>
+                      <span>âœï¸</span><span>Update</span>
                     </button>
-                    <button id="vp-verify-address-btn" class="inline-flex items-center space-x-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition" title="Update & mark address Verified (becomes 🟢 everywhere)">
-                      <span>✅</span><span>Verify</span>
+                    <button id="vp-verify-address-btn" class="inline-flex items-center space-x-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition" title="Update & mark address Verified (becomes ðŸŸ¢ everywhere)">
+                      <span>âœ…</span><span>Verify</span>
                     </button>
                   </div>
                 </div>
@@ -3144,28 +2876,6 @@
                 <span class="text-slate-400">Sastric Degrees:</span>
                 <span id="vp-degrees" class="text-indigo-700 font-semibold text-right"></span>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Parcel Tracking & Calling Feedback (linked from the master Person record) -->
-        <div class="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5 shadow-xs">
-          <h4 class="font-bold text-slate-800 text-xs flex items-center space-x-1.5 border-b border-slate-100 pb-2">
-            <i data-lucide="package" class="w-3.5 h-3.5 text-sky-600"></i>
-            <span>Parcel Tracking & Calling Feedback</span>
-          </h4>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
-            <div>
-              <span class="text-slate-400 block text-[10px] uppercase font-bold">Tracking Number</span>
-              <span id="vp-tracking-no" class="font-mono font-bold text-sky-700"></span>
-            </div>
-            <div>
-              <span class="text-slate-400 block text-[10px] uppercase font-bold">Pre Calling</span>
-              <span id="vp-pre-calling" class="font-semibold text-slate-800"></span>
-            </div>
-            <div>
-              <span class="text-slate-400 block text-[10px] uppercase font-bold">Post Calling</span>
-              <span id="vp-post-calling" class="font-semibold text-slate-800"></span>
             </div>
           </div>
         </div>
@@ -3248,695 +2958,6 @@
   </div>
 
 
-  <!-- 5. FLIPKART & AMAZON LIVE PARCEL TRACKING MODAL -->
-  <div id="parcel-tracker-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-200 text-xs my-6">
-      
-      <!-- Flipkart / Amazon Header -->
-      <div class="bg-gradient-to-r from-slate-950 via-slate-900 to-sky-950 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300">
-            <i data-lucide="package-check" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <span class="font-bold text-sm sm:text-base">Prasadam Consignment Tracking</span>
-              <span id="pt-carrier-badge" class="bg-red-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-sm">Delivery Courier</span>
-            </div>
-            <div class="flex items-center space-x-2 text-slate-300 text-[11px] mt-0.5">
-              <span>Tracking Number: <strong id="pt-tracking-id" class="text-white font-mono">ISK713204-001</strong></span>
-              <button onclick="copyTrackingId()" class="text-sky-400 hover:text-sky-300 ml-1" title="Copy Tracking ID">
-                <i data-lucide="copy" class="w-3.5 h-3.5 inline"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-        <button onclick="closeParcelTrackerModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="p-5 sm:p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-        
-        <!-- 2 Column Details: Recipient Address & Package Information -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          
-          <!-- Delivery Destination Address -->
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2.5">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span class="font-bold text-slate-700 flex items-center space-x-1.5 text-xs">
-                <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i>
-                <span>Delivery Address (Recipient)</span>
-              </span>
-              <span id="pt-addr-badge" class="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full">Verified Address ✅</span>
-            </div>
-
-            <div class="space-y-1 text-xs">
-              <div class="font-bold text-slate-900 text-sm" id="pt-devotee-name">Abhaya Karmakar</div>
-              <div class="text-pink-600 font-semibold text-[11px]" id="pt-spiritual-name">Abhaya Dayani Madhabi Debi Dasi</div>
-              <p class="text-slate-600 leading-relaxed pt-1" id="pt-address">ICHAPUR, PASCHIM BARDHAMAN</p>
-              <div class="flex items-center space-x-3 text-slate-500 pt-1">
-                <span>PIN: <strong class="text-slate-800 font-mono" id="pt-pincode">713204</strong></span>
-                <span>•</span>
-                <span>Phone: <strong class="text-slate-800" id="pt-phone">8170081544</strong></span>
-              </div>
-            </div>
-
-            <div class="pt-2 flex items-center space-x-2">
-              <button onclick="launchAddressVerifyWhatsApp()" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold py-1.5 px-2.5 rounded-lg transition text-[11px] flex items-center justify-center space-x-1">
-                <i data-lucide="message-circle" class="w-3.5 h-3.5"></i>
-                <span>Verify Address on WhatsApp</span>
-              </button>
-              <button onclick="openEditParcelModal(activeTrackingDevotee ? activeTrackingDevotee.id : '')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold py-1.5 px-2.5 rounded-lg transition text-[11px] flex items-center justify-center space-x-1">
-                <i data-lucide="edit" class="w-3.5 h-3.5"></i>
-                <span>Edit</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Package & Courier Associate Info -->
-          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2.5">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span class="font-bold text-slate-700 flex items-center space-x-1.5 text-xs">
-                <i data-lucide="info" class="w-4 h-4 text-blue-500"></i>
-                <span>Consignment & Courier Details</span>
-              </span>
-              <span class="bg-red-50 text-red-600 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded-full" id="pt-courier-name">Delivery Courier</span>
-            </div>
-
-            <div class="space-y-1.5 text-xs">
-              <div class="flex justify-between">
-                <span class="text-slate-400">Package Contents:</span>
-                <span class="font-medium text-slate-800 text-right max-w-[200px]" id="pt-contents">Holy Maha-Prasadam Sweets, Srimad Bhagavad-gita, Birthday Scroll</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-400">Consignment Weight:</span>
-                <span class="font-semibold text-slate-800">450 grams (Prepaid)</span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-slate-400">Delivery Associate:</span>
-                <span class="font-semibold text-slate-800" id="pt-agent-name">Rajesh Sharma</span>
-              </div>
-              </div>
-
-            <div class="pt-2 flex items-center space-x-2">
-              <button onclick="printShippingLabelFromTracker()" class="flex-1 bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300 font-bold py-1.5 px-2.5 rounded-lg transition text-[11px] flex items-center justify-center space-x-1">
-                <i data-lucide="printer" class="w-3.5 h-3.5 text-sky-700"></i>
-                <span>Print Shipping Label</span>
-              </button>
-              <button onclick="callDeliveryAssociate()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 font-semibold py-1.5 px-2.5 rounded-lg transition text-[11px] flex items-center justify-center space-x-1">
-                <i data-lucide="phone" class="w-3.5 h-3.5"></i>
-                <span>Call Agent</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        </div>
-
-    </div>
-  </div>
-
-
-  <!-- 6. PRINTABLE AMAZON / FLIPKART SHIPPING LABEL MODAL -->
-  <div id="shipping-label-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-xs">
-      
-      <div class="bg-slate-900 text-white p-4 flex items-center justify-between no-print">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="printer" class="w-4 h-4 text-sky-400"></i>
-          <span class="font-bold text-sm">Print Flipkart / Amazon Style Shipping Label</span>
-        </div>
-        <div class="flex items-center space-x-2">
-          <button onclick="window.print()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1 rounded-lg text-xs flex items-center space-x-1 shadow transition">
-            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
-            <span>Print Label</span>
-          </button>
-          <button onclick="closeShippingLabelModal()" class="text-slate-400 hover:text-white">
-            <i data-lucide="x" class="w-4 h-4"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- The Printable 4x6 Label -->
-      <div class="p-6 bg-slate-100 flex justify-center">
-        <div id="printable-shipping-label" class="bg-white border-2 border-black w-full max-w-md p-4 text-black font-sans shadow-md select-text">
-          
-          <!-- Label Header -->
-          <div class="border-b-2 border-black pb-2 flex items-center justify-between">
-            <div class="flex items-center space-x-2">
-              <span class="font-extrabold text-base tracking-wider uppercase">ISKCON EXPRESS</span>
-              <span class="text-[9px] border border-black px-1.5 py-0.2 font-mono font-bold">AIR / SPEED</span>
-            </div>
-            <div class="text-right">
-              <span class="text-[10px] font-bold block text-red-600 tracking-wider" id="sl-courier-header">DELHIVERY COURIER</span>
-              <span class="text-[9px] text-gray-600">STANDARD PREPAID</span>
-            </div>
-          </div>
-
-          <!-- Barcode Area -->
-          <div class="py-3 text-center border-b-2 border-black">
-            <div class="font-mono text-2xl tracking-[0.3em] font-extrabold select-none">||||| | |||| || |||||| | ||||| ||</div>
-            <div class="font-mono font-bold text-xs mt-1" id="sl-tracking-barcode">ISK-713204-001</div>
-          </div>
-
-          <!-- Routing & Destination Info -->
-          <div class="grid grid-cols-2 border-b-2 border-black text-[10px]">
-            <div class="p-2 border-r-2 border-black">
-              <span class="block text-gray-500 text-[8px] uppercase">Routing Hub Code</span>
-              <span class="font-extrabold text-sm font-mono" id="sl-hub-code">DGP-713204-HUB-01</span>
-            </div>
-            <div class="p-2">
-              <span class="block text-gray-500 text-[8px] uppercase">Package Weight / Type</span>
-              <span class="font-bold text-xs">0.45 KG • SACRED MAHA-PRASAD</span>
-            </div>
-          </div>
-
-          <!-- SHIP TO / RECIPIENT -->
-          <div class="p-3 border-b-2 border-black space-y-1">
-            <span class="text-[9px] uppercase font-bold text-gray-600 block">SHIP TO (DEVOTEE RECIPIENT):</span>
-            <div class="font-black text-sm" id="sl-recipient-name">ABHAYA KARMAKAR</div>
-            <div class="font-bold text-xs text-gray-800" id="sl-spiritual-name">ABHAYA DAYANI MADHABI DEBI DASI</div>
-            <div class="text-[11px] leading-tight pt-1 font-medium" id="sl-recipient-address">ICHAPUR, PASCHIM BARDHAMAN</div>
-            <div class="text-[11px] font-semibold text-gray-700">PHONE: <span id="sl-recipient-phone">8170081544</span></div>
-            
-            <!-- Large PIN Code -->
-            <div class="mt-2 pt-2 border-t border-dashed border-gray-400 flex items-center justify-between">
-              <div>
-                <span class="text-[9px] font-bold text-gray-500 block">POSTAL PIN CODE:</span>
-                <span class="text-2xl font-black font-mono tracking-wider" id="sl-recipient-pin">713 204</span>
-              </div>
-              <div class="w-12 h-12 border border-black flex items-center justify-center font-mono text-[9px] text-center p-1 bg-gray-50">
-                [ QR CODE ]
-              </div>
-            </div>
-          </div>
-
-          <!-- SENDER INFO -->
-          <div class="p-2.5 text-[9px] border-b-2 border-black flex justify-between bg-gray-50">
-            <div>
-              <span class="font-bold uppercase text-gray-600 block">RETURN ADDRESS (SENDER):</span>
-              <span class="font-bold">ISKCON Devotee Prasadam Department</span><br>
-              Sri Sri Radha Madan Mohan Mandir, Netaji Subhas Road,<br>
-              Durgapur, Paschim Bardhaman, West Bengal - 713204<br>
-              Helpline: +91 94749 09678 / +91 62950 07332
-            </div>
-          </div>
-
-          <!-- Fragile Notice Banner -->
-          <div class="p-2 text-center font-black text-[10px] tracking-wide bg-yellow-100 text-black border border-black mt-2">
-            ⚠️ FRAGILE: HOLY TEMPLE MAHA-PRASADAM • HANDLE WITH DEVOTION
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-
-
-
-
-  <!-- DUPLICATE PARCEL DETECTED MODAL -->
-  <div id="duplicate-parcel-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border-2 border-amber-400 text-xs my-6">
-      
-      <!-- Modal Header -->
-      <div class="bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white p-4 sm:p-5 flex items-center justify-between border-b border-amber-700">
-        <div class="flex items-center space-x-3">
-          <div class="w-11 h-11 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-white text-2xl shadow">
-            ⚠️
-          </div>
-          <div>
-            <h3 class="font-bold text-base sm:text-lg text-white flex items-center gap-1.5">
-              <span>Duplicate Parcel Detected</span>
-            </h3>
-            <p class="text-amber-100 text-[11px] mt-0.5">Duplicate Prevention Logic Active</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeDuplicateParcelModal()" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <!-- Modal Body -->
-      <div class="p-5 sm:p-6 space-y-4">
-        
-        <!-- Primary Warning Banner (Exact User Requirement Format) -->
-        <div class="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 space-y-1.5 shadow-xs">
-          <div class="text-amber-950 font-bold text-sm sm:text-base flex items-center gap-2">
-            <span class="text-lg">⚠️</span>
-            <span>Duplicate Parcel Detected</span>
-          </div>
-          <div id="dp-modal-primary-message" class="text-amber-900 font-semibold text-xs sm:text-sm leading-relaxed pl-7">
-            This devotee already has a parcel booked for October 2026.
-          </div>
-        </div>
-
-        <!-- Devotee Details Card -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
-            <span>Devotee Details</span>
-            <span id="dp-modal-devotee-id" class="font-mono bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">ID</span>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-            <div>
-              <span class="text-slate-400 block text-[10px] font-semibold">Devotee Name</span>
-              <span id="dp-modal-devotee-name" class="font-bold text-slate-800 text-xs sm:text-[13px]">—</span>
-            </div>
-            <div>
-              <span class="text-slate-400 block text-[10px] font-semibold">Phone Number</span>
-              <span id="dp-modal-devotee-phone" class="font-bold text-slate-800 font-mono text-xs sm:text-[13px]">—</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Existing Booked Parcel Details Card -->
-        <div class="bg-sky-50/70 border border-sky-200 rounded-xl p-3.5 space-y-2 text-xs">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-sky-800 flex items-center justify-between">
-            <span class="flex items-center gap-1.5">
-              <i data-lucide="package" class="w-3.5 h-3.5 text-sky-600"></i>
-              <span>Existing Booked Parcel</span>
-            </span>
-            <span id="dp-modal-existing-type" class="bg-sky-100 border border-sky-300 text-sky-800 px-2 py-0.5 rounded-full font-bold text-[10px]">Birthday</span>
-          </div>
-          <div class="grid grid-cols-2 gap-2.5">
-            <div>
-              <span class="text-slate-500 block text-[10px]">Booked Month &amp; Year</span>
-              <span id="dp-modal-existing-monthyear" class="font-bold text-slate-800 text-xs">October 2026</span>
-            </div>
-            <div>
-              <span class="text-slate-500 block text-[10px]">Booking Date</span>
-              <span id="dp-modal-existing-bookingdate" class="font-semibold text-slate-800 text-xs">—</span>
-            </div>
-            <div>
-              <span class="text-slate-500 block text-[10px]">Tracking Number</span>
-              <span id="dp-modal-existing-tracking" class="font-mono font-bold text-sky-900 text-xs">—</span>
-            </div>
-            <div>
-              <span class="text-slate-500 block text-[10px]">Delivery Status</span>
-              <span id="dp-modal-existing-status" class="font-semibold text-slate-800 text-xs">—</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- System Rule Reminder -->
-        <div class="bg-amber-500/10 border border-amber-300 rounded-lg p-3 text-[11px] text-amber-900 flex items-start space-x-2">
-          <span class="text-amber-700 font-bold text-sm leading-none mt-0.5">ℹ️</span>
-          <div>
-            <strong>Rule:</strong> One devotee should receive only one parcel per month, whether the parcel is created for a Birthday or Anniversary.
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex items-center justify-between pt-3 border-t border-slate-200 gap-2">
-          <button type="button" onclick="closeDuplicateParcelModal()" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-lg text-slate-700 font-semibold transition cursor-pointer">
-            Close
-          </button>
-          <div class="flex items-center gap-2">
-            <button type="button" id="dp-modal-delete-btn" class="hidden px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-sm transition flex items-center space-x-1.5 cursor-pointer" title="Permanently delete this duplicate consignment">
-              <i data-lucide="trash-2" class="w-4 h-4"></i>
-              <span>Delete Duplicate</span>
-            </button>
-            <button type="button" id="dp-modal-view-btn" onclick="closeDuplicateParcelModal()" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold shadow-sm transition flex items-center space-x-1.5 cursor-pointer">
-              <i data-lucide="package-search" class="w-4 h-4"></i>
-              <span>View in Parcel Tracking</span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-
-
-  <!-- CREATE PARCEL MODAL (DIRECT FROM DIRECTORY / BIRTHDAYS) -->
-  <div id="create-parcel-modal" class="fixed inset-0 bg-slate-900/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden border border-slate-200 text-xs my-6">
-      
-      <!-- Modal Header -->
-      <div class="bg-gradient-to-r from-sky-900 via-indigo-900 to-slate-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-300 text-xl shadow">
-            📦
-          </div>
-          <div>
-            <div class="flex items-center space-x-2">
-              <h3 class="font-bold text-sm sm:text-base">Create Consignment Parcel</h3>
-              <span class="bg-sky-500/20 text-sky-200 text-[10px] font-bold px-2 py-0.5 rounded-full border border-sky-400/30">Auto-Linked</span>
-            </div>
-            <p class="text-sky-200 text-[11px] mt-0.5">Direct dispatch setup linked with Devotee Directory & Tracking</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeCreateParcelModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <!-- Modal Form -->
-      <form onsubmit="handleCreateParcelSubmit(event)" class="p-5 sm:p-6 space-y-4 max-h-[82vh] overflow-y-auto">
-        <input type="hidden" id="cp-devotee-id">
-
-        <!-- Optional Select Devotee Dropdown (if opened generally) -->
-        <div id="cp-devotee-select-container" class="hidden">
-          <label class="block font-bold text-slate-700 mb-1">Select Devotee from Directory:</label>
-          <select id="cp-devotee-select" onchange="handleCreateParcelDevoteeSelect(this.value)" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white font-medium text-xs">
-            <!-- Populated dynamically -->
-          </select>
-        </div>
-
-        <!-- Devotee Pre-filled Information Card (Automatic) -->
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-          <div class="flex items-center justify-between text-slate-500 text-[10px] uppercase font-bold tracking-wider">
-            <span class="flex items-center space-x-1">
-              <i data-lucide="user" class="w-3.5 h-3.5 text-indigo-500"></i>
-              <span>Devotee Details (Automatic)</span>
-            </span>
-            <span class="font-mono text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md font-bold" id="cp-devotee-id-display">ID</span>
-          </div>
-          
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Devotee Name 🔒</label>
-              <input type="text" id="cp-devotee-name" readonly class="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-800 font-semibold cursor-not-allowed">
-            </div>
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Phone Number 🔒</label>
-              <input type="text" id="cp-phone" readonly class="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-800 font-semibold cursor-not-allowed">
-            </div>
-          </div>
-        </div>
-
-        <!-- Delivery Address Verification Card -->
-        <div class="bg-emerald-50/40 border border-emerald-200 rounded-xl p-3.5 space-y-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-emerald-900 font-bold text-[11px] flex items-center space-x-1.5">
-              <i data-lucide="map-pin" class="w-3.5 h-3.5 text-emerald-600"></i>
-              <span>Delivery Address Verification</span>
-            </span>
-            <span id="cp-address-verified-badge" class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              <span>✅</span> <span>Verified Address</span>
-            </span>
-          </div>
-
-          <div>
-            <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Street / Residential Address 🔒</label>
-            <textarea id="cp-address" rows="2" readonly class="w-full p-2 border border-slate-200 rounded-lg bg-slate-100 text-xs cursor-not-allowed"></textarea>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1 text-[11px]">City / District 🔒</label>
-              <input type="text" id="cp-city" readonly class="w-full p-2 border border-slate-200 rounded-lg bg-slate-100 text-xs cursor-not-allowed">
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-700 mb-1 text-[11px]">Postal PIN Code 🔒</label>
-              <input type="text" id="cp-pincode" readonly class="w-full p-2 border border-slate-200 rounded-lg bg-slate-100 font-mono font-bold text-xs cursor-not-allowed">
-            </div>
-          </div>
-        </div>
-
-        <!-- Consignment Details -->
-        <div class="space-y-3 pt-1">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <!-- Parcel Type -->
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Parcel Type / What is being sent:</label>
-              <select id="cp-parcel-type" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white font-medium text-xs">
-                <option value="Birthday" selected>🎂 Birthday</option>
-                <option value="Anniversary">💍 Anniversary</option>
-              </select>
-            </div>
-
-            <!-- Mode of Delivery (chosen explicitly per parcel) -->
-            <div>
-              <label class="block font-bold text-slate-700 mb-1">Mode of Delivery <span class="text-rose-600">*</span></label>
-              <select id="cp-mode" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white font-bold text-xs">
-                <option value="" disabled selected>Select Delivery Mode</option>
-                <option value="Delhivery Courier">Delhivery Courier</option>
-                <option value="Self Mode">Self Mode</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Parcel Description -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Parcel Description:</label>
-            <textarea id="cp-parcel-description" rows="2" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-xs" placeholder="What is being sent inside this consignment..."></textarea>
-          </div>
-
-          <!-- Booking Date -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Date:</label>
-            <input type="date" id="cp-booking-date" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-xs">
-          </div>
-
-          <!-- Remarks -->
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Remarks:</label>
-            <textarea id="cp-remarks" rows="2" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-xs" placeholder="Special handling notes, delivery instructions..."></textarea>
-          </div>
-        </div>
-
-        <!-- Footer Actions -->
-        <div class="flex items-center justify-between pt-3 border-t border-slate-200">
-          <div class="text-[11px] text-slate-500 flex items-center space-x-1">
-            <i data-lucide="info" class="w-3.5 h-3.5 text-sky-500"></i>
-            <span>Will appear in <strong>Parcel &amp; Tracking</strong> — add the Tracking Number &amp; calling status there.</span>
-          </div>
-
-          <div class="flex items-center space-x-2">
-            <button type="button" onclick="closeCreateParcelModal()" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-lg text-slate-700 font-semibold transition">
-              Cancel
-            </button>
-            <button type="submit" class="px-5 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white rounded-lg font-bold shadow-md transition flex items-center space-x-1.5 active:scale-95">
-              <span>📦</span>
-              <span>Create Parcel</span>
-            </button>
-          </div>
-        </div>
-      </form>
-
-    </div>
-  </div>
-
-
-  <!-- VERIFY / EDIT ADDRESS MODAL -->
-  <div id="verify-address-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 text-xs my-6">
-      <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <span class="text-lg">✅</span>
-          <div>
-            <h3 class="font-bold text-sm">Verify Devotee Address</h3>
-            <p class="text-[10px] text-slate-300" id="va-name">Devotee Name</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeVerifyAddressModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleSaveAddressVerification(event)" class="p-5 space-y-3.5">
-        <input type="hidden" id="va-devotee-id">
-
-        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-[11px]">
-          <span class="text-slate-500 font-semibold">Contact Phone:</span>
-          <span class="font-bold text-slate-800" id="va-phone">N/A</span>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Residential / Delivery Address:</label>
-          <textarea id="va-address" rows="3" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">City / Town:</label>
-            <input type="text" id="va-city" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">PIN Code:</label>
-            <input type="text" id="va-pincode" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono font-bold">
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-          <button type="button" onclick="closeVerifyAddressModal()" class="px-3.5 py-1.5 border border-slate-300 hover:bg-slate-100 rounded-lg text-slate-700 font-semibold transition">
-            Cancel
-          </button>
-          <button type="submit" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow transition flex items-center space-x-1">
-            <span>✅</span>
-            <span>Save & Mark Verified</span>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-
-  <!-- EDIT DEVOTEE ADDRESS MODAL -->
-  <div id="edit-address-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 text-xs my-6">
-      <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="map-pin" class="w-4 h-4 text-teal-400"></i>
-          <div>
-            <h3 class="font-bold text-sm">Edit Devotee Address</h3>
-            <p class="text-[10px] text-slate-300" id="ea-name">Devotee Name</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeEditAddressModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleSaveAddressEdit(event)" class="p-5 space-y-3.5">
-        <input type="hidden" id="ea-devotee-id">
-
-        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-[11px]">
-          <span class="text-slate-500 font-semibold">Contact Phone:</span>
-          <span class="font-bold text-slate-800" id="ea-phone">N/A</span>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Residential / Delivery Address:</label>
-          <textarea id="ea-address" rows="3" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500"></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">City / Town:</label>
-            <input type="text" id="ea-city" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">PIN Code:</label>
-            <input type="text" id="ea-pincode" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 font-mono font-bold">
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-          <button type="button" onclick="closeEditAddressModal()" class="px-3.5 py-1.5 border border-slate-300 hover:bg-slate-100 rounded-lg text-slate-700 font-semibold transition">
-            Cancel
-          </button>
-          <button type="submit" class="px-4 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold shadow transition flex items-center space-x-1">
-            <i data-lucide="save" class="w-3.5 h-3.5"></i>
-            <span>Save Address</span>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-
-  <!-- 8. EDIT PARCEL & ADDRESS MODAL -->
-  <div id="edit-parcel-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 text-xs">
-      
-      <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
-        <div class="flex items-center space-x-2">
-          <i data-lucide="edit" class="w-4 h-4 text-sky-400"></i>
-          <h3 class="font-bold text-sm">Update Address & Consignment Info</h3>
-        </div>
-        <button onclick="closeEditParcelModal()" class="text-slate-400 hover:text-white">
-          <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
-      </div>
-
-      <form onsubmit="handleSaveParcelEdit(event)" class="p-5 space-y-4">
-        <input type="hidden" id="ep-devotee-id">
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Devotee Name:</label>
-          <input type="text" id="ep-name" readonly class="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-semibold">
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Delivery Address:</label>
-          <textarea id="ep-address" rows="3" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500"></textarea>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">City / Town:</label>
-            <input type="text" id="ep-city" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Postal PIN Code:</label>
-            <input type="text" id="ep-pincode" required class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono font-bold">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Address Verification:</label>
-            <select id="ep-address-verified" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
-              <option value="" disabled selected>Select Verification Status</option>
-              <option value="Verified">Verified ✅</option>
-              <option value="Needs Verification">Needs Verification ⚠️</option>
-              <option value="Pincode Missing">Pincode Missing ❓</option>
-            </select>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Mode of Delivery:</label>
-            <select id="ep-mode" onchange="handleEditParcelModeChange()" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white font-semibold">
-              <option value="" disabled selected>Select Delivery Mode</option>
-              <option value="Delhivery Courier">🚚 Delhivery Courier</option>
-              <option value="Self Mode">🏠 Self Mode</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">
-            Tracking Number (Courier) <span class="text-rose-600">*</span>
-            <span id="ep-tracking-hint" class="text-[11px] font-normal text-slate-500 ml-1">(13-14 digits required)</span>
-          </label>
-          <input type="text" id="ep-tracking-no" 
-                 maxlength="14" 
-                 inputmode="numeric" 
-                 pattern="[0-9]{13,14}" 
-                 oninput="this.value = this.value.replace(/\D/g, '').slice(0, 14);" 
-                 class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 font-mono tracking-widest text-slate-800 font-bold" 
-                 placeholder="Enter 13-14 digit tracking number *" required>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Pre Calling</label>
-            <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" data-input="ep-pre-calling">
-              <button type="button" class="ct-yes px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'Yes')">Yes</button>
-              <button type="button" class="ct-no px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'No')">No</button>
-              <input type="hidden" id="ep-pre-calling" value="">
-            </div>
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">Post Calling</label>
-            <div class="call-toggle inline-flex items-center gap-0.5 p-1 bg-slate-100 border border-slate-200 rounded-lg" data-input="ep-post-calling">
-              <button type="button" class="ct-yes px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'Yes')">Yes</button>
-              <button type="button" class="ct-no px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer select-none text-slate-500 hover:text-slate-800 hover:bg-white" onclick="setCallingToggle(this,'No')">No</button>
-              <input type="hidden" id="ep-post-calling" value="">
-            </div>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end pt-3 border-t border-slate-100">
-          <div class="flex items-center space-x-2">
-            <button type="button" onclick="closeEditParcelModal()" class="px-4 py-2 border border-slate-300 hover:bg-slate-100 rounded-lg text-slate-700 font-semibold transition">
-              Cancel
-            </button>
-            <button type="submit" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold shadow transition flex items-center space-x-1.5">
-              <i data-lucide="check" class="w-4 h-4"></i>
-              <span>Save & Update</span>
-            </button>
-          </div>
-        </div>
-      </form>
-
-    </div>
-  </div>
   </div><!-- /portal-app -->
 
 
@@ -3974,7 +2995,7 @@
 
       <div class="mt-3 text-[11px] text-white/60 text-center tracking-wide flex items-center justify-center space-x-1.5">
         <i data-lucide="info" class="w-3.5 h-3.5 opacity-70"></i>
-        <span>বাইরে ক্লিক করুন অথবা Esc চাপুন বন্ধ করতে</span>
+        <span>à¦¬à¦¾à¦‡à¦°à§‡ à¦•à§à¦²à¦¿à¦• à¦•à¦°à§à¦¨ à¦…à¦¥à¦¬à¦¾ Esc à¦šà¦¾à¦ªà§à¦¨ à¦¬à¦¨à§à¦§ à¦•à¦°à¦¤à§‡</span>
       </div>
     </div>
   </div>
@@ -3987,7 +3008,7 @@
          onclick="event.stopPropagation()">
       <!-- Icon -->
       <div id="ac-modal-icon-container" class="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-3xl mb-3.5 bg-amber-50 text-amber-600 border border-amber-200 shadow-xs">
-        ⚠️
+        âš ï¸
       </div>
       <!-- Title -->
       <h3 id="ac-modal-title" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Confirmation</h3>
