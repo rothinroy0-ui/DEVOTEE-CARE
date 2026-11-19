@@ -3579,11 +3579,11 @@ function clearAuthUrlMarkers() {
 //   3. Supabase PostgreSQL stores devotees, parcels, and audit history
 //   4. Live Admin Dashboard reads the cloud data in real time
 //
-// ⚠️ OPEN ACCESS IS ON (requested by the site owner): the portal opens with NO
-// login, and every visitor has full Admin access. All 824 devotee records
-// (names, phone numbers, addresses, care cases) are readable by anyone who has
-// the URL. Set this back to `false` at any time to restore the login gate.
-const PUBLIC_OPEN_ACCESS = true;
+// 🔒 SUPER ADMIN ONLY: Open Access is OFF. Every visitor must sign in, and only
+// accounts whose profile role is SUPER_ADMIN may enter (see enforceSuperAdminSession).
+// Set PUBLIC_OPEN_ACCESS to `true` only if the site owner deliberately wants the
+// whole portal public again (that exposes all 824 devotee records).
+const PUBLIC_OPEN_ACCESS = false;
 const PUBLIC_LANDING_MODE = false; // only used when OPEN ACCESS is off
 
 // 🔒 STRICT AUTHENTICATION ENFORCED: No public or preview bypass allowed.
@@ -4042,7 +4042,13 @@ async function handleAuthSignIn(event) {
 
     if (data && data.user) {
       currentUser = data.user;
-      // Profile must be loaded before the Admin/User door check
+
+      // 🔒 Super Admin only — verify the role before any portal data is rendered.
+      if (!(await enforceSuperAdminSession(currentUser))) {
+        showAuthAlert('⛔ Access denied — this portal is restricted to Super Admin accounts.', 'error');
+        return;
+      }
+
       await showPortalDashboard(currentUser);
 
       // Keep the URL in sync with the signed-in panel (deep-linkable Admin/User URLs)
@@ -4308,6 +4314,41 @@ async function handleUpdatePasswordSubmit(event) {
 }
 
 // ----------------------------------------------------
+// 🔒 SUPER ADMIN GATE
+// ----------------------------------------------------
+// Loads the account's role and refuses anyone who is not SUPER_ADMIN.
+// Fails closed: if the role cannot be verified, access is denied.
+async function enforceSuperAdminSession(user) {
+  if (!user || !user.email) return false;
+
+  try {
+    await fetchUserProfile(user);
+  } catch (e) {
+    console.warn('Role lookup during Super Admin check:', e);
+  }
+
+  const role = getUserRole(user);
+  if (role !== 'SUPER_ADMIN') {
+    console.warn(`⛔ Sign-in blocked — Super Admin only. ${user.email} has ${role} access.`);
+    currentUser = null;
+    currentUserProfile = null;
+    currentUserRole = 'VIEWER';
+
+    // Signing out inside onAuthStateChange can deadlock the SDK lock, so defer it.
+    const client = getSupabaseClient();
+    if (client) {
+      setTimeout(() => {
+        client.auth.signOut().catch(() => {});
+      }, 0);
+    }
+    return false;
+  }
+
+  currentUserRole = 'SUPER_ADMIN';
+  return true;
+}
+
+// ----------------------------------------------------
 // AUTH STATE LISTENER & SESSION INITIALIZATION
 // ----------------------------------------------------
 function setupAuthListener() {
@@ -4334,6 +4375,15 @@ function setupAuthListener() {
 
     if (event === 'SIGNED_IN' && session?.user) {
       currentUser = session.user;
+
+      // 🔒 Super Admin only — verify the role before opening any portal data.
+      const allowed = await enforceSuperAdminSession(currentUser);
+      if (!allowed) {
+        showAuthScreen();
+        showAuthAlert('⛔ Access denied — this portal is restricted to Super Admin accounts.', 'error');
+        return;
+      }
+
       pendingPasswordRecovery = false;
       clearAuthUrlMarkers();
       await showPortalDashboard(currentUser);
@@ -4436,6 +4486,16 @@ async function initAuthSystem() {
         updateAuthHeader(currentUser);
       } catch (e) {
         console.warn('Profile fetch handled:', e);
+      }
+
+      // 🔒 Super Admin only — do not restore a session for any other role.
+      if (!(await enforceSuperAdminSession(currentUser))) {
+        currentUser = null;
+        currentUserProfile = null;
+        currentUserRole = 'VIEWER';
+        showAuthScreen();
+        showAuthAlert('⛔ Access denied — this portal is restricted to Super Admin accounts.', 'error');
+        return;
       }
 
       const panelFromUrl = getPanelFromUrl();
