@@ -3579,8 +3579,11 @@ function clearAuthUrlMarkers() {
 //   3. Supabase PostgreSQL stores devotees, parcels, and audit history
 //   4. Live Admin Dashboard reads the cloud data in real time
 //
-// Both public bypasses are OFF so the login gate + role system are active.
-const PUBLIC_OPEN_ACCESS = false;
+// ⚠️ OPEN ACCESS IS ON (requested by the site owner): the portal opens with NO
+// login, and every visitor has full Admin access. All 824 devotee records
+// (names, phone numbers, addresses, care cases) are readable by anyone who has
+// the URL. Set this back to `false` at any time to restore the login gate.
+const PUBLIC_OPEN_ACCESS = true;
 const PUBLIC_LANDING_MODE = false; // only used when OPEN ACCESS is off
 
 // 🔒 STRICT AUTHENTICATION ENFORCED: No public or preview bypass allowed.
@@ -3867,6 +3870,18 @@ function updateAuthHeader(user) {
   const container = document.getElementById('auth-header-container');
   if (!container) return;
 
+  // 🟢 Open Access mode — show a status badge instead of the account/logout controls.
+  if (PUBLIC_OPEN_ACCESS) {
+    container.innerHTML = `
+      <span class="flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-400/30 font-semibold px-3 py-1.5 rounded-lg text-xs" title="Open access — no login required">
+        <i data-lucide="unlock" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">Open Access</span>
+      </span>
+    `;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
   if (user && user.email) {
     const roleKey = getUserRole(user);
     currentUserRole = roleKey;
@@ -3900,14 +3915,6 @@ function updateAuthHeader(user) {
           <span class="hidden md:inline">Logout</span>
         </button>
       </div>
-    `;
-  } else if (PUBLIC_OPEN_ACCESS) {
-    // Public open-access mode — no login / logout controls.
-    container.innerHTML = `
-      <span class="flex items-center space-x-1.5 bg-emerald-500/10 text-emerald-300 border border-emerald-400/30 font-semibold px-3 py-1.5 rounded-lg text-xs" title="Open access — no login required">
-        <i data-lucide="unlock" class="w-4 h-4"></i>
-        <span class="hidden sm:inline">Open Access</span>
-      </span>
     `;
   } else {
     container.innerHTML = `
@@ -4347,6 +4354,33 @@ function setupAuthListener() {
 
 async function initAuthSystem() {
   const client = getSupabaseClient();
+
+  // 🟢 OPEN ACCESS MODE — no login gate (see PUBLIC_OPEN_ACCESS above).
+  // A synthetic identity keeps role checks, permissions and nav gating working.
+  if (PUBLIC_OPEN_ACCESS) {
+    console.warn('🟢 Open Access mode is ON — the portal is public and requires no login.');
+    currentUser = {
+      id: null,
+      email: 'open-access@local',
+      user_metadata: { full_name: 'Open Access' },
+      app_metadata: { role: 'SUPER_ADMIN' }
+    };
+    currentUserProfile = {
+      id: null,
+      email: 'open-access@local',
+      full_name: 'Open Access',
+      role: 'SUPER_ADMIN',
+      division: 'All',
+      assigned_work: []
+    };
+    currentUserRole = 'SUPER_ADMIN';
+    await showPortalDashboard(currentUser);
+    if (client) {
+      try { await initSupabaseAndSync(); } catch (e) { console.warn('Open-access sync skipped:', e); }
+    }
+    return;
+  }
+
   if (!client) {
     console.warn('⚠️ Supabase client not loaded, displaying sign in screen.');
     showAuthScreen();
