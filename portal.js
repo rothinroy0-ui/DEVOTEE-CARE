@@ -75,6 +75,8 @@ let state = {
   selectedCelebrations: new Set(),
   selectedParcels: new Set(),
   devoteeAgeGroup: null, // '0-25' | '26-50' | '51-60' | '60+' — set when an Age card is clicked
+  directoryCities: [],         // Advanced City filter — Devotee Directory (multi-select, canonical names)
+  celebrationCities: [],       // Advanced City filter — Birthdays / Anniversaries (multi-select)
   anniversaryRemovedIds: [],   // Anniversary soft-removal: records are never deleted, always restorable
   birthdayRemovedIds: [],      // Birthday soft-removal (same rule as Anniversary — records are never deleted)
   activityLog: []              // 🧾 Audit history: who changed what & when (newest first)
@@ -6468,7 +6470,7 @@ function renderDevoteesTable() {
   populateCityFilter();
 
   const searchQuery = (document.getElementById('devotee-search')?.value || '').toLowerCase().trim();
-  const filterCity = document.getElementById('filter-city')?.value || '';
+  const cityFilterKeys = new Set(getCitySelection('dir').map(cityKey));
   const filterMonth = document.getElementById('filter-month')?.value || '';
   const ageGroup = state.devoteeAgeGroup || '';
 
@@ -6495,7 +6497,8 @@ function renderDevoteesTable() {
       (d.courierTrackingNo && d.courierTrackingNo.toLowerCase().includes(searchQuery)) ||
       (d.trackingId && d.trackingId.toLowerCase().includes(searchQuery));
 
-    const matchesCity = !filterCity || (d.city && d.city.toLowerCase() === filterCity.toLowerCase());
+    const matchesCity = cityFilterKeys.size === 0 ||
+      (d.city && cityFilterKeys.has(cityKey(d.city)));
 
     let matchesMonth = true;
     if (filterMonth) {
@@ -7034,24 +7037,380 @@ async function bulkCreateParcelsForSelected() {
 // Bulk parcel creation happens from the Birthday / Anniversary celebration lists
 // (bulk bar → + Bulk Create Parcel) — not from the Parcel & Tracking page.
 
-function populateCityFilter() {
-  const citySelect = document.getElementById('filter-city');
-  if (!citySelect) return;
+// ----------------------------------------------------
+// ADVANCED CITY FILTER (shared by Devotee Directory & Celebrations)
+// Searchable, fuzzy, multi-select city picker. Every check/uncheck
+// filters the list live. City names are compared case-, accent- and
+// punctuation-insensitively, so "durgapur", "Durgapur " and "DURGAPUR"
+// are treated as the same city.
+// ----------------------------------------------------
+const CITY_PICKER_CONFIG = {
+  dir: {
+    triggerId: 'dir-city-trigger',
+    dropdownId: 'dir-city-dropdown',
+    searchId: 'dir-city-search',
+    listId: 'dir-city-list',
+    labelId: 'dir-city-label',
+    badgeId: 'dir-city-badge',
+    chipsId: 'dir-city-chips',
+    footerId: 'dir-city-footer',
+    chipClass: 'text-teal-800 bg-teal-50 border border-teal-200',
+    onChange: () => { state.currentPage = 1; renderDevoteesTable(); }
+  },
+  bday: {
+    triggerId: 'bday-city-trigger',
+    dropdownId: 'bday-city-dropdown',
+    searchId: 'bday-city-search',
+    listId: 'bday-city-list',
+    labelId: 'bday-city-label',
+    badgeId: 'bday-city-badge',
+    chipsId: 'bday-city-chips',
+    footerId: 'bday-city-footer',
+    chipClass: 'text-pink-800 bg-pink-50 border border-pink-200',
+    onChange: () => { renderBirthdaysGrid(); }
+  }
+};
 
-  const currentVal = citySelect.value;
-  const cities = [...new Set(state.devotees.map(d => d.city).filter(c => c && c.trim()))].sort((a, b) => a.localeCompare(b));
+// Normalised comparison key for a city name (case / accent / punctuation free)
+function cityKey(name) {
+  return String(name === null || name === undefined ? '' : name)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, ' ')
+    .trim();
+}
 
-  citySelect.innerHTML = '<option value="">All Cities</option>';
-  cities.forEach(city => {
-    const opt = document.createElement('option');
-    opt.value = city;
-    opt.textContent = city;
-    citySelect.appendChild(opt);
+function getCitySelection(scope) {
+  if (scope === 'bday') {
+    if (!Array.isArray(state.celebrationCities)) state.celebrationCities = [];
+    return state.celebrationCities;
+  }
+  if (!Array.isArray(state.directoryCities)) state.directoryCities = [];
+  return state.directoryCities;
+}
+
+// Every city in the database, merged case-insensitively, with a devotee count
+// and the most common spelling used as the display name.
+function getCityOptions() {
+  const map = new Map();
+  (state.devotees || []).forEach(d => {
+    const raw = String(d.city || '').trim();
+    if (!raw) return;
+    const key = cityKey(raw);
+    if (!key) return;
+    let entry = map.get(key);
+    if (!entry) {
+      entry = { key, variants: new Map(), count: 0 };
+      map.set(key, entry);
+    }
+    entry.count += 1;
+    entry.variants.set(raw, (entry.variants.get(raw) || 0) + 1);
   });
 
-  if (currentVal && cities.includes(currentVal)) {
-    citySelect.value = currentVal;
+  return Array.from(map.values()).map(entry => {
+    let bestName = '';
+    let bestCount = -1;
+    entry.variants.forEach((uses, variant) => {
+      if (uses > bestCount || (uses === bestCount && variant.localeCompare(bestName) < 0)) {
+        bestName = variant;
+        bestCount = uses;
+      }
+    });
+    return { key: entry.key, name: bestName, count: entry.count };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function cityIsSubsequence(needle, haystack) {
+  let i = 0;
+  for (let j = 0; j < haystack.length && i < needle.length; j++) {
+    if (haystack[j] === needle[i]) i++;
   }
+  return i === needle.length;
+}
+
+// Fuzzy matching: every typed word must be a word-prefix, substring, or a
+// loose subsequence ("drgpr" → "Durgapur") of the city name.
+function cityOptionMatches(option, query) {
+  const q = cityKey(query);
+  if (!q) return true;
+  const n = cityKey(option.name);
+  if (!n) return false;
+  const words = n.split(' ');
+  return q.split(' ').filter(Boolean).every(token =>
+    words.some(w => w.startsWith(token)) ||
+    n.includes(token) ||
+    (token.length >= 3 && cityIsSubsequence(token, n))
+  );
+}
+
+function cityOptionScore(option, query) {
+  const n = cityKey(option.name);
+  const q = cityKey(query);
+  if (!q) return 0;
+  if (n === q) return 0;
+  if (n.startsWith(q)) return 1;
+  if (n.split(' ').some(w => w.startsWith(q))) return 2;
+  if (n.includes(q)) return 3;
+  return 4;
+}
+
+function highlightCityMatch(name, query) {
+  const raw = String(name || '');
+  const q = String(query || '').trim();
+  if (!q) return escapeHtml(raw);
+  const qLower = q.toLowerCase();
+  const idx = raw.toLowerCase().indexOf(qLower);
+  if (idx >= 0) {
+    return escapeHtml(raw.slice(0, idx)) +
+      '<mark class="bg-amber-200/70 text-slate-900 rounded px-0.5">' + escapeHtml(raw.slice(idx, idx + q.length)) + '</mark>' +
+      escapeHtml(raw.slice(idx + q.length));
+  }
+  // Loose (subsequence) hit — highlight the letters that matched
+  const needle = cityKey(q).replace(/\s+/g, '');
+  if (!needle) return escapeHtml(raw);
+  let out = '';
+  let i = 0;
+  Array.from(raw).forEach(ch => {
+    const k = cityKey(ch);
+    if (i < needle.length && k && needle[i] === k) {
+      out += '<mark class="bg-amber-200/70 text-slate-900 rounded px-0.5">' + escapeHtml(ch) + '</mark>';
+      i++;
+    } else {
+      out += escapeHtml(ch);
+    }
+  });
+  return out;
+}
+
+function updateCityPickerFooter(scope, visibleCount) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  const footer = cfg && document.getElementById(cfg.footerId);
+  if (!footer) return;
+  const total = getCityOptions().length;
+  const selected = getCitySelection(scope).length;
+  const parts = [];
+  if (selected) parts.push(`${selected} selected`);
+  parts.push(visibleCount === total ? `${total} cities` : `${visibleCount} of ${total} cities`);
+  footer.textContent = parts.join(' • ') + ' — click a city to add or remove it';
+}
+
+function renderCityPickerList(scope, query) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  if (!cfg) return;
+  const list = document.getElementById(cfg.listId);
+  if (!list) return;
+
+  const selectedKeys = new Set(getCitySelection(scope).map(cityKey));
+  const q = String(query || '').trim();
+  let options = getCityOptions().filter(o => cityOptionMatches(o, q));
+  if (q) options = options.sort((a, b) => cityOptionScore(a, q) - cityOptionScore(b, q) || a.name.localeCompare(b.name));
+
+  if (!options.length) {
+    list.innerHTML = `<div class="px-3 py-4 text-center text-[11px] text-slate-400">No city matches &ldquo;<span class="font-semibold text-slate-600">${escapeHtml(q)}</span>&rdquo;</div>`;
+    updateCityPickerFooter(scope, 0);
+    return;
+  }
+
+  // Keep the scroll position and keyboard focus when the list is rebuilt
+  // (e.g. after ticking a checkbox, which re-renders the Directory underneath)
+  const prevScroll = list.scrollTop;
+  const focused = list.contains(document.activeElement) ? document.activeElement : null;
+  const focusedCity = focused ? focused.getAttribute('data-city') : null;
+
+  list.innerHTML = options.map(o => {
+    const checked = selectedKeys.has(o.key);
+    return `<label class="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-slate-50 cursor-pointer">
+      <input type="checkbox" data-city="${escapeHtml(o.name)}" ${checked ? 'checked' : ''}
+             onchange="toggleCitySelection('${scope}', this.getAttribute('data-city'), this.checked)"
+             class="w-3.5 h-3.5 rounded border-slate-300 cursor-pointer">
+      <span class="flex-1 truncate font-medium text-slate-700">${highlightCityMatch(o.name, q)}</span>
+      <span class="text-[10px] font-semibold text-slate-400 tabular-nums" title="${o.count} devotee(s) in this city">${o.count}</span>
+    </label>`;
+  }).join('');
+
+  list.scrollTop = prevScroll;
+  if (focusedCity) {
+    const again = Array.from(list.querySelectorAll('input[type="checkbox"]'))
+      .find(el => el.getAttribute('data-city') === focusedCity);
+    if (again) again.focus();
+  }
+
+  updateCityPickerFooter(scope, options.length);
+}
+
+function updateCityPickerUI(scope) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  if (!cfg) return;
+  const selected = getCitySelection(scope);
+
+  const label = document.getElementById(cfg.labelId);
+  if (label) label.textContent = selected.length === 0
+    ? 'All Cities'
+    : (selected.length === 1 ? selected[0] : `${selected.length} cities`);
+
+  const badge = document.getElementById(cfg.badgeId);
+  if (badge) {
+    badge.textContent = String(selected.length);
+    badge.classList.toggle('hidden', selected.length === 0);
+  }
+
+  const trigger = document.getElementById(cfg.triggerId);
+  if (trigger) trigger.title = selected.length
+    ? `Cities: ${selected.join(', ')}`
+    : 'Filter by one or more cities';
+
+  const chips = document.getElementById(cfg.chipsId);
+  if (!chips) return;
+  if (!selected.length) {
+    chips.classList.add('hidden');
+    chips.classList.remove('flex');
+    chips.innerHTML = '';
+    return;
+  }
+  chips.classList.remove('hidden');
+  chips.classList.add('flex');
+  chips.innerHTML = selected.map(city => `
+    <span class="inline-flex items-center gap-1 text-[11px] font-semibold ${cfg.chipClass} px-2 py-0.5 rounded-full">
+      <span class="truncate max-w-[160px]">${escapeHtml(city)}</span>
+      <button type="button" data-city="${escapeHtml(city)}"
+              onclick="toggleCitySelection('${scope}', this.getAttribute('data-city'), false)"
+              class="leading-none font-bold hover:text-rose-600" title="Remove this city filter">✕</button>
+    </span>`).join('');
+}
+
+function setCitySelection(scope, nextList, opts) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  if (!cfg) return;
+  const options = opts || {};
+  const seen = new Set();
+  const unique = [];
+  (nextList || []).forEach(name => {
+    const key = cityKey(name);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(String(name).trim());
+  });
+
+  if (scope === 'bday') state.celebrationCities = unique;
+  else state.directoryCities = unique;
+
+  updateCityPickerUI(scope);
+  if (options.rerenderList) {
+    const search = document.getElementById(cfg.searchId);
+    renderCityPickerList(scope, search ? search.value : '');
+  }
+  if (!options.silent && typeof cfg.onChange === 'function') cfg.onChange();
+}
+
+function toggleCitySelection(scope, cityName, checked) {
+  const key = cityKey(cityName);
+  if (!key) return;
+  const selected = getCitySelection(scope);
+  const exists = selected.some(c => cityKey(c) === key);
+  const shouldSelect = checked === undefined ? !exists : Boolean(checked);
+  if (shouldSelect === exists) return;
+  setCitySelection(scope, shouldSelect ? selected.concat(cityName) : selected.filter(c => cityKey(c) !== key));
+}
+
+function clearCitySelection(scope, opts) {
+  const options = opts || {};
+  const had = getCitySelection(scope).length > 0;
+  setCitySelection(scope, [], { rerenderList: true, silent: options.silent });
+  if (had && !options.silent) showToast('City filter cleared', 'info');
+}
+
+// "Select all" applies to the cities currently visible in the search results
+function selectAllCityOptions(scope) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  if (!cfg) return;
+  const search = document.getElementById(cfg.searchId);
+  const options = getCityOptions().filter(o => cityOptionMatches(o, search ? search.value : ''));
+  const selected = getCitySelection(scope);
+  const selectedKeys = new Set(selected.map(cityKey));
+  const additions = options.filter(o => !selectedKeys.has(o.key)).map(o => o.name);
+  if (!additions.length) {
+    showToast('All matching cities are already selected', 'info');
+    return;
+  }
+  setCitySelection(scope, selected.concat(additions), { rerenderList: true });
+  showToast(`Added ${additions.length} ${additions.length === 1 ? 'city' : 'cities'} to the filter`, 'success');
+}
+
+function toggleCityPicker(scope, force) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  if (!cfg) return;
+  const dropdown = document.getElementById(cfg.dropdownId);
+  if (!dropdown) return;
+  const shouldOpen = typeof force === 'boolean' ? force : dropdown.classList.contains('hidden');
+  closeAllCityPickers();
+  if (!shouldOpen) return;
+
+  dropdown.classList.remove('hidden');
+  const trigger = document.getElementById(cfg.triggerId);
+  if (trigger) trigger.setAttribute('aria-expanded', 'true');
+  const search = document.getElementById(cfg.searchId);
+  if (search) search.value = '';
+  renderCityPickerList(scope, '');
+  if (search) setTimeout(() => { try { search.focus(); } catch (e) { /* ignore */ } }, 30);
+}
+
+function closeAllCityPickers() {
+  Object.keys(CITY_PICKER_CONFIG).forEach(scope => {
+    const cfg = CITY_PICKER_CONFIG[scope];
+    const dropdown = document.getElementById(cfg.dropdownId);
+    if (dropdown) dropdown.classList.add('hidden');
+    const trigger = document.getElementById(cfg.triggerId);
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function onCityPickerSearchKeydown(ev, scope) {
+  const cfg = CITY_PICKER_CONFIG[scope];
+  if (!cfg) return;
+  if (ev.key === 'Escape') {
+    ev.preventDefault();
+    closeAllCityPickers();
+    return;
+  }
+  if (ev.key === 'Enter' || ev.key === 'ArrowDown') {
+    ev.preventDefault();
+    const first = document.querySelector(`#${cfg.listId} input[type="checkbox"]`);
+    if (!first) return;
+    if (ev.key === 'ArrowDown') { first.focus(); return; }
+    toggleCitySelection(scope, first.getAttribute('data-city'), !first.checked);
+  }
+}
+
+// Close on outside click / Escape (one shared listener for both pickers)
+document.addEventListener('click', (ev) => {
+  const target = ev.target;
+  if (target instanceof Element && target.closest('[data-city-picker]')) return;
+  closeAllCityPickers();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') closeAllCityPickers();
+});
+
+// Keep the pickers in sync with the database (called wherever the city list
+// used to be rebuilt). Drops selections whose city no longer exists.
+function populateCityFilter() {
+  const validKeys = new Set(getCityOptions().map(o => o.key));
+  Object.keys(CITY_PICKER_CONFIG).forEach(scope => {
+    const cfg = CITY_PICKER_CONFIG[scope];
+    const selected = getCitySelection(scope);
+    const pruned = selected.filter(c => validKeys.has(cityKey(c)));
+    if (pruned.length !== selected.length) {
+      setCitySelection(scope, pruned, { rerenderList: true, silent: true });
+    } else {
+      updateCityPickerUI(scope);
+    }
+    const dropdown = document.getElementById(cfg.dropdownId);
+    if (dropdown && !dropdown.classList.contains('hidden')) {
+      const search = document.getElementById(cfg.searchId);
+      renderCityPickerList(scope, search ? search.value : '');
+    }
+  });
 }
 
 function clearAllParcelData() {
@@ -7078,8 +7437,7 @@ function resetDevoteeFilters() {
   state.devoteeAgeGroup = null;
   const search = document.getElementById('devotee-search');
   if (search) search.value = '';
-  const c = document.getElementById('filter-city');
-  if (c) c.value = '';
+  clearCitySelection('dir', { silent: true });
   const m = document.getElementById('filter-month');
   if (m) m.value = '';
   renderDevoteesTable();
@@ -7093,8 +7451,7 @@ function filterDevoteesByAge(group) {
   state.currentPage = 1;
   const search = document.getElementById('devotee-search');
   if (search) search.value = '';
-  const c = document.getElementById('filter-city');
-  if (c) c.value = '';
+  clearCitySelection('dir', { silent: true });
   const m = document.getElementById('filter-month');
   if (m) m.value = '';
   renderDevoteesTable();
@@ -7991,7 +8348,7 @@ function printDevoteeProfile() {
 // ----------------------------------------------------
 state.selectedCelebrationMonth = 'ALL'; // Default: All Months (full-year view)
 state.selectedCelebrationDate = null; // Date View — exact-date filter (overrides month)
-state.selectedCelebrationCity = null; // City Filter — searchable (every city name from the database)
+state.celebrationCities = []; // City Filter — multi-select (every city name from the database)
 state.selectedCelebrationMode = 'ALL'; // Mode of Delivery Filter (Delhivery Courier / Self Mode)
 state.selectedCelebrationMarital = 'ALL'; // Marital Status Filter (options populate live from the database)
 
@@ -8097,61 +8454,13 @@ function clearCelebrationDate() {
   renderBirthdaysGrid();
 }
 
-// All city names present in the devotee database (used by the City filter)
-function getAllCities() {
-  const set = new Set();
-  (state.devotees || []).forEach(d => {
-    if (d.city && String(d.city).trim()) set.add(String(d.city).trim());
-  });
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
-}
-
-// City Filter — searchable dropdown listing every city in the database
-function handleCelebrationCitySearch(query) {
-  const drop = document.getElementById('bday-city-dropdown');
-  if (!drop) return;
-  const q = (query || '').trim().toLowerCase();
-  const cities = getAllCities().filter(c => !q || c.toLowerCase().includes(q)).slice(0, 60);
-  if (!cities.length) {
-    drop.innerHTML = '';
-    drop.classList.add('hidden');
-    return;
-  }
-  drop.innerHTML = cities
-    .map(c => `<button type="button" data-city="${escapeHtml(c)}" onclick="selectCelebrationCity(this.getAttribute('data-city'))" class="block w-full text-left px-3 py-1.5 hover:bg-pink-50 text-slate-700 font-medium truncate cursor-pointer">${escapeHtml(c)}</button>`)
-    .join('');
-  drop.classList.remove('hidden');
-}
-
-function selectCelebrationCity(cityName) {
-  const input = document.getElementById('bday-city-search');
-  const clearBtn = document.getElementById('bday-city-clear');
-  const drop = document.getElementById('bday-city-dropdown');
-  if (input) input.value = cityName;
-  if (clearBtn) clearBtn.classList.remove('hidden');
-  if (drop) drop.classList.add('hidden');
-  state.selectedCelebrationCity = cityName;
-  renderBirthdaysGrid();
-}
-
-function clearCelebrationCity() {
-  const input = document.getElementById('bday-city-search');
-  const clearBtn = document.getElementById('bday-city-clear');
-  const drop = document.getElementById('bday-city-dropdown');
-  if (input) input.value = '';
-  if (clearBtn) clearBtn.classList.add('hidden');
-  if (drop) drop.classList.add('hidden');
-  state.selectedCelebrationCity = null;
-  renderBirthdaysGrid();
-}
-
 // Clear EVERY filter in the Birthday / Anniversary toolbar (Month / Date / City / Mode / Search)
 function clearCelebrationFilters() {
   state.selectedCelebrationMonth = 'ALL'; // Clear resets to All Months (full-year view)
   const monthEl = document.getElementById('bday-select-month');
   if (monthEl) monthEl.value = state.selectedCelebrationMonth;
   clearCelebrationDate();
-  clearCelebrationCity();
+  clearCitySelection('bday', { silent: true });
   const modeEl = document.getElementById('bday-filter-mode');
   if (modeEl) modeEl.value = 'ALL';
   state.selectedCelebrationMode = 'ALL';
@@ -8162,23 +8471,6 @@ function clearCelebrationFilters() {
   if (searchEl) searchEl.value = '';
   renderBirthdaysGrid();
   showToast('All celebration filters cleared', 'info');
-}
-
-function onCelebrationCityBlur() {
-  setTimeout(() => {
-    const drop = document.getElementById('bday-city-dropdown');
-    if (drop) drop.classList.add('hidden');
-  }, 150);
-}
-
-function onCelebrationCityKeydown(ev) {
-  if (ev.key === 'Escape') {
-    const drop = document.getElementById('bday-city-dropdown');
-    if (drop) drop.classList.add('hidden');
-  } else if (ev.key === 'Enter') {
-    const first = document.querySelector('#bday-city-dropdown button');
-    if (first) { ev.preventDefault(); first.click(); }
-  }
 }
 
 // Date column header: exact-date view shows both types (+Date), otherwise per-tab (Birthday / Anniversary)
@@ -8336,12 +8628,11 @@ function renderBirthdaysGrid() {
       if (!m1 && !m2) return false;
     }
 
-    // 5. City filter — exact match on either spouse's city (all city names come from the database)
-    const cityFilter = (state.selectedCelebrationCity || '').toLowerCase().trim();
-    if (cityFilter) {
-      const c1 = (d.city || '').toLowerCase() === cityFilter;
-      const c2 = item.spouseDevotee ? (item.spouseDevotee.city || '').toLowerCase() === cityFilter : false;
-      if (!c1 && !c2) return false;
+    // 5. City filter — match ANY selected city on either spouse's city (case-insensitive)
+    const cityFilterKeys = new Set((state.celebrationCities || []).map(cityKey));
+    if (cityFilterKeys.size) {
+      const cityKeys = [cityKey(d.city), item.spouseDevotee ? cityKey(item.spouseDevotee.city) : ''];
+      if (!cityKeys.some(k => k && cityFilterKeys.has(k))) return false;
     }
 
     // 6. Mode of Delivery filter — matches the per-row Delivery select exactly
@@ -11084,7 +11375,7 @@ function exportSelectedDevoteesPDF() {
 // (search + city + month + age group). One rule, no drift between copies.
 function getFilteredDirectoryDevotees() {
   const searchQuery = (document.getElementById('devotee-search')?.value || '').toLowerCase().trim();
-  const filterCity = document.getElementById('filter-city')?.value || '';
+  const cityFilterKeys = new Set(getCitySelection('dir').map(cityKey));
   const filterMonth = document.getElementById('filter-month')?.value || '';
   const ageGroup = state.devoteeAgeGroup || '';
 
@@ -11111,7 +11402,8 @@ function getFilteredDirectoryDevotees() {
       (d.courierTrackingNo && d.courierTrackingNo.toLowerCase().includes(searchQuery)) ||
       (d.trackingId && d.trackingId.toLowerCase().includes(searchQuery));
 
-    const matchesCity = !filterCity || (d.city && d.city.toLowerCase() === filterCity.toLowerCase());
+    const matchesCity = cityFilterKeys.size === 0 ||
+      (d.city && cityFilterKeys.has(cityKey(d.city)));
 
     let matchesMonth = true;
     if (filterMonth) {
@@ -11145,10 +11437,10 @@ function exportFilteredDevoteesPDF() {
   const filterParts = [];
   const ageGroup = state.devoteeAgeGroup || '';
   const srch = (document.getElementById('devotee-search')?.value || '').trim();
-  const fCity = document.getElementById('filter-city')?.value || '';
+  const fCities = getCitySelection('dir');
   const fMonth = document.getElementById('filter-month')?.value || '';
   if (ageGroup) filterParts.push(`Age ${ageGroupLabel(ageGroup)}`);
-  if (fCity) filterParts.push(`City: ${fCity}`);
+  if (fCities.length) filterParts.push(`Cities (${fCities.length}): ${fCities.join(', ')}`);
   if (fMonth) filterParts.push(`Month: ${getMonthName(parseInt(fMonth))}`);
   if (srch) filterParts.push(`Search: "${srch}"`);
   const scopeLabel = filterParts.length ? filterParts.join(' • ') : 'Full Directory';
