@@ -3578,11 +3578,11 @@ function clearAuthUrlMarkers() {
 //   3. Supabase PostgreSQL stores devotees, parcels, and audit history
 //   4. Live Admin Dashboard reads the cloud data in real time
 //
-// 🔒 SUPER ADMIN ONLY: Open Access is OFF. Every visitor must sign in, and only
-// accounts whose profile role is SUPER_ADMIN may enter (see enforceSuperAdminSession).
-// Set PUBLIC_OPEN_ACCESS to `true` only if the site owner deliberately wants the
-// whole portal public again (that exposes all 824 devotee records).
-const PUBLIC_OPEN_ACCESS = false;
+// ⚠️ OPEN ACCESS — login page removed (owner request, Nov 21 2026).
+// The portal opens directly with NO sign-in. Every visitor gets full Admin
+// access, including all 824 devotee records (names, phones, addresses, care
+// cases). Set this to `false` to restore the Super Admin login gate.
+const PUBLIC_OPEN_ACCESS = true;
 const PUBLIC_LANDING_MODE = false; // only used when OPEN ACCESS is off
 
 // 🔒 STRICT AUTHENTICATION ENFORCED: No public or preview bypass allowed.
