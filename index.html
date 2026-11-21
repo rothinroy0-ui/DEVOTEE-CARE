@@ -123,7 +123,7 @@
     }
 
     /* ============================================================
-       Executive Dashboard nav bar â€” devotional theme
+       Executive Dashboard nav bar — devotional theme
        (saffron / amber-gold active, deep-maroon bar, per-tab accents)
        ============================================================ */
     #main-nav-tabs .nav-tab {
@@ -188,10 +188,10 @@
     }
 
     /* ============================================================
-       ðŸŒ™ NIGHT (DARK) MODE â€” "Temple at Night" devotional palette.
+       🌙 NIGHT (DARK) MODE — "Temple at Night" devotional palette.
        Deep maroon-plum blacks + warm lamp-light text, harmonising
        with the maroon/gold executive nav bar.
-       â†³ Tweak only the --n-* variables below to re-skin night mode.
+       ↳ Tweak only the --n-* variables below to re-skin night mode.
        ============================================================ */
     html.dark {
       color-scheme: dark;
@@ -327,7 +327,7 @@
     html.dark textarea::placeholder { color: #7d6f6c; }
 
     /* ============================================================
-       ðŸ“± MOBILE-FRIENDLY LAYER  (â‰¤ 640px phones / small tablets)
+       📱 MOBILE-FRIENDLY LAYER  (≤ 640px phones / small tablets)
        ============================================================ */
     @media (max-width: 640px) {
       /* Never allow sideways page scroll */
@@ -401,7 +401,7 @@
         overflow-y: auto;
       }
 
-      /* ---- Devotee Directory & Celebration Tables â†’ stacked cards ---- */
+      /* ---- Devotee Directory & Celebration Tables → stacked cards ---- */
       #devotees-table-card,
       #bday-table-view-wrapper {
         background: transparent !important;
@@ -647,7 +647,7 @@
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-indigo-100 selection:text-indigo-900">
 
   <!-- ============================================================== -->
-  <!-- ðŸ” AUTHENTICATION SCREEN: ISKCON RADHAPUR (DURGAPUR)          -->
+  <!-- 🔐 AUTHENTICATION SCREEN: ISKCON RADHAPUR (DURGAPUR)          -->
   <!-- ============================================================== -->
   <div id="auth-screen" class="min-h-screen w-full flex flex-col justify-center items-center p-4 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 relative overflow-hidden">
     
@@ -657,7 +657,7 @@
     <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
     <!-- Sacred Watermark -->
-    <div class="absolute top-6 right-6 opacity-10 pointer-events-none text-8xl sm:text-9xl select-none">ðŸª·</div>
+    <div class="absolute top-6 right-6 opacity-10 pointer-events-none text-8xl sm:text-9xl select-none">🪷</div>
 
     <!-- Floating Light / Dark toggle (available before login too) -->
     <button onclick="toggleTheme()" title="Switch light / dark mode" aria-label="Switch light / dark mode" class="absolute top-5 left-5 z-30 flex items-center justify-center w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 backdrop-blur-md transition cursor-pointer shadow-lg active:scale-95">
@@ -698,24 +698,24 @@
           <div id="auth-alert-text" class="flex-1 font-medium leading-relaxed"></div>
         </div>
 
-        <!-- Access Denied â€” URL route guard (Admin URL vs User URL) -->
+        <!-- Access Denied — URL route guard (Admin URL vs User URL) -->
         <div id="access-denied-box" class="hidden mb-4 p-4 rounded-xl border border-rose-700/70 bg-rose-950/60 space-y-3">
           <div class="flex items-center space-x-2">
-            <span class="text-xl leading-none">â›”</span>
+            <span class="text-xl leading-none">⛔</span>
             <span class="text-sm font-black text-rose-100 uppercase tracking-wide">Access Denied</span>
           </div>
           <p id="access-denied-msg" class="text-xs leading-relaxed text-rose-200/90"></p>
           <div class="flex flex-wrap gap-2">
-            <button type="button" onclick="goToPanel('USER')" class="flex-1 min-w-[150px] bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">ðŸª· Open my User Portal</button>
-            <button type="button" onclick="handleAuthSignOut()" class="flex-1 min-w-[120px] bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">ðŸšª Sign out</button>
+            <button type="button" onclick="goToPanel('USER')" class="flex-1 min-w-[150px] bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">🪷 Open my User Portal</button>
+            <button type="button" onclick="handleAuthSignOut()" class="flex-1 min-w-[120px] bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-3 rounded-lg text-xs transition cursor-pointer">🚪 Sign out</button>
           </div>
         </div>
 
-        <!-- ðŸ” DEVOTEE CARE LOGIN FORM VIEW -->
+        <!-- 🔐 DEVOTEE CARE LOGIN FORM VIEW -->
         <div id="auth-form-view" class="space-y-4">
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
             <div class="flex items-center space-x-2">
-              <span class="text-amber-400 text-base">ðŸ™</span>
+              <span class="text-amber-400 text-base">🙏</span>
               <span class="text-xs font-bold text-slate-200">Super Admin Sign In</span>
             </div>
             <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-lg border bg-rose-500/15 border-rose-400/40 text-rose-300 flex items-center space-x-1">
@@ -772,7 +772,7 @@
                   id="auth-password" 
                   required 
                   autocomplete="current-password" 
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" 
+                  placeholder="••••••••••••" 
                   class="w-full pl-10 pr-11 py-2.5 text-sm bg-slate-950/70 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/80 focus:border-indigo-500 transition shadow-inner">
                 <button 
                   type="button" 
@@ -894,7 +894,7 @@
 
 
   <!-- ============================================================== -->
-  <!-- ðŸ›¡ï¸ PROTECTED PORTAL APPLICATION CONTAINER                      -->
+  <!-- 🛡️ PROTECTED PORTAL APPLICATION CONTAINER                      -->
   <!-- ============================================================== -->
   <div id="portal-app" class="hidden min-h-screen flex flex-col" style="display: none !important;">
 
@@ -914,7 +914,7 @@
               <span class="text-slate-600 font-normal">/</span>
               <span class="text-xs font-semibold text-amber-400/90 tracking-wide">DEVOTEE CARE</span>
             </div>
-            <p class="text-[11px] text-slate-400 font-normal leading-tight italic truncate max-w-lg hidden xl:block">"Our love for Krishna will be tested by how we love and serve one another." â€” Srila Prabhupada</p>
+            <p class="text-[11px] text-slate-400 font-normal leading-tight italic truncate max-w-lg hidden xl:block">"Our love for Krishna will be tested by how we love and serve one another." — Srila Prabhupada</p>
           </div>
         </div>
 
@@ -1006,7 +1006,7 @@
         <div class="relative z-10">
           <div>
             <div class="flex items-center space-x-2 mb-1">
-              <span class="text-xs bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-full font-medium border border-indigo-400/30">Hare Krishna! Dandavat Pranams ðŸ™</span>
+              <span class="text-xs bg-indigo-500/20 text-indigo-200 px-2.5 py-0.5 rounded-full font-medium border border-indigo-400/30">Hare Krishna! Dandavat Pranams 🙏</span>
               <span id="current-date-badge" class="text-xs text-indigo-200/80 font-medium"></span>
             </div>
             <p class="text-slate-300 text-sm max-w-2xl leading-relaxed">
@@ -1014,7 +1014,7 @@
             </p>
           </div>
         </div>
-        <div class="absolute -right-8 -bottom-10 opacity-10 pointer-events-none text-9xl">ðŸª·</div>
+        <div class="absolute -right-8 -bottom-10 opacity-10 pointer-events-none text-9xl">🪷</div>
       </div>
 
 
@@ -1030,7 +1030,7 @@
               <p class="text-xs text-slate-500">Birthdays & Anniversaries (Next 14 Days)</p>
             </div>
             <button onclick="switchTab('birthdays')" class="text-xs text-pink-600 hover:text-pink-700 font-bold">
-              Wish All â†’
+              Wish All →
             </button>
           </div>
 
@@ -1059,7 +1059,7 @@
           </div>
           <div id="stat-bday-month" class="text-2xl font-bold text-rose-600">0</div>
           <div class="text-[11px] text-rose-600 mt-1 font-medium cursor-pointer hover:underline" onclick="switchTab('birthdays')">
-            View Celebrations â†’
+            View Celebrations →
           </div>
         </div>
 
@@ -1102,7 +1102,7 @@
         </div>
       </div>
 
-      <!-- AGE-WISE DEVOTEE DISTRIBUTION (live counts from the Database â€” click a card to open a filtered Directory list) -->
+      <!-- AGE-WISE DEVOTEE DISTRIBUTION (live counts from the Database — click a card to open a filtered Directory list) -->
       <div class="bg-white rounded-xl p-5 border border-slate-200/80 shadow-sm">
         <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
           <div>
@@ -1110,12 +1110,12 @@
               <i data-lucide="pie-chart" class="w-4 h-4 text-teal-600"></i>
               <span>Age-wise Devotee Distribution</span>
             </h3>
-            <p class="text-xs text-slate-500">Live counts â€” new devotees & age changes update the cards automatically</p>
+            <p class="text-xs text-slate-500">Live counts — new devotees & age changes update the cards automatically</p>
           </div>
-          <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Click a card â†’ filtered Directory</span>
+          <span class="text-[11px] text-slate-400 font-medium hidden sm:inline">Click a card → filtered Directory</span>
         </div>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <!-- 0â€“25 -->
+          <!-- 0–25 -->
           <button onclick="filterDevoteesByAge('0-25')" class="text-left bg-gradient-to-br from-sky-50 to-white rounded-xl p-4 border border-sky-200 hover:border-sky-400 hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-full">0-25</span>
@@ -1123,7 +1123,7 @@
             <div id="stat-age-025" data-age-stat="0-25" class="text-3xl font-extrabold text-sky-700">0</div>
             <div class="text-[11px] text-slate-500 font-medium mt-1">Devotees</div>
           </button>
-          <!-- 26â€“50 -->
+          <!-- 26–50 -->
           <button onclick="filterDevoteesByAge('26-50')" class="text-left bg-gradient-to-br from-teal-50 to-white rounded-xl p-4 border border-teal-200 hover:border-teal-400 hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[9px] font-bold uppercase tracking-wider text-teal-700 bg-teal-100 border border-teal-200 px-1.5 py-0.5 rounded-full">25-50</span>
@@ -1131,7 +1131,7 @@
             <div id="stat-age-2650" data-age-stat="26-50" class="text-3xl font-extrabold text-teal-700">0</div>
             <div class="text-[11px] text-slate-500 font-medium mt-1">Devotees</div>
           </button>
-          <!-- 51â€“60 -->
+          <!-- 51–60 -->
           <button onclick="filterDevoteesByAge('51-60')" class="text-left bg-gradient-to-br from-amber-50 to-white rounded-xl p-4 border border-amber-200 hover:border-amber-400 hover:shadow-md hover:-translate-y-0.5 transition">
             <div class="flex items-center justify-between mb-2">
               <span class="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">50-60</span>
@@ -1157,7 +1157,7 @@
             <i data-lucide="history" class="w-4 h-4 text-amber-600"></i>
             <span>Recent Changes</span>
           </h3>
-          <button onclick="switchTab('activity')" class="text-[11px] font-semibold text-teal-700 hover:text-teal-800">View all â†’</button>
+          <button onclick="switchTab('activity')" class="text-[11px] font-semibold text-teal-700 hover:text-teal-800">View all →</button>
         </div>
         <div id="recent-changes-list"></div>
       </div>
@@ -1177,7 +1177,7 @@
           </h2>
         </div>
 
-        <!-- Age-wise Devotee Distribution (live counts â€” click a card to filter this list) -->
+        <!-- Age-wise Devotee Distribution (live counts — click a card to filter this list) -->
         <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
           <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-200">
             <div>
@@ -1185,11 +1185,11 @@
                 <i data-lucide="pie-chart" class="w-4 h-4 text-teal-600"></i>
                 <span>Age-wise Devotee Distribution</span>
               </h3>
-              <p class="text-xs text-slate-500">Live counts â€” click a card to filter this list by age</p>
+              <p class="text-xs text-slate-500">Live counts — click a card to filter this list by age</p>
             </div>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <!-- 0â€“25 -->
+            <!-- 0–25 -->
             <button onclick="filterDevoteesByAge('0-25')" class="text-left bg-gradient-to-br from-sky-50 to-white rounded-xl p-3 border border-sky-200 hover:border-sky-400 hover:shadow-md transition">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[9px] font-bold uppercase tracking-wider text-sky-700 bg-sky-100 border border-sky-200 px-1.5 py-0.5 rounded-full">0-25</span>
@@ -1197,7 +1197,7 @@
               <div id="dir-age-025" data-age-stat="0-25" class="text-2xl font-extrabold text-sky-700">0</div>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5">Devotees</div>
             </button>
-            <!-- 26â€“50 -->
+            <!-- 26–50 -->
             <button onclick="filterDevoteesByAge('26-50')" class="text-left bg-gradient-to-br from-teal-50 to-white rounded-xl p-3 border border-teal-200 hover:border-teal-400 hover:shadow-md transition">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[9px] font-bold uppercase tracking-wider text-teal-700 bg-teal-100 border border-teal-200 px-1.5 py-0.5 rounded-full">25-50</span>
@@ -1205,7 +1205,7 @@
               <div id="dir-age-2650" data-age-stat="26-50" class="text-2xl font-extrabold text-teal-700">0</div>
               <div class="text-[10px] text-slate-500 font-medium mt-0.5">Devotees</div>
             </button>
-            <!-- 51â€“60 -->
+            <!-- 51–60 -->
             <button onclick="filterDevoteesByAge('51-60')" class="text-left bg-gradient-to-br from-amber-50 to-white rounded-xl p-3 border border-amber-200 hover:border-amber-400 hover:shadow-md transition">
               <div class="flex items-center justify-between mb-1.5">
                 <span class="text-[9px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">50-60</span>
@@ -1239,7 +1239,7 @@
             </select>
           </div>
 
-          <!-- Month Filter (populated dynamically â€” includes This Month shortcut) -->
+          <!-- Month Filter (populated dynamically — includes This Month shortcut) -->
           <div>
             <select id="filter-month" onchange="renderDevoteesTable()" class="w-full py-2 px-2.5 text-xs border border-teal-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white font-medium text-slate-700 shadow-sm"></select>
           </div>
@@ -1255,9 +1255,9 @@
               <button onclick="clearDevoteeSelection()" class="ml-1 text-slate-500 hover:text-rose-700 underline font-normal" title="Clear selection">Clear</button>
             </span>
             <span id="age-filter-chip" class="hidden font-medium text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full text-[11px] items-center space-x-1">
-              <span>ðŸŽ‚</span>
-              <span id="age-filter-chip-label">Age 0â€“25</span>
-              <button onclick="clearDevoteeAgeFilter()" class="ml-1 text-slate-500 hover:text-teal-800 underline font-normal" title="Clear age filter">âœ•</button>
+              <span>🎂</span>
+              <span id="age-filter-chip-label">Age 0–25</span>
+              <button onclick="clearDevoteeAgeFilter()" class="ml-1 text-slate-500 hover:text-teal-800 underline font-normal" title="Clear age filter">✕</button>
             </span>
           </div>
           <div class="w-full sm:w-auto grid grid-cols-2 sm:flex sm:items-center gap-2">
@@ -1309,7 +1309,7 @@
         <!-- Pagination Controls -->
         <div class="p-3 bg-slate-50/60 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
           <div class="text-xs text-slate-500 text-center sm:text-left">
-            Showing <span id="page-start" class="font-bold text-slate-800">0</span>â€“<span id="page-end" class="font-bold text-slate-800">0</span> of <span id="pagination-total-count" class="font-bold text-slate-800">0</span> devotees
+            Showing <span id="page-start" class="font-bold text-slate-800">0</span>–<span id="page-end" class="font-bold text-slate-800">0</span> of <span id="pagination-total-count" class="font-bold text-slate-800">0</span> devotees
           </div>
           <div class="flex flex-wrap items-center justify-center gap-1" id="pagination-controls">
             <!-- Dynamically populated -->
@@ -1400,24 +1400,24 @@
         <!-- Row: Month View, Date View, City Filter, Search & Mode of Delivery -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
           
-          <!-- Month View (Month Selector â€” populated dynamically, current month pre-selected) -->
+          <!-- Month View (Month Selector — populated dynamically, current month pre-selected) -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">ðŸ—“ï¸ Month View:</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">🗓️ Month View:</label>
             <select id="bday-select-month" onchange="handleCelebrationMonthChange()" class="w-full py-2 px-3 text-xs border border-pink-200 rounded-xl focus:ring-2 focus:ring-pink-400 bg-white font-semibold text-slate-700 shadow-sm"></select>
           </div>
 
-          <!-- Date View (Exact Date Picker â€” shows every Birthday & Anniversary on that day) -->
+          <!-- Date View (Exact Date Picker — shows every Birthday & Anniversary on that day) -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">ðŸ“… Date View (Exact Date):</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">📅 Date View (Exact Date):</label>
             <div class="relative">
               <input type="date" id="bday-select-date" onchange="handleCelebrationDateChange()" title="Select a date to see every Birthday & Anniversary falling on that exact day" class="w-full py-2 px-3 text-xs border border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-400 bg-white font-semibold text-slate-700 shadow-sm">
-              <button type="button" onclick="clearCelebrationDate()" id="bday-date-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs px-1 cursor-pointer" title="Clear date filter">âœ•</button>
+              <button type="button" onclick="clearCelebrationDate()" id="bday-date-clear" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs px-1 cursor-pointer" title="Clear date filter">✕</button>
             </div>
           </div>
 
-          <!-- City Filter (searchable â€” every city name from the database) -->
+          <!-- City Filter (searchable — every city name from the database) -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 mb-1">ðŸ“ City Filter:</label>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">📍 City Filter:</label>
             <div class="relative">
               <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
               <input type="text" id="bday-city-search" autocomplete="off"
@@ -1427,7 +1427,7 @@
                      onfocus="handleCelebrationCitySearch('')"
                      onblur="onCelebrationCityBlur()"
                      onkeydown="onCelebrationCityKeydown(event)">
-              <button type="button" id="bday-city-clear" onclick="clearCelebrationCity()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs cursor-pointer" title="Clear city filter">âœ•</button>
+              <button type="button" id="bday-city-clear" onclick="clearCelebrationCity()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-600 font-bold text-xs cursor-pointer" title="Clear city filter">✕</button>
               <div id="bday-city-dropdown" class="hidden absolute z-30 left-0 right-0 top-full mt-1 max-h-56 overflow-y-auto bg-white border border-slate-300 rounded-xl shadow-lg text-xs"></div>
             </div>
           </div>
@@ -1443,7 +1443,7 @@
 
         </div>
 
-        <!-- Clear Filters â€” reset every filter in this toolbar (Month / Date / City / Mode / Search) -->
+        <!-- Clear Filters — reset every filter in this toolbar (Month / Date / City / Mode / Search) -->
         <div class="flex items-center justify-end pt-1 border-t border-slate-100">
           <button onclick="clearCelebrationFilters()" class="text-rose-600 hover:text-rose-800 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Reset month, date, city, delivery mode & search filters">
             <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
@@ -1452,7 +1452,7 @@
         </div>
       </div>
 
-      <!-- Bulk Selection Bar (checkbox selection system â€” same as Devotee Directory) -->
+      <!-- Bulk Selection Bar (checkbox selection system — same as Devotee Directory) -->
       <div id="bday-bulk-bar" class="hidden bg-white rounded-xl p-3 border border-pink-200/80 shadow-sm flex-wrap items-center justify-between gap-3">
         <div class="flex items-center space-x-2 text-xs text-slate-600">
           <span class="font-semibold">Selected:</span>
@@ -1494,7 +1494,7 @@
       <!-- Empty State -->
       <div id="bday-empty-state" class="hidden bg-white rounded-xl p-12 text-center border border-slate-200">
         <div class="w-12 h-12 rounded-full bg-pink-50 text-pink-500 mx-auto flex items-center justify-center text-2xl mb-3">
-          ðŸŽ‚
+          🎂
         </div>
         <h3 class="text-sm font-bold text-slate-700">No celebrations found matching the filters</h3>
         <p class="text-xs text-slate-400 mt-1">Try the Month View (select a month), the Date View (pick an exact date), or clear your search filters.</p>
@@ -1503,7 +1503,7 @@
     </section>
 
 
-    <!-- 2b. REMOVAL RECORDS VIEW â€” Birthday & Anniversary removal lists, separately -->
+    <!-- 2b. REMOVAL RECORDS VIEW — Birthday & Anniversary removal lists, separately -->
     <section id="view-removed" class="hidden space-y-6">
 
       <!-- Header -->
@@ -1513,16 +1513,16 @@
             <i data-lucide="archive" class="w-5 h-5 text-amber-600"></i>
             <h2 class="text-xl font-bold text-slate-800 font-serif">Removal Records</h2>
           </div>
-          <span class="text-[11px] text-slate-500">Soft-removed records â€” nothing is ever deleted Â· Restore anytime</span>
+          <span class="text-[11px] text-slate-500">Soft-removed records — nothing is ever deleted · Restore anytime</span>
         </div>
       </div>
 
-      <!-- ðŸŽ‚ Birthday Removal List -->
+      <!-- 🎂 Birthday Removal List -->
       <div class="bg-white rounded-xl border border-rose-200/80 shadow-sm overflow-hidden">
         <div class="px-4 py-3 bg-rose-50/70 border-b border-rose-100 flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-bold text-rose-900 flex items-center space-x-1.5">
             <i data-lucide="cake" class="w-4 h-4 text-rose-700"></i>
-            <span>ðŸŽ‚ Birthday Removal List</span>
+            <span>🎂 Birthday Removal List</span>
             <strong id="removed-bday-count" class="bg-white border border-rose-300 px-2.5 py-0.5 rounded-full text-[11px]">0</strong>
           </h3>
           <button onclick="restoreAllBirthdayRemoved()" class="text-rose-700 hover:text-rose-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Restore every removed Birthday record back to the Birthday list">
@@ -1550,12 +1550,12 @@
         </div>
       </div>
 
-      <!-- ðŸ’ Anniversary Removal List -->
+      <!-- 💍 Anniversary Removal List -->
       <div class="bg-white rounded-xl border border-emerald-200/80 shadow-sm overflow-hidden">
         <div class="px-4 py-3 bg-emerald-50/70 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2">
           <h3 class="text-sm font-bold text-emerald-900 flex items-center space-x-1.5">
             <i data-lucide="heart" class="w-4 h-4 text-emerald-700"></i>
-            <span>ðŸ’ Anniversary Removal List</span>
+            <span>💍 Anniversary Removal List</span>
             <strong id="removed-anniv-count" class="bg-white border border-emerald-300 px-2.5 py-0.5 rounded-full text-[11px]">0</strong>
           </h3>
           <button onclick="restoreAllAnniversaryRemoved()" class="text-emerald-700 hover:text-emerald-900 font-semibold text-xs flex items-center space-x-1.5 transition cursor-pointer" title="Restore every removed Anniversary couple back to the Anniversary list">
@@ -1693,7 +1693,7 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div class="space-y-1.5">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold uppercase tracking-wider">
-              <span>ðŸ›¡ï¸ Access Control & Audit</span>
+              <span>🛡️ Access Control & Audit</span>
             </div>
             <h2 class="text-2xl font-black font-serif text-white tracking-tight">Delete Requests</h2>
             <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
@@ -1762,11 +1762,11 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div class="space-y-1.5">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 text-xs font-bold uppercase tracking-wider">
-              <span>ðŸ›¡ï¸ Access Control &amp; Staff Roles</span>
+              <span>🛡️ Access Control &amp; Staff Roles</span>
             </div>
             <h2 class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
               <span>Staff &amp; Role Management</span>
-              <span class="text-amber-400 text-lg">ðŸ‘‘</span>
+              <span class="text-amber-400 text-lg">👑</span>
             </h2>
             <p class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Super Admin, Admin, Staff, and Viewer permission management. Control who can edit devotee records, view sensitive data, and request permanent deletions.
@@ -1798,7 +1798,7 @@
         <div class="bg-white rounded-xl border border-amber-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600">Super Admin</span>
-            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">ðŸ‘‘</div>
+            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">👑</div>
           </div>
           <div id="roles-kpi-super-admin" class="text-2xl font-black text-amber-700 mt-2">1</div>
           <span class="text-[10.5px] text-amber-700/80 mt-0.5 block">Full System Control</span>
@@ -1806,7 +1806,7 @@
         <div class="bg-white rounded-xl border border-indigo-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600">Admins</span>
-            <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">ðŸ›¡ï¸</div>
+            <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">🛡️</div>
           </div>
           <div id="roles-kpi-admin" class="text-2xl font-black text-indigo-700 mt-2">0</div>
           <span class="text-[10.5px] text-indigo-700/80 mt-0.5 block">Operations &amp; Parcels</span>
@@ -1814,7 +1814,7 @@
         <div class="bg-white rounded-xl border border-emerald-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Staff Sevaks</span>
-            <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">ðŸ› ï¸</div>
+            <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">🛠️</div>
           </div>
           <div id="roles-kpi-staff" class="text-2xl font-black text-emerald-700 mt-2">0</div>
           <span class="text-[10.5px] text-emerald-700/80 mt-0.5 block">Edit &amp; Request Deletion</span>
@@ -1822,7 +1822,7 @@
         <div class="bg-white rounded-xl border border-sky-200/80 p-4 shadow-xs">
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold uppercase tracking-wider text-sky-600">Viewers / Users</span>
-            <div class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold">ðŸ‘ï¸</div>
+            <div class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold">👁️</div>
           </div>
           <div id="roles-kpi-viewer" class="text-2xl font-black text-sky-700 mt-2">0</div>
           <span class="text-[10.5px] text-sky-700/80 mt-0.5 block">Read-Only Congregation</span>
@@ -1848,32 +1848,32 @@
             </thead>
             <tbody class="divide-y divide-slate-100 font-medium">
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">ðŸ‘‘ Super Admin</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">👑 Super Admin</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Full Unrestricted Access</td>
-                <td class="py-2.5 px-3 text-emerald-700">âœ… View, Create, Edit, Export</td>
-                <td class="py-2.5 px-3 text-emerald-700 font-bold">âœ… Direct Delete &amp; Approve Requests</td>
-                <td class="py-2.5 px-3 text-emerald-700">âœ… Manage All Roles &amp; Staff</td>
+                <td class="py-2.5 px-3 text-emerald-700">✅ View, Create, Edit, Export</td>
+                <td class="py-2.5 px-3 text-emerald-700 font-bold">✅ Direct Delete &amp; Approve Requests</td>
+                <td class="py-2.5 px-3 text-emerald-700">✅ Manage All Roles &amp; Staff</td>
               </tr>
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">ðŸ›¡ï¸ Admin</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300">🛡️ Admin</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Administrative Operations</td>
-                <td class="py-2.5 px-3 text-emerald-700">âœ… View, Create, Edit, Export</td>
-                <td class="py-2.5 px-3 text-amber-700">âš ï¸ Soft Remove / Direct Delete Devotees</td>
-                <td class="py-2.5 px-3 text-emerald-700">âœ… Manage Staff</td>
+                <td class="py-2.5 px-3 text-emerald-700">✅ View, Create, Edit, Export</td>
+                <td class="py-2.5 px-3 text-amber-700">⚠️ Soft Remove / Direct Delete Devotees</td>
+                <td class="py-2.5 px-3 text-emerald-700">✅ Manage Staff</td>
               </tr>
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">ðŸ› ï¸ Staff</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">🛠️ Staff</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Daily Devotee Care</td>
-                <td class="py-2.5 px-3 text-emerald-700">âœ… View, Create, Edit Devotees &amp; Parcels</td>
-                <td class="py-2.5 px-3 text-rose-700 font-bold">ðŸ”’ Protected: Must send Deletion Request</td>
-                <td class="py-2.5 px-3 text-slate-400">âŒ Cannot alter roles</td>
+                <td class="py-2.5 px-3 text-emerald-700">✅ View, Create, Edit Devotees &amp; Parcels</td>
+                <td class="py-2.5 px-3 text-rose-700 font-bold">🔒 Protected: Must send Deletion Request</td>
+                <td class="py-2.5 px-3 text-slate-400">❌ Cannot alter roles</td>
               </tr>
               <tr>
-                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">ðŸ‘ï¸ Viewer / User</span></td>
+                <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-300">👁️ Viewer / User</span></td>
                 <td class="py-2.5 px-3 text-slate-900 font-bold">Congregation View</td>
-                <td class="py-2.5 px-3 text-slate-600">ðŸ‘ï¸ Read-Only celebration views</td>
-                <td class="py-2.5 px-3 text-slate-400">âŒ No deletion access</td>
-                <td class="py-2.5 px-3 text-slate-400">âŒ No staff access</td>
+                <td class="py-2.5 px-3 text-slate-600">👁️ Read-Only celebration views</td>
+                <td class="py-2.5 px-3 text-slate-400">❌ No deletion access</td>
+                <td class="py-2.5 px-3 text-slate-400">❌ No staff access</td>
               </tr>
             </tbody>
           </table>
@@ -1914,7 +1914,7 @@
 
         <!-- Empty state for staff -->
         <div id="staff-empty-state" class="hidden p-8 text-center text-slate-400">
-          <div class="text-3xl mb-2">ðŸ‘¥</div>
+          <div class="text-3xl mb-2">👥</div>
           <p class="text-sm font-semibold text-slate-600">No staff accounts found.</p>
           <p class="text-xs text-slate-400 mt-1">Click "+ Add Staff / Sevak" to invite team members.</p>
         </div>
@@ -1930,11 +1930,11 @@
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
           <div class="space-y-1.5">
             <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold uppercase tracking-wider">
-              <span>ðŸ§¾ Complete Audit Trail</span>
+              <span>🧾 Complete Audit Trail</span>
             </div>
             <h2 id="activity-view-title" class="text-2xl font-black font-serif text-white tracking-tight flex items-center space-x-2">
               <span>All Portal Activity Log</span>
-              <span class="text-amber-400 text-lg">ðŸª·</span>
+              <span class="text-amber-400 text-lg">🪷</span>
             </h2>
             <p id="activity-view-subtitle" class="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
               Real-time audit history tracking all devotee additions, edits, removals, parcels, calls, deletion requests, and devotee logins across all sevak accounts.
@@ -2043,7 +2043,7 @@
                   id="activity-staff-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">ðŸ‘¤ All Staff Accounts</option>
+                  <option value="ALL">👤 All Staff Accounts</option>
                 </select>
               </div>
 
@@ -2054,13 +2054,13 @@
                   id="activity-module-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">ðŸ“¦ All Modules</option>
-                  <option value="devotees">ðŸª· Devotee Directory</option>
-                  <option value="parcels">ðŸšš Parcels &amp; Tracking</option>
-                  <option value="delete_requests">ðŸ“ Deletion Requests</option>
-                  <option value="roles">ðŸ‘¥ Staff &amp; Roles</option>
-                  <option value="auth">ðŸ” Authentication &amp; Login</option>
-                  <option value="database">â˜ï¸ Database Operations</option>
+                  <option value="ALL">📦 All Modules</option>
+                  <option value="devotees">🪷 Devotee Directory</option>
+                  <option value="parcels">🚚 Parcels &amp; Tracking</option>
+                  <option value="delete_requests">📝 Deletion Requests</option>
+                  <option value="roles">👥 Staff &amp; Roles</option>
+                  <option value="auth">🔐 Authentication &amp; Login</option>
+                  <option value="database">☁️ Database Operations</option>
                 </select>
               </div>
 
@@ -2071,19 +2071,19 @@
                   id="activity-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">ðŸ“ All Actions</option>
-                  <option value="create">ðŸŸ¢ Created / Added</option>
-                  <option value="edit">ðŸ”µ Updated / Edited</option>
-                  <option value="remove">ðŸŸ¡ Removed (Wishes)</option>
-                  <option value="restore">ðŸ”„ Restored</option>
-                  <option value="delete">ðŸ”´ Deleted</option>
-                  <option value="parcel">ðŸ“¦ Parcel Status</option>
-                  <option value="request_delete">ðŸ“ Deletion Requested</option>
-                  <option value="approve_delete">âœ… Approved Deletion</option>
-                  <option value="reject_delete">â›” Rejected Deletion</option>
-                  <option value="sync">â˜ï¸ Cloud Synced</option>
-                  <option value="login">ðŸ” Devotee Logins</option>
-                  <option value="denied">ðŸš« Access Denied</option>
+                  <option value="ALL">📁 All Actions</option>
+                  <option value="create">🟢 Created / Added</option>
+                  <option value="edit">🔵 Updated / Edited</option>
+                  <option value="remove">🟡 Removed (Wishes)</option>
+                  <option value="restore">🔄 Restored</option>
+                  <option value="delete">🔴 Deleted</option>
+                  <option value="parcel">📦 Parcel Status</option>
+                  <option value="request_delete">📝 Deletion Requested</option>
+                  <option value="approve_delete">✅ Approved Deletion</option>
+                  <option value="reject_delete">⛔ Rejected Deletion</option>
+                  <option value="sync">☁️ Cloud Synced</option>
+                  <option value="login">🔐 Devotee Logins</option>
+                  <option value="denied">🚫 Access Denied</option>
                 </select>
               </div>
 
@@ -2094,7 +2094,7 @@
                   id="activity-date-filter" 
                   onchange="renderActivityLog()" 
                   class="w-full py-2 px-2.5 text-xs bg-white border border-slate-300 rounded-xl text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs cursor-pointer">
-                  <option value="ALL">ðŸ“… All Dates</option>
+                  <option value="ALL">📅 All Dates</option>
                   <option value="today">Today</option>
                   <option value="yesterday">Yesterday</option>
                   <option value="7days">Last 7 Days</option>
@@ -2128,13 +2128,13 @@
 
   <!-- MODALS -->
 
-  <!-- ðŸ” AUDIT DETAILS & CHANGE DIFF MODAL -->
+  <!-- 🔍 AUDIT DETAILS & CHANGE DIFF MODAL -->
   <div id="activity-diff-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 flex items-center justify-between shrink-0">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0">ðŸ”</div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-xl shrink-0">🔍</div>
           <div>
             <h3 class="font-bold text-base text-white tracking-wide flex items-center space-x-2">
               <span>Audit Event &amp; Change Inspector</span>
@@ -2143,7 +2143,7 @@
             <p id="diff-modal-subtitle" class="text-xs text-slate-300 mt-0.5">Verified change record</p>
           </div>
         </div>
-        <button type="button" onclick="closeActivityDiffModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg transition cursor-pointer">âœ•</button>
+        <button type="button" onclick="closeActivityDiffModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg transition cursor-pointer">✕</button>
       </div>
 
       <!-- Modal Body (Scrollable) -->
@@ -2153,27 +2153,27 @@
         <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Actor / Sevak</span>
-            <span id="diff-meta-actor" class="font-semibold text-slate-800 block truncate">â€”</span>
+            <span id="diff-meta-actor" class="font-semibold text-slate-800 block truncate">—</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Role</span>
-            <span id="diff-meta-role" class="font-semibold text-slate-800 block">â€”</span>
+            <span id="diff-meta-role" class="font-semibold text-slate-800 block">—</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Module</span>
-            <span id="diff-meta-module" class="font-semibold text-slate-800 block uppercase">â€”</span>
+            <span id="diff-meta-module" class="font-semibold text-slate-800 block uppercase">—</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Action</span>
-            <span id="diff-meta-action" class="font-semibold text-slate-800 block">â€”</span>
+            <span id="diff-meta-action" class="font-semibold text-slate-800 block">—</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Record ID</span>
-            <span id="diff-meta-record-id" class="font-mono text-slate-800 block truncate font-semibold">â€”</span>
+            <span id="diff-meta-record-id" class="font-mono text-slate-800 block truncate font-semibold">—</span>
           </div>
           <div>
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Timestamp</span>
-            <span id="diff-meta-time" class="font-semibold text-slate-700 block">â€”</span>
+            <span id="diff-meta-time" class="font-semibold text-slate-700 block">—</span>
           </div>
           <div class="col-span-2 sm:col-span-3">
             <span class="text-[10px] uppercase font-bold text-slate-400 block">Authenticated User ID (UUID)</span>
@@ -2184,7 +2184,7 @@
         <!-- Summary -->
         <div>
           <span class="text-[10px] uppercase font-bold text-slate-400 block mb-1">Event Summary</span>
-          <p id="diff-meta-summary" class="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-slate-800 font-medium leading-relaxed">â€”</p>
+          <p id="diff-meta-summary" class="p-3 bg-indigo-50/50 border border-indigo-100 rounded-xl text-slate-800 font-medium leading-relaxed">—</p>
         </div>
 
         <!-- Diff / Values Comparison Section -->
@@ -2207,14 +2207,14 @@
     </div>
   </div>
 
-  <!-- ðŸ“ DELETE PERMISSION REQUEST MODAL (FOR STAFF) -->
+  <!-- 📝 DELETE PERMISSION REQUEST MODAL (FOR STAFF) -->
   <div id="delete-request-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
       
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-rose-900 via-rose-800 to-slate-900 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">ðŸ“</div>
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">📝</div>
           <div>
             <h3 class="font-bold text-base font-serif">Request Record Deletion</h3>
             <p class="text-xs text-rose-200">Super Admin Approval Required</p>
@@ -2273,14 +2273,14 @@
     </div>
   </div>
 
-  <!-- ðŸ‘¥ ADD / INVITE STAFF MODAL -->
+  <!-- 👥 ADD / INVITE STAFF MODAL -->
   <div id="add-staff-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
       
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">ðŸ‘‘</div>
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">👑</div>
           <div>
             <h3 class="font-bold text-base font-serif">Add Staff / Sevak Member</h3>
             <p class="text-xs text-purple-200">Role-Based Access Control</p>
@@ -2324,10 +2324,10 @@
               Assigned Role <span class="text-rose-500">*</span>
             </label>
             <select id="new-staff-role" required class="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-xs">
-              <option value="STAFF" selected>ðŸ› ï¸ Staff (Edit Allowed)</option>
-              <option value="ADMIN">ðŸ›¡ï¸ Admin (Operations)</option>
-              <option value="VIEWER">ðŸ‘ï¸ Viewer (Read Only)</option>
-              <option value="SUPER_ADMIN">ðŸ‘‘ Super Admin (Full Control)</option>
+              <option value="STAFF" selected>🛠️ Staff (Edit Allowed)</option>
+              <option value="ADMIN">🛡️ Admin (Operations)</option>
+              <option value="VIEWER">👁️ Viewer (Read Only)</option>
+              <option value="SUPER_ADMIN">👑 Super Admin (Full Control)</option>
             </select>
           </div>
           <div>
@@ -2364,7 +2364,7 @@
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">ðŸ› ï¸</div>
+          <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl shrink-0">🛠️</div>
           <div>
             <h3 class="font-bold text-base font-serif">Assign Seva / Work Modules</h3>
             <p class="text-xs text-purple-200" id="assign-work-modal-subtitle">Configure module permissions for staff member</p>
@@ -2391,7 +2391,7 @@
             </div>
           </div>
           <span id="assign-work-staff-role" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-            ðŸ› ï¸ Staff
+            🛠️ Staff
           </span>
         </div>
 
@@ -2417,7 +2417,7 @@
               <input type="checkbox" name="assignedWorkModule" value="devotees" class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 border-slate-300">
               <div class="ml-3">
                 <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>ðŸ‘¥</span>
+                  <span>👥</span>
                   <span>Devotee Directory</span>
                 </div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Manage master directory, view devotee profiles, add and edit devotee records.</div>
@@ -2429,7 +2429,7 @@
               <input type="checkbox" name="assignedWorkModule" value="birthdays" class="mt-0.5 rounded text-rose-600 focus:ring-rose-500 w-4 h-4 border-slate-300">
               <div class="ml-3">
                 <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>ðŸŽ‚</span>
+                  <span>🎂</span>
                   <span>Birthday Wishes Dashboard</span>
                 </div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Upcoming devotee birthdays, WhatsApp calling, and celebratory wishes.</div>
@@ -2441,7 +2441,7 @@
               <input type="checkbox" name="assignedWorkModule" value="anniversaries" class="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 border-slate-300">
               <div class="ml-3">
                 <div class="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                  <span>ðŸ’</span>
+                  <span>💍</span>
                   <span>Anniversary Wishes Dashboard</span>
                 </div>
                 <div class="text-[11px] text-slate-500 mt-0.5">Marriage anniversaries, greetings, prasadam dispatch coordination.</div>
@@ -2472,7 +2472,7 @@
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-teal-700 to-slate-800 text-white p-4 sm:px-6 flex items-center justify-between">
         <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">ðŸª·</div>
+          <div class="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg">🪷</div>
           <div>
             <h3 id="devotee-modal-title" class="font-bold text-base font-serif">Add New Devotee Profile</h3>
             <p class="text-xs text-teal-200" id="devotee-modal-subtitle">Devotee Master Registry Form</p>
@@ -2488,7 +2488,7 @@
         
         <!-- Edit-mode banner (Birthday, Anniversary, Address & Phone) -->
         <div id="df-edit-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-start space-x-3">
-          <div class="text-xl">ðŸª·</div>
+          <div class="text-xl">🪷</div>
           <div class="flex-1">
             <div class="text-[10px] font-bold uppercase tracking-wide text-amber-700">Editing Devotee Details</div>
             <div class="text-base font-bold text-slate-800 font-serif" id="df-edit-banner-name"></div>
@@ -2529,12 +2529,12 @@
               </div>
 
               <div id="df-group-dob">
-                <label class="block font-semibold text-slate-700 mb-1">ðŸŽ‚ Date of Birth / Birthday</label>
+                <label class="block font-semibold text-slate-700 mb-1">🎂 Date of Birth / Birthday</label>
                 <input type="date" id="df-dob" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500">
               </div>
 
               <div id="df-group-anniversary">
-                <label class="block font-semibold text-slate-700 mb-1">ðŸ’ Date of Anniversary</label>
+                <label class="block font-semibold text-slate-700 mb-1">💍 Date of Anniversary</label>
                 <input type="date" id="df-anniversary" class="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500">
               </div>
 
@@ -2764,7 +2764,7 @@
       <div id="vp-header-bg" class="bg-gradient-to-r from-teal-700 to-slate-800 text-white p-5 flex items-center justify-between">
         <div class="flex items-center space-x-4">
           <div id="vp-avatar" class="w-14 h-14 rounded-full bg-white/20 border-2 border-white/40 flex items-center justify-center text-2xl font-bold font-serif">
-            ðŸª·
+            🪷
           </div>
           <div>
             <div class="flex items-center space-x-2">
@@ -2834,10 +2834,10 @@
                   <span id="vp-address-verify" class="inline-flex"></span>
                   <div class="flex items-center justify-end space-x-1 pt-0.5">
                     <button id="vp-update-address-btn" class="inline-flex items-center space-x-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-teal-200 text-teal-700 hover:bg-teal-50 transition" title="Update address & pincode in the Devotee Directory">
-                      <span>âœï¸</span><span>Update</span>
+                      <span>✏️</span><span>Update</span>
                     </button>
-                    <button id="vp-verify-address-btn" class="inline-flex items-center space-x-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition" title="Update & mark address Verified (becomes ðŸŸ¢ everywhere)">
-                      <span>âœ…</span><span>Verify</span>
+                    <button id="vp-verify-address-btn" class="inline-flex items-center space-x-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition" title="Update & mark address Verified (becomes 🟢 everywhere)">
+                      <span>✅</span><span>Verify</span>
                     </button>
                   </div>
                 </div>
@@ -2995,7 +2995,7 @@
 
       <div class="mt-3 text-[11px] text-white/60 text-center tracking-wide flex items-center justify-center space-x-1.5">
         <i data-lucide="info" class="w-3.5 h-3.5 opacity-70"></i>
-        <span>à¦¬à¦¾à¦‡à¦°à§‡ à¦•à§à¦²à¦¿à¦• à¦•à¦°à§à¦¨ à¦…à¦¥à¦¬à¦¾ Esc à¦šà¦¾à¦ªà§à¦¨ à¦¬à¦¨à§à¦§ à¦•à¦°à¦¤à§‡</span>
+        <span>বাইরে ক্লিক করুন অথবা Esc চাপুন বন্ধ করতে</span>
       </div>
     </div>
   </div>
@@ -3008,7 +3008,7 @@
          onclick="event.stopPropagation()">
       <!-- Icon -->
       <div id="ac-modal-icon-container" class="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-3xl mb-3.5 bg-amber-50 text-amber-600 border border-amber-200 shadow-xs">
-        âš ï¸
+        ⚠️
       </div>
       <!-- Title -->
       <h3 id="ac-modal-title" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">Confirmation</h3>
